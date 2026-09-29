@@ -12866,7 +12866,11 @@
         openRevealModal(pendingReveal);
         renderEggProgressUI();
         renderEggPicker();
-        /* Rareté : plus de SFX immédiat ici — le popup dragon est joué dans openRevealModal. */
+        const r = pendingReveal && pendingReveal.dragonDef && pendingReveal.dragonDef.rarity;
+        if (r === "mythic" || r === "divine") playSound("mythic");
+        else if (r === "legendary") playSound("legendary");
+        else if (r === "rare" || r === "epic") playSound("rare");
+        else playSound("dragonReveal");
       })();
     }
 
@@ -12992,8 +12996,6 @@
 
       modal.classList.add("reveal-animating");
       modal.classList.remove("hidden");
-      /* Popup dragon SFX : synchronisé avec l'apparition visuelle (1× par révélation). */
-      playDragonPopupSound();
       playDragonRevealAppear(dragonDef.rarity, !!reveal.isNew);
     }
 
@@ -15810,11 +15812,6 @@
       eggCrackSrc: "assets/sound/egg%20crack.mp3",
       eggCrackBaseVolume: 0.55,
 
-      /* File-based SFX — real asset: assets/sound/popup dragon.mp3 */
-      dragonPopupEl: null,
-      dragonPopupSrc: "assets/sound/popup%20dragon.mp3",
-      dragonPopupBaseVolume: 0.6,
-
       getCtx() {
         if (!this.ctx) {
           try {
@@ -15832,7 +15829,6 @@
         if (ctx.state === "suspended") ctx.resume();
         this.unlocked = true;
         this.ensureEggCrack();
-        this.ensureDragonPopup();
         this.startMusic({ fade: !this.musicStarted });
       },
 
@@ -15847,39 +15843,12 @@
         return el;
       },
 
-      ensureDragonPopup() {
-        if (this.dragonPopupEl) return this.dragonPopupEl;
-        const el = new Audio(this.dragonPopupSrc);
-        el.preload = "auto";
-        el.volume = 0;
-        el.setAttribute("playsinline", "");
-        this.dragonPopupEl = el;
-        try { el.load(); } catch (e) { /* optional */ }
-        return el;
-      },
-
       playEggCrack() {
         const level = this.sfx();
         if (level <= 0) return;
         if (!this.canPlay("eggCrack", 400)) return;
         const el = this.ensureEggCrack();
         el.volume = Math.max(0, Math.min(1, this.eggCrackBaseVolume * level));
-        try {
-          el.currentTime = 0;
-        } catch (e) { /* ignore seek errors before load */ }
-        const p = el.play();
-        if (p && typeof p.catch === "function") {
-          p.catch(() => { /* autoplay / unlock may block once */ });
-        }
-      },
-
-      playDragonPopup() {
-        const level = this.sfx();
-        if (level <= 0) return;
-        /* Court throttle : évite double fire si openRevealModal est rappelé immédiatement */
-        if (!this.canPlay("dragonPopup", 180)) return;
-        const el = this.ensureDragonPopup();
-        el.volume = Math.max(0, Math.min(1, this.dragonPopupBaseVolume * level));
         try {
           el.currentTime = 0;
         } catch (e) { /* ignore seek errors before load */ }
@@ -16140,10 +16109,6 @@
           this.playEggCrack();
           return;
         }
-        if (type === "dragonPopup") {
-          this.playDragonPopup();
-          return;
-        }
         if (type === "rare") {
           this.tone({ type: "sine", freq: 560, freqEnd: 840, dur: 0.22, vol: 0.05 });
           return;
@@ -16182,10 +16147,6 @@
         /* Future stubs: chest, altar, randomEvent — silent until assets exist */
       }
     };
-
-    function playDragonPopupSound() {
-      AudioManager.playDragonPopup();
-    }
 
     function playSound(type, isCrit) {
       if (typeof isCrit === "boolean") {
@@ -17877,7 +17838,11 @@
           pendingReveal.twinReveal = null;
           showTwinHatchBanner(() => {
             openRevealModal(pendingReveal);
-            /* Popup dragon rejoué via openRevealModal — pas de 2e son d'éclosion. */
+            const r = pendingReveal.dragonDef.rarity;
+            if (r === "mythic" || r === "divine") playSound("mythic");
+            else if (r === "legendary") playSound("legendary");
+            else if (r === "rare" || r === "epic") playSound("rare");
+            else playSound("dragonReveal");
           });
           return;
         }
@@ -18000,8 +17965,6 @@
       renderDragons();
       renderAllStatic();
       updateAudioToggles();
-      AudioManager.ensureEggCrack();
-      AudioManager.ensureDragonPopup();
       AudioManager.startMusic({ fade: true });
       if (!AudioManager.musicStarted) {
         AudioManager.bindMusicGestureOnce();
