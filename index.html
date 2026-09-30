@@ -132,8 +132,12 @@
       margin: 0;
       --altar-x: 50%;
       --altar-y: 73%;
+      --game-center-x: 50%;
       --hud-pad-top: 0px;
       --dock-pad-bottom: 0px;
+      /* Source unique : taille œuf principal (Zone 1 = référence = Zone 2 actif) */
+      --egg-main-width: clamp(220px, 20vw, 360px);
+      --egg-main-max-height: 46vh;
     }
 
     /* Scene backdrop (full viewport behind UI) */
@@ -602,7 +606,8 @@
 
     .egg-stage {
       position: absolute;
-      left: var(--altar-x);
+      /* Axe officiel = centre du logo Dragon Clicker (--game-center-x), pas 50% arbitraire du parent */
+      left: var(--game-center-x, var(--altar-x));
       top: var(--altar-y);
       transform: translate(-50%, -78%);
       z-index: 20;
@@ -612,6 +617,12 @@
       flex-direction: column;
       align-items: center;
       gap: 0;
+    }
+
+    .egg-stage.is-egg-carousel {
+      /* largeur suffisante pour contenir actif + secondaire */
+      width: min(720px, 96vw);
+      overflow: visible;
     }
 
     .egg-title-block {
@@ -702,8 +713,38 @@
       align-items: flex-end;
       justify-content: center;
       pointer-events: auto;
-      width: clamp(220px, 20vw, 360px);
+      width: var(--egg-main-width);
       min-height: min(46vh, 320px);
+      overflow: visible;
+    }
+
+    /*
+      Zone 2 : WRAPPER carrousel = .egg-hero (bloc unique sous le logo).
+      Centre du hero = axe logo. Actif = centre du hero (= taille Zone 1).
+      Secondaires = ±220px, scale réduit.
+    */
+    .egg-stage.is-egg-carousel .egg-hero {
+      display: block;
+      position: relative;
+      width: min(640px, 92vw);
+      height: max(min(46vh, 360px), 300px);
+      min-height: max(min(46vh, 360px), 300px);
+      --carousel-offset-x: 0px;
+      transform: translateX(var(--carousel-offset-x));
+    }
+
+    .egg-stage.is-egg-carousel .egg-hero,
+    .egg-stage.is-egg-carousel .click-zone,
+    .egg-stage.is-egg-carousel .egg-carousel-root {
+      overflow: visible;
+    }
+
+    /* Surface clic = plein hero (pas de sibling flex qui mange la largeur) */
+    .egg-stage.is-egg-carousel .click-zone {
+      position: absolute;
+      inset: 0;
+      width: auto;
+      height: auto;
     }
 
     .egg-aura {
@@ -791,6 +832,7 @@
       user-select: none;
       display: block;
       z-index: 2;
+      overflow: hidden;
     }
 
     .click-zone:focus { outline: none; }
@@ -856,11 +898,253 @@
       position: relative;
       width: 100%;
       z-index: 3;
-      transition: transform 0.18s ease, filter 0.25s ease;
+      transition: transform 0.18s ease, filter 0.25s ease, opacity 0.25s ease;
       filter:
         drop-shadow(0 0 18px rgba(255, 190, 80, 0.34))
         drop-shadow(0 14px 22px rgba(0, 0, 0, 0.4));
       pointer-events: none;
+    }
+
+    .egg-carousel-root {
+      position: relative;
+      width: 100%;
+      min-height: inherit;
+      overflow: visible;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* Surface œufs = plein click-zone / hero ; centre géométrique = actif */
+    .egg-stage.is-egg-carousel .egg-carousel-root {
+      position: absolute;
+      inset: 0;
+      width: auto;
+      height: auto;
+      min-height: 0;
+    }
+
+    .egg-carousel-root.is-settling .egg-carousel-item {
+      transition: none !important;
+    }
+
+    /*
+      Slot actif : flux normal hors carrousel.
+      En mode carrousel : ancré au centre du wrapper (même repère que next/prev).
+    */
+    .egg-carousel-item.is-active-slot {
+      position: relative;
+      left: auto;
+      top: auto;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+      transform: none;
+      opacity: 1;
+      filter: none;
+      z-index: 5;
+      pointer-events: none;
+      cursor: default;
+      transition:
+        transform 420ms cubic-bezier(0.22, 0.8, 0.25, 1),
+        opacity 420ms ease,
+        filter 420ms ease;
+    }
+
+    .egg-stage.is-egg-carousel .egg-carousel-item.is-active-slot {
+      position: absolute !important;
+      left: 50% !important;
+      top: 50% !important;
+      width: var(--egg-main-width);
+      margin: 0 !important;
+      transform: translate3d(-50%, -50%, 0) scale(1);
+      z-index: 5;
+    }
+
+    /* Pendant éclosion : ancrage carrousel figé — l'anim va sur hatch/click wrappers */
+    .egg-stage.is-egg-carousel.is-hatching .egg-carousel-item.is-active-slot {
+      transition: none !important;
+    }
+    .egg-stage.is-egg-carousel.is-hatching .egg-hatch-wrapper,
+    .egg-stage.is-egg-carousel.is-hatching .egg-click-wrapper {
+      transform-origin: center center;
+      will-change: transform, opacity, filter;
+    }
+
+    /* Secondaires — même ancrage left/top 50% que l'actif, puis ±220px */
+    .egg-carousel-item.is-next,
+    .egg-carousel-item.is-prev {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: var(--egg-main-width);
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      transform-origin: center center;
+      -webkit-tap-highlight-color: transparent;
+      transition:
+        transform 420ms cubic-bezier(0.22, 0.8, 0.25, 1),
+        opacity 420ms ease,
+        filter 420ms ease;
+      will-change: transform, opacity;
+      pointer-events: auto;
+      z-index: 3;
+    }
+
+    .egg-carousel-item.is-next {
+      transform: translate3d(calc(-50% + 220px), -50%, 0) scale(0.55);
+      opacity: 0.5;
+      filter: brightness(0.74);
+    }
+
+    .egg-carousel-item.is-prev {
+      transform: translate3d(calc(-50% - 220px), -50%, 0) scale(0.55);
+      opacity: 0.5;
+      filter: brightness(0.74);
+    }
+
+    .egg-carousel-item.is-hidden,
+    .egg-carousel-item[hidden] {
+      display: none !important;
+    }
+
+    .egg-carousel-item-img {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: var(--egg-main-max-height);
+      object-fit: contain;
+      pointer-events: none;
+      user-select: none;
+      -webkit-user-drag: none;
+      background: transparent;
+      filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.45));
+    }
+
+    .egg-carousel-item.is-next:hover {
+      opacity: 0.7;
+      filter: brightness(0.88) drop-shadow(0 0 12px rgba(255, 210, 120, 0.35));
+      transform: translate3d(calc(-50% + 220px), -50%, 0) scale(0.6);
+    }
+
+    .egg-carousel-item.is-prev:hover {
+      opacity: 0.7;
+      filter: brightness(0.88) drop-shadow(0 0 12px rgba(255, 210, 120, 0.35));
+      transform: translate3d(calc(-50% - 220px), -50%, 0) scale(0.6);
+    }
+
+    .egg-carousel-root.is-animating .egg-carousel-item.is-active-slot,
+    .egg-carousel-root.is-animating .egg-carousel-item.is-next,
+    .egg-carousel-root.is-animating .egg-carousel-item.is-prev {
+      transition:
+        transform 420ms cubic-bezier(0.22, 0.8, 0.25, 1),
+        opacity 420ms ease,
+        filter 420ms ease;
+    }
+
+    /* Actif → gauche (depuis le centre absolu du wrapper) */
+    .egg-carousel-root.is-animating .egg-carousel-item.is-active-slot.is-leaving-prev {
+      transform: translate3d(calc(-50% - 220px), -50%, 0) scale(0.55);
+      opacity: 0.5;
+      filter: brightness(0.74);
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* Actif → droite */
+    .egg-carousel-root.is-animating .egg-carousel-item.is-active-slot.is-leaving-next {
+      transform: translate3d(calc(-50% + 220px), -50%, 0) scale(0.55);
+      opacity: 0.5;
+      filter: brightness(0.74);
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* Secondaire → centre */
+    .egg-carousel-root.is-animating .egg-carousel-item.to-center {
+      transform: translate3d(-50%, -50%, 0) scale(1) !important;
+      opacity: 1 !important;
+      filter: none !important;
+      z-index: 6;
+      pointer-events: none;
+    }
+
+    .egg-carousel-dots {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      pointer-events: none;
+    }
+
+    /* Hors flux : ne doit JAMAIS rétrécir .click-zone / décaler le centre */
+    .egg-stage.is-egg-carousel .egg-carousel-dots {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%);
+      margin-top: 0;
+      z-index: 8;
+    }
+
+    .egg-carousel-dots[hidden] {
+      display: none !important;
+    }
+
+    .egg-carousel-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(230, 210, 160, 0.28);
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.35);
+    }
+
+    .egg-carousel-dot.is-active {
+      background: rgba(247, 220, 140, 0.95);
+      box-shadow: 0 0 10px rgba(255, 200, 90, 0.55);
+      transform: scale(1.15);
+    }
+
+    #egg-picker.carousel-mode {
+      display: none !important;
+    }
+
+    @media (max-width: 799px) {
+      .egg-stage.is-egg-carousel {
+        width: min(96vw, 560px);
+      }
+      .egg-stage.is-egg-carousel .egg-hero {
+        width: min(96vw, 520px);
+      }
+      .egg-stage.is-egg-carousel .egg-carousel-item.is-active-slot,
+      .egg-carousel-item.is-next,
+      .egg-carousel-item.is-prev {
+        width: var(--egg-main-width);
+      }
+      .egg-carousel-item.is-next {
+        transform: translate3d(calc(-50% + 150px), -50%, 0) scale(0.52);
+      }
+      .egg-carousel-item.is-prev {
+        transform: translate3d(calc(-50% - 150px), -50%, 0) scale(0.52);
+      }
+      .egg-carousel-item.is-next:hover {
+        transform: translate3d(calc(-50% + 150px), -50%, 0) scale(0.58);
+      }
+      .egg-carousel-item.is-prev:hover {
+        transform: translate3d(calc(-50% - 150px), -50%, 0) scale(0.58);
+      }
+      .egg-carousel-root.is-animating .egg-carousel-item.is-active-slot.is-leaving-prev {
+        transform: translate3d(calc(-50% - 150px), -50%, 0) scale(0.52);
+      }
+      .egg-carousel-root.is-animating .egg-carousel-item.is-active-slot.is-leaving-next {
+        transform: translate3d(calc(-50% + 150px), -50%, 0) scale(0.52);
+      }
     }
 
     .entity-wrap.breathe {
@@ -876,12 +1160,21 @@
       background: transparent;
     }
 
+    /* Correction visuelle PNG (marges transparentes) — n'affecte PAS le transform carrousel */
+    .egg-visual-inner {
+      position: relative;
+      display: block;
+      width: 100%;
+      transform: translateX(var(--egg-visual-ox, 0%));
+      will-change: transform;
+    }
+
     .egg-visual img {
       display: block;
       width: auto;
       max-width: 100%;
       height: auto;
-      max-height: 46vh;
+      max-height: var(--egg-main-max-height);
       margin: 0 auto;
       object-fit: contain;
       pointer-events: none;
@@ -897,7 +1190,7 @@
       display: none;
       width: 100%;
       aspect-ratio: 3 / 4;
-      max-height: 46vh;
+      max-height: var(--egg-main-max-height);
       margin: 0 auto;
       position: relative;
     }
@@ -921,6 +1214,8 @@
 
     .egg-progress-block {
       margin-top: 16px;
+      margin-left: auto;
+      margin-right: auto;
       width: min(420px, 86vw);
       text-align: center;
       pointer-events: none;
@@ -2681,6 +2976,8 @@
     @media (min-width: 900px) {
       #app {
         --altar-y: 71%;
+        --egg-main-width: clamp(250px, 21vw, 380px);
+        --egg-main-max-height: 48vh;
       }
 
       .game-logo {
@@ -2700,12 +2997,6 @@
       .scene-bg-layer {
         background-position: center 40%;
       }
-
-      .egg-hero {
-        width: clamp(250px, 21vw, 380px);
-      }
-
-      .egg-visual img { max-height: 48vh; }
 
       .egg-stage-label {
         font-size: clamp(1.85rem, 3.2vw, 2.9rem);
@@ -2768,12 +3059,13 @@
         transform: translate(-50%, -72%);
         width: 94vw;
       }
+      #app {
+        --egg-main-width: clamp(210px, 60vw, 300px);
+        --egg-main-max-height: 38vh;
+      }
       .egg-hero {
-        width: clamp(210px, 60vw, 300px);
         min-height: 0;
       }
-      .egg-visual img,
-      .egg-visual .css-fallback { max-height: 38vh; }
       .egg-scene-desc { display: none; }
       .egg-progress-block {
         margin-top: 10px;
@@ -2868,8 +3160,16 @@
       #app { --altar-y: 78%; }
       .scene-bg-layer { background-position: center 50%; }
       .egg-stage { transform: translate(-50%, -85%); }
-      .egg-hero { width: clamp(110px, 18vw, 160px); }
-      .egg-visual img { max-height: 48vh; }
+      #app {
+        --egg-main-width: clamp(110px, 18vw, 160px);
+        --egg-main-max-height: 48vh;
+      }
+      .egg-carousel-item.is-next {
+        transform: translate3d(calc(-50% + 110px), -50%, 0) scale(0.5);
+      }
+      .egg-carousel-item.is-prev {
+        transform: translate3d(calc(-50% - 110px), -50%, 0) scale(0.5);
+      }
       .egg-stage-label { font-size: clamp(16px, 2.5vw, 22px); }
       .egg-scene-desc { display: none; }
       .scene-actions { display: none; }
@@ -3037,13 +3337,28 @@
     }
     .hatch-overlay .hatch-flash {
       position: absolute;
-      inset: 0;
-      background: #fff8e0;
+      left: 50%;
+      top: 48%;
+      width: min(380px, 55vw);
+      height: min(380px, 55vw);
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      border: none;
+      outline: none;
+      box-shadow: none;
+      background:
+        radial-gradient(
+          circle,
+          rgba(255, 220, 140, 0.55) 0%,
+          rgba(255, 170, 50, 0.22) 38%,
+          rgba(255, 140, 30, 0.08) 58%,
+          transparent 72%
+        );
       opacity: 0;
       pointer-events: none;
     }
     .hatch-overlay .hatch-flash.burst {
-      animation: hatchFlash 0.5s ease-out forwards;
+      animation: hatchFlash 0.55s ease-out forwards;
     }
     .hatch-suspense {
       position: relative;
@@ -3352,8 +3667,14 @@
       line-height: 1.4;
     }
     @keyframes hatchFlash {
-      0% { opacity: 0.95; }
-      100% { opacity: 0; }
+      0% {
+        opacity: 0.95;
+        transform: translate(-50%, -50%) scale(0.82);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.28);
+      }
     }
 
     .entity-wrap.dragon-reveal {
@@ -3928,20 +4249,18 @@
       pointer-events: none;
       text-align: center;
     }
-    .world-zone-lock-emoji {
-      font-size: clamp(1.7rem, 3.4vw, 2.35rem);
-      line-height: 1;
-      filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.75));
-      flex-shrink: 0;
-    }
-    .world-zone-lock-icon {
+    .world-zone-lock-icon,
+    .world-lock-icon {
       width: clamp(72px, 30%, 95px);
       height: auto;
       max-width: 95px;
       object-fit: contain;
       display: block;
+      background: none;
+      border: none;
       filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.75));
       flex-shrink: 0;
+      pointer-events: none;
     }
     .world-zone-lock-condition {
       margin: 0;
@@ -7391,6 +7710,20 @@
       text-transform: uppercase;
       color: rgba(240, 208, 120, 0.72);
     }
+    .expedition-card-origin {
+      margin: 0 0 4px;
+      font-family: var(--font-display);
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(240, 208, 120, 0.78);
+    }
+    .expedition-card-lore {
+      margin: 0;
+      font-size: 0.78rem;
+      color: rgba(210, 195, 170, 0.82);
+      line-height: 1.35;
+    }
 
     .expedition-card {
       position: relative;
@@ -8243,29 +8576,42 @@
             <div class="click-zone" id="click-zone" role="button" tabindex="0" aria-label="Cliquer sur l'œuf">
               <div class="altar-light" aria-hidden="true"></div>
               <div class="egg-ground-shadow" aria-hidden="true"></div>
-              <div class="entity-wrap egg-stage-normal" id="entity-wrap">
-                <div class="egg-glow"></div>
-                <div class="egg-position-wrapper" id="egg-position-wrapper">
-                  <div class="egg-hatch-wrapper" id="egg-hatch-wrapper">
-                    <div class="egg-click-wrapper" id="egg-click-wrapper">
-                      <div class="egg-visual fallback-active" id="egg-visual">
-                        <img id="egg-img" alt="Œuf de dragon" draggable="false" hidden />
-                        <div class="css-fallback">
-                          <div class="egg stage-1" id="egg"></div>
+              <div class="egg-carousel-root" id="egg-carousel-root">
+                <div class="egg-carousel-item is-active-slot" id="egg-carousel-active-slot">
+                  <div class="entity-wrap egg-stage-normal" id="entity-wrap">
+                    <div class="egg-glow"></div>
+                    <div class="egg-position-wrapper" id="egg-position-wrapper">
+                      <div class="egg-hatch-wrapper" id="egg-hatch-wrapper">
+                        <div class="egg-click-wrapper" id="egg-click-wrapper">
+                          <div class="egg-visual fallback-active" id="egg-visual">
+                            <div class="egg-visual-inner" id="egg-visual-inner">
+                              <img id="egg-img" alt="Œuf de dragon" draggable="false" hidden />
+                              <div class="css-fallback">
+                                <div class="egg stage-1" id="egg"></div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
+                      </div>
+                    </div>
+                    <div class="dragon-entity" id="dragon-entity">
+                      <div class="dragon-body">
+                        <div class="dragon-silhouette"></div>
+                        <img id="hatch-dragon-img" class="dragon-reveal-img" alt="" draggable="false" hidden />
+                        <span class="dragon-emoji" id="hatch-dragon-emoji" aria-hidden="true">🐲</span>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div class="dragon-entity" id="dragon-entity">
-                  <div class="dragon-body">
-                    <div class="dragon-silhouette"></div>
-                    <img id="hatch-dragon-img" class="dragon-reveal-img" alt="" draggable="false" hidden />
-                    <span class="dragon-emoji" id="hatch-dragon-emoji" aria-hidden="true">🐲</span>
-                  </div>
-                </div>
+                <button type="button" class="egg-carousel-item is-prev is-hidden" id="egg-carousel-peer-prev" hidden aria-hidden="true" aria-label="Œuf précédent">
+                  <img id="egg-carousel-peer-prev-img" class="egg-carousel-item-img" alt="" draggable="false" />
+                </button>
+                <button type="button" class="egg-carousel-item is-next is-hidden" id="egg-carousel-peer" hidden aria-hidden="true" aria-label="Sélectionner un autre œuf">
+                  <img id="egg-carousel-peer-img" class="egg-carousel-item-img" alt="" draggable="false" />
+                </button>
               </div>
             </div>
+            <div class="egg-carousel-dots" id="egg-carousel-dots" hidden aria-hidden="true"></div>
           </div>
 
           <div class="egg-progress-block" id="egg-progress-block">
@@ -8681,7 +9027,7 @@
        CONSTANTS & CONFIG
        ------------------------------------------------------- */
     const SAVE_KEY = "dragonClicker_save_v1";
-    const SAVE_VERSION = 12;
+    const SAVE_VERSION = 13;
     const AUTO_SAVE_MS = 10000;
     const MAX_OFFLINE_MS = 24 * 60 * 60 * 1000; /* hard safety cap */
     const OFFLINE_HOURS_BASE = 1;
@@ -8883,18 +9229,18 @@
         tier: 5,
         zoneId: "sanctuary"
       },
-      /* Zone 2 — Vallée : coûts accessibles après le ticket 300K (équilibrage fin à peaufiner). */
+      /* Zone 2 — Vallée : plus de niveaux, stats max ≈ +830 Essence/sec boutique. */
       {
         id: "valleyCub",
         name: "Dragonnet de vallée",
         icon: "🐉",
         description: "Plus vif que les dragonneaux du Sanctuaire.",
-        baseCost: 2500,
-        costGrowth: 1.18,
-        productionPerLevel: 2,
-        baseProduction: 2,
-        maxProduction: 40,
-        maxLevel: 20,
+        baseCost: 300,
+        costGrowth: 1.13,
+        productionPerLevel: 1.2,
+        baseProduction: 1.2,
+        maxProduction: 30,
+        maxLevel: 25,
         productionCurve: "linear",
         tier: 1,
         zoneId: "valley"
@@ -8904,12 +9250,12 @@
         name: "Nid de vallée",
         icon: "🪺",
         description: "Nids tissés dans les collines fertiles.",
-        baseCost: 10000,
-        costGrowth: 1.2,
-        productionPerLevel: 6,
-        baseProduction: 6,
-        maxProduction: 90,
-        maxLevel: 15,
+        baseCost: 1200,
+        costGrowth: 1.15,
+        productionPerLevel: 3.5,
+        baseProduction: 3.5,
+        maxProduction: 70,
+        maxLevel: 20,
         productionCurve: "linear",
         tier: 2,
         zoneId: "valley"
@@ -8919,12 +9265,12 @@
         name: "Aiguille de vallée",
         icon: "🏔️",
         description: "Une aiguille de pierre qui concentre le flux draconique.",
-        baseCost: 35000,
-        costGrowth: 1.22,
-        productionPerLevel: 15,
-        baseProduction: 15,
-        maxProduction: 180,
-        maxLevel: 12,
+        baseCost: 5000,
+        costGrowth: 1.17,
+        productionPerLevel: 10,
+        baseProduction: 10,
+        maxProduction: 150,
+        maxLevel: 15,
         productionCurve: "linear",
         tier: 3,
         zoneId: "valley"
@@ -8934,12 +9280,12 @@
         name: "Donjon de vallée",
         icon: "🏯",
         description: "Forteresse avancée de la Vallée draconique.",
-        baseCost: 80000,
-        costGrowth: 1.23,
-        productionPerLevel: 35,
-        baseProduction: 35,
-        maxProduction: 280,
-        maxLevel: 8,
+        baseCost: 15000,
+        costGrowth: 1.20,
+        productionPerLevel: 24,
+        baseProduction: 24,
+        maxProduction: 240,
+        maxLevel: 10,
         productionCurve: "linear",
         tier: 4,
         zoneId: "valley"
@@ -8949,12 +9295,12 @@
         name: "Citadelle de vallée",
         icon: "🛡️",
         description: "Le joyau économique de la Vallée.",
-        baseCost: 150000,
+        baseCost: 35000,
         costGrowth: 1.25,
-        productionPerLevel: 80,
-        baseProduction: 80,
-        maxProduction: 400,
-        maxLevel: 5,
+        productionPerLevel: 340 / 7,
+        baseProduction: 340 / 7,
+        maxProduction: 340,
+        maxLevel: 7,
         productionCurve: "linear",
         tier: 5,
         zoneId: "valley"
@@ -9091,18 +9437,22 @@
       },
       {
         zoneId: "valley", rank: "Éveillé", order: 2,
-        /* Zone 2 : 6 améliorations custom (pas le schéma 4 familles). */
+        /* Zone 2 : 6 améliorations — plus de niveaux, plafonds stats inchangés. */
         customActiveUpgrades: [
           {
             id: "claws_valley",
             family: "claws",
             name: "Griffes de la Vallée",
             icon: "✊",
-            maxLevel: 12,
+            maxLevel: 20,
             bonusType: "clickPowerFlat",
-            bonusValues: [1, 2, 3, 4, 5, 7, 9, 11, 13, 15, 16, 18],
-            baseCost: 8000,
-            costGrowth: 1.22,
+            /* +0.9 / niveau → +18 au max */
+            bonusValues: [
+              0.9, 1.8, 2.7, 3.6, 4.5, 5.4, 6.3, 7.2, 8.1, 9,
+              9.9, 10.8, 11.7, 12.6, 13.5, 14.4, 15.3, 16.2, 17.1, 18
+            ],
+            baseCost: 3000,
+            costGrowth: 1.18,
             uiOrder: 1
           },
           {
@@ -9110,12 +9460,11 @@
             family: "force",
             name: "Force Élémentaire",
             icon: "💪",
-            maxLevel: 3,
+            maxLevel: 5,
             bonusType: "clickPowerFlat",
-            bonusValues: [6, 12, 20],
-            costs: [80000, 160000, 280000],
-            baseCost: 80000,
-            costGrowth: 2,
+            bonusValues: [4, 8, 12, 16, 20],
+            baseCost: 30000,
+            costGrowth: 1.45,
             uiOrder: 2
           },
           {
@@ -9123,12 +9472,15 @@
             family: "instinct",
             name: "Instinct Sauvage",
             icon: "👁️",
-            maxLevel: 8,
+            maxLevel: 12,
             bonusType: "critChanceFlat",
-            /* Points de % → fractions (0.25 % = 0.0025). */
-            bonusValues: [0.0025, 0.005, 0.0075, 0.01, 0.0125, 0.015, 0.0175, 0.02],
-            baseCost: 15000,
-            costGrowth: 1.32,
+            /* Points de % → fractions (0.15 % = 0.0015 … 2 % = 0.02). */
+            bonusValues: [
+              0.0015, 0.003, 0.0045, 0.006, 0.0075, 0.009,
+              0.011, 0.013, 0.015, 0.017, 0.0185, 0.02
+            ],
+            baseCost: 8000,
+            costGrowth: 1.22,
             uiOrder: 3
           },
           {
@@ -9136,11 +9488,11 @@
             family: "bite",
             name: "Morsure Élémentaire",
             icon: "💥",
-            maxLevel: 5,
+            maxLevel: 8,
             bonusType: "critMultiplierFlat",
-            bonusValues: [0.15, 0.30, 0.45, 0.60, 0.75],
-            baseCost: 35000,
-            costGrowth: 1.38,
+            bonusValues: [0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.68, 0.75],
+            baseCost: 15000,
+            costGrowth: 1.28,
             uiOrder: 4
           },
           {
@@ -9148,13 +9500,12 @@
             family: "charged",
             name: "Frappe Chargée",
             icon: "⚡",
-            maxLevel: 4,
+            maxLevel: 6,
             bonusType: "chargedStrike",
-            triggerClicks: [20, 16, 13, 10],
+            triggerClicks: [25, 22, 18, 15, 12, 10],
             multiplier: 2,
-            costs: [60000, 120000, 200000, 320000],
-            baseCost: 60000,
-            costGrowth: 1.6,
+            baseCost: 25000,
+            costGrowth: 1.40,
             uiOrder: 5
           },
           {
@@ -9166,9 +9517,8 @@
             bonusType: "twinHatchChance",
             /* Valeurs en pourcent (0.2 … 1.0) — converties en fraction au jet. */
             bonusValues: [0.2, 0.4, 0.6, 0.8, 1.0],
-            costs: [100000, 180000, 280000, 400000, 550000],
-            baseCost: 100000,
-            costGrowth: 1.55,
+            baseCost: 50000,
+            costGrowth: 1.45,
             uiOrder: 6
           }
         ]
@@ -9420,6 +9770,94 @@
           rarePowerMax: 20000
         },
         requirements: {}
+      },
+      {
+        id: "zone2_sentier_sylvestre",
+        zoneId: "valley",
+        name: "Sentier Sylvestre",
+        image: "assets/expedition/expedition zone 2 Sentier Sylvestre.png",
+        description: "Un ancien sentier disparaît sous une végétation chargée d'essence draconique.",
+        durationMs: 10 * 60 * 1000,
+        requiredDragons: 1,
+        recommendedPower: 1000,
+        rewardPreview: "Essence Draconique · petite chance de fragments",
+        rewardConfig: {
+          powerMin: 1800,
+          powerMax: 4000,
+          fragmentChance: 0.4,
+          fragmentMin: 4,
+          fragmentMax: 10,
+          rareChance: 0,
+          rarePowerMin: 0,
+          rarePowerMax: 0
+        },
+        requirements: {}
+      },
+      {
+        id: "zone2_grottes_cascades",
+        zoneId: "valley",
+        name: "Grottes des Cascades",
+        image: "assets/expedition/expedition zone 2 Grottes des Cascades.png",
+        description: "Derrière les grandes chutes de la vallée se cache un réseau de grottes encore inexploré.",
+        durationMs: 30 * 60 * 1000,
+        requiredDragons: 2,
+        recommendedPower: 4000,
+        rewardPreview: "Essence Draconique · fragments · petit bonus possible",
+        rewardConfig: {
+          powerMin: 8000,
+          powerMax: 18000,
+          fragmentChance: 0.72,
+          fragmentMin: 6,
+          fragmentMax: 16,
+          rareChance: 0.1,
+          rarePowerMin: 2000,
+          rarePowerMax: 5000
+        },
+        requirements: {}
+      },
+      {
+        id: "zone2_ruines_vallee",
+        zoneId: "valley",
+        name: "Ruines de la Vallée",
+        image: "assets/expedition/expedition zone 2 Ruines de la Vallée.png",
+        description: "Les vestiges d'une ancienne civilisation draconique émergent au cœur de la vallée.",
+        durationMs: 90 * 60 * 1000,
+        requiredDragons: 3,
+        recommendedPower: 10000,
+        rewardPreview: "Beaucoup d'Essence · fragments · chance de récompense rare",
+        rewardConfig: {
+          powerMin: 20000,
+          powerMax: 55000,
+          fragmentChance: 0.8,
+          fragmentMin: 8,
+          fragmentMax: 20,
+          rareChance: 0.18,
+          rarePowerMin: 6000,
+          rarePowerMax: 16000
+        },
+        requirements: {}
+      },
+      {
+        id: "zone2_sanctuaire_oublie",
+        zoneId: "valley",
+        name: "Sanctuaire Oublié",
+        image: "assets/expedition/expedition zone 2 Sanctuaire oublié.png",
+        description: "Très loin dans la vallée repose un sanctuaire dont l'énergie attire les dragons les plus puissants.",
+        durationMs: 4 * 60 * 60 * 1000,
+        requiredDragons: 3,
+        recommendedPower: 25000,
+        rewardPreview: "Très grande Essence · fragments · forte chance de récompense rare",
+        rewardConfig: {
+          powerMin: 50000,
+          powerMax: 150000,
+          fragmentChance: 0.9,
+          fragmentMin: 14,
+          fragmentMax: 30,
+          rareChance: 0.3,
+          rarePowerMin: 12000,
+          rarePowerMax: 35000
+        },
+        requirements: {}
       }
     ];
 
@@ -9576,7 +10014,7 @@
         unlockRequirements: [
           { type: "zoneSpent", zoneId: "sanctuary", value: 600000 }
         ],
-        eggIds: ["plant"],
+        eggIds: ["plant", "cascade"],
         producerIds: ["valleyCub", "valleyNest", "valleySpire", "valleyKeep", "valleyCitadel"]
       },
       {
@@ -9768,6 +10206,7 @@
         image: "assets/dragons/dragon de base commun.png",
         icon: "🐲",
         zoneId: "sanctuary",
+        eggId: "basic",
         bonus: {
           type: "clickPowerPercent",
           name: "Griffes Ancestrales",
@@ -9783,6 +10222,7 @@
         image: "assets/dragons/dragon de base commun 2.png",
         icon: "🐉",
         zoneId: "sanctuary",
+        eggId: "basic",
         bonus: {
           type: "essenceProductionPercent",
           name: "Souffle d'Essence",
@@ -9798,6 +10238,7 @@
         image: "assets/dragons/dragon de base rare.png",
         icon: "✨",
         zoneId: "sanctuary",
+        eggId: "basic",
         bonus: {
           type: "critChanceFlatPercent",
           name: "Œil du Prédateur",
@@ -9813,6 +10254,7 @@
         image: "assets/dragons/dragon de base legendaire.png",
         icon: "👑",
         zoneId: "sanctuary",
+        eggId: "basic",
         bonus: {
           type: "fragmentGainPercent",
           name: "Instinct du Collectionneur",
@@ -9828,13 +10270,14 @@
         image: "assets/dragons/dragon de base mythique.png",
         icon: "🌌",
         zoneId: "sanctuary",
+        eggId: "basic",
         bonus: {
           type: "duplicateBonusFragmentChance",
           name: "Héritage Céleste",
           values: [5, 10, 15, 20, 25]
         }
       },
-      /* Zone 2 — Vallée draconique (assets dragon plante *) */
+      /* Zone 2 — Œuf Sylvestre (assets dragon plante *) */
       {
         id: "verdalis",
         name: "Verdalis",
@@ -9844,6 +10287,7 @@
         image: "assets/dragons/dragon plante de base.png",
         icon: "🌿",
         zoneId: "valley",
+        eggId: "plant",
         bonus: {
           type: "clickPowerPercent",
           name: "Griffes de Liane",
@@ -9859,6 +10303,7 @@
         image: "assets/dragons/dragon plante de base2.png",
         icon: "🌱",
         zoneId: "valley",
+        eggId: "plant",
         bonus: {
           type: "essenceProductionPercent",
           name: "Sève d'Essence",
@@ -9874,6 +10319,7 @@
         image: "assets/dragons/dragon plante rare.png",
         icon: "🌸",
         zoneId: "valley",
+        eggId: "plant",
         bonus: {
           type: "critChanceFlatPercent",
           name: "Regard Floral",
@@ -9889,6 +10335,7 @@
         image: "assets/dragons/dragon plante legendaire.png",
         icon: "🌳",
         zoneId: "valley",
+        eggId: "plant",
         bonus: {
           type: "fragmentGainPercent",
           name: "Racines du Collectionneur",
@@ -9904,10 +10351,108 @@
         image: "assets/dragons/dragon plante mityque.png",
         icon: "🌍",
         zoneId: "valley",
+        eggId: "plant",
         bonus: {
           type: "duplicateBonusFragmentChance",
           name: "Héritage Terrestre",
           values: [6, 12, 18, 24, 30]
+        }
+      },
+      /* Zone 2 — Œuf des Cascades (assets dragon cascade *) */
+      {
+        id: "rivulet",
+        name: "Rivulet",
+        element: "water",
+        rarity: "common",
+        description: "Petit dragon des ruisseaux, abondant près des cascades de la Vallée.",
+        image: "assets/dragons/dragon cascade commun.png",
+        icon: "💧",
+        zoneId: "valley",
+        eggId: "cascade",
+        bonus: {
+          type: "clickPowerPercent",
+          name: "Griffes d'Écume",
+          values: [1.5, 2, 2.5, 3.5, 5]
+        }
+      },
+      {
+        id: "cascadeur",
+        name: "Cascadeur",
+        element: "water",
+        rarity: "common",
+        description: "Il danse dans les chutes ; son flux nourrit l'essence passive.",
+        image: "assets/dragons/dragon cascade commun2.png",
+        icon: "🌊",
+        zoneId: "valley",
+        eggId: "cascade",
+        bonus: {
+          type: "essenceProductionPercent",
+          name: "Courant d'Essence",
+          values: [1.5, 2, 2.5, 3.5, 5]
+        }
+      },
+      {
+        id: "torrentis",
+        name: "Torrentis",
+        element: "water",
+        rarity: "rare",
+        description: "Regard aiguisé par les remous — rares sont ceux qui le voient.",
+        image: "assets/dragons/dragon cascade rare.png",
+        icon: "🌀",
+        zoneId: "valley",
+        eggId: "cascade",
+        bonus: {
+          type: "critChanceFlatPercent",
+          name: "Œil du Torrent",
+          values: [0.3, 0.4, 0.55, 0.75, 1]
+        }
+      },
+      {
+        id: "spumara",
+        name: "Spumara",
+        element: "water",
+        rarity: "epic",
+        description: "Née de l'écume des chutes célestes. Sa présence accélère les découvertes rares.",
+        image: "assets/dragons/dragon cascade epic.png",
+        icon: "🫧",
+        zoneId: "valley",
+        eggId: "cascade",
+        bonus: {
+          type: "critChanceFlatPercent",
+          name: "Brume des Cascades",
+          values: [0.45, 0.6, 0.8, 1.1, 1.4]
+        }
+      },
+      {
+        id: "abyssara",
+        name: "Abyssara",
+        element: "water",
+        rarity: "legendary",
+        description: "Gardienne des gouffres bleus ; les fragments affluent vers elle.",
+        image: "assets/dragons/dragon cascade legendaire.png",
+        icon: "🧜",
+        zoneId: "valley",
+        eggId: "cascade",
+        bonus: {
+          type: "fragmentGainPercent",
+          name: "Trésor des Cascades",
+          values: [2, 3, 4.5, 6, 8]
+        }
+      },
+      {
+        id: "naiadryn",
+        name: "Naïadryn",
+        element: "water",
+        rarity: "mythic",
+        description: "Esprit mythique des cascades célestes. On dit qu'elle redouble parfois les fragments.",
+        image: "assets/dragons/dragon cascade legendaire2.png",
+        icon: "💠",
+        zoneId: "valley",
+        eggId: "cascade",
+        bonus: {
+          type: "duplicateBonusFragmentChance",
+          name: "Écho des Abysses",
+          values: [5, 10, 15, 20, 25]
         }
       }
     ];
@@ -9932,6 +10477,7 @@
         startUnlocked: true,
         comingSoon: false,
         secret: false,
+        visualOffsetX: 0,
         dragonPool: [
           { dragonId: "drakel", weight: 40 },
           { dragonId: "vyrn", weight: 35 },
@@ -9950,7 +10496,7 @@
       },
       {
         id: "plant",
-        name: "Œuf de la Vallée",
+        name: "Œuf Sylvestre",
         description: "Un œuf enveloppé de lianes et de sève ancienne. Seule la Vallée draconique peut l'éveiller.",
         image: "assets/eggs/oeuf plante.png",
         progressImages: {
@@ -9960,19 +10506,60 @@
         },
         background: "valley",
         zoneId: "valley",
-        requiredHatchPower: 400,
-        requiredClicks: 400,
+        requiredHatchPower: 1000,
+        requiredClicks: 1000,
         rarity: "common",
         element: "nature",
         startUnlocked: false,
         comingSoon: false,
         secret: false,
+        /* PNG plante : contenu ~13px à gauche du cadre (pad L/R asymétrique) → +1% */
+        visualOffsetX: 1,
+        visualOffsetXByKey: { intact: 1, cracked35: -0.2, cracked75: -0.45 },
         dragonPool: [
           { dragonId: "verdalis", weight: 40 },
           { dragonId: "mossik", weight: 35 },
           { dragonId: "florwyn", weight: 15 },
           { dragonId: "sylvagor", weight: 8 },
           { dragonId: "gaiathis", weight: 2 }
+        ],
+        pity: {
+          enabled: false,
+          rules: [
+            { rarity: "legendary", softPityAfter: 20, hardPityAt: 50 },
+            { rarity: "mythic", softPityAfter: 80, hardPityAt: 200 }
+          ]
+        }
+      },
+      {
+        id: "cascade",
+        name: "Œuf des Cascades",
+        description: "Un œuf baigné par le flux des cascades célestes. Une autre lignée sommeille dans ses reflets.",
+        image: "assets/eggs/oeuf cascade.png",
+        progressImages: {
+          intact: "assets/eggs/oeuf cascade.png",
+          cracked35: "assets/eggs/oeuf cascade35.png",
+          cracked75: "assets/eggs/oeuf cascade75.png"
+        },
+        background: "valley",
+        zoneId: "valley",
+        requiredHatchPower: 1500,
+        requiredClicks: 1500,
+        rarity: "common",
+        element: "water",
+        startUnlocked: false,
+        comingSoon: false,
+        secret: false,
+        visualOffsetX: 0,
+        visualOffsetXByKey: { intact: 0.1, cracked35: -0.45, cracked75: -0.25 },
+        /* Pool dédié Cascades — uniquement dragons eggId "cascade" */
+        dragonPool: [
+          { dragonId: "rivulet", weight: 36 },
+          { dragonId: "cascadeur", weight: 30 },
+          { dragonId: "torrentis", weight: 14 },
+          { dragonId: "spumara", weight: 10 },
+          { dragonId: "abyssara", weight: 8 },
+          { dragonId: "naiadryn", weight: 2 }
         ],
         pity: {
           enabled: false,
@@ -10464,6 +11051,57 @@
       });
     }
 
+    /**
+     * Axe horizontal officiel = centre du logo .game-logo.
+     * 1) Aligne .egg-stage sous le logo (--game-center-x dans #panel-kingdom).
+     * 2) En mode carrousel, affine .egg-hero via --carousel-offset-x
+     *    pour que le WRAPPER (actif + secondaires) soit un seul bloc centré.
+     */
+    function updateGameCenterAxis() {
+      const logo =
+        document.querySelector(".header-logo-wrap .game-logo") ||
+        document.querySelector(".game-logo");
+      const kingdom = document.getElementById("panel-kingdom");
+      const app = document.getElementById("app");
+      const stage = document.getElementById("egg-stage");
+      const hero = stage && stage.querySelector(".egg-hero");
+      if (!logo || !kingdom) return false;
+
+      const logoRect = logo.getBoundingClientRect();
+      if (logoRect.width < 2 || logoRect.height < 2) return false;
+
+      const parentRect = kingdom.getBoundingClientRect();
+      if (parentRect.width < 2) return false;
+
+      const logoCenterX = logoRect.left + logoRect.width / 2;
+      const localCenterX = logoCenterX - parentRect.left;
+      const px = (Math.round(localCenterX * 100) / 100) + "px";
+
+      kingdom.style.setProperty("--game-center-x", px);
+      if (app) app.style.setProperty("--game-center-x", px);
+
+      /*
+        Offset global UNIQUE du wrapper (.egg-hero).
+        0 = le hero est déjà centré dans .egg-stage (aligné logo).
+      */
+      if (hero) {
+        hero.style.setProperty("--carousel-offset-x", "0px");
+      }
+      return true;
+    }
+
+    let gameCenterAxisRaf = 0;
+    let gameCenterAxisResizeTimer = 0;
+
+    function scheduleUpdateGameCenterAxis() {
+      if (gameCenterAxisRaf) cancelAnimationFrame(gameCenterAxisRaf);
+      gameCenterAxisRaf = requestAnimationFrame(() => {
+        gameCenterAxisRaf = 0;
+        updateGameCenterAxis();
+        requestAnimationFrame(updateGameCenterAxis);
+      });
+    }
+
     function markZoneVisited(zoneId) {
       if (!Array.isArray(gameState.visitedZones)) gameState.visitedZones = ["sanctuary"];
       if (gameState.visitedZones.indexOf(zoneId) === -1) {
@@ -10516,12 +11154,23 @@
       const eggs = zone.eggIds || [];
       if (eggs.length) {
         unlockZoneEggs(zoneId);
-        if (eggs.indexOf(gameState.equippedEggId) === -1) {
+        ensureZoneEggSelection(zoneId);
+        const selected = getZoneSelectedEggId(zoneId);
+        if (eggs.indexOf(selected) !== -1) {
+          gameState.equippedEggId = selected;
+        } else if (eggs.indexOf(gameState.equippedEggId) === -1) {
           gameState.equippedEggId = eggs[0];
+          if (zoneSupportsEggCarousel(zoneId)) {
+            setZoneSelectedEggId(zoneId, eggs[0]);
+          }
+        } else if (zoneSupportsEggCarousel(zoneId)) {
+          setZoneSelectedEggId(zoneId, gameState.equippedEggId);
         }
       }
       applyEggScene(getEquippedEggDef());
       renderCurrentEgg();
+      updateEggCarouselPeer();
+      scheduleUpdateGameCenterAxis();
       recalculateGlobalStats();
       eggsDirty = true;
       shopDirty = true;
@@ -10990,6 +11639,7 @@
         eggs: createEmptyEggProgress(),
         dragons: createEmptyDragonProgress(),
         equippedEggId: "basic",
+        zoneEggSelection: {},
         totalEggsHatched: 0,
         totalDragonsObtained: 0,
         rarityStats: createEmptyRarityStats(),
@@ -11068,6 +11718,7 @@
     let lastExpeditionUiRefresh = 0;
     let clicksLocked = false;
     let hatchSequenceActive = false;
+    let isEggCarouselAnimating = false;
     let pendingReveal = null;
     let clickTimestamps = [];
     let lastAffordabilityRefresh = 0;
@@ -11521,6 +12172,324 @@
       return getEggDef(gameState.equippedEggId || "basic");
     }
 
+    /** Œufs jouables d'une zone (liste data-driven via zone.eggIds). */
+    function getZoneCarouselEggs(zoneId) {
+      const zone = getZoneDef(zoneId || gameState.currentZoneId);
+      if (!zone) return [];
+      const ids = zone.eggIds || [];
+      return ids
+        .map((id) => getEggDef(id))
+        .filter((e) => e && !e.comingSoon && !e.secret);
+    }
+
+    function zoneSupportsEggCarousel(zoneId) {
+      return getZoneCarouselEggs(zoneId || gameState.currentZoneId).length >= 2;
+    }
+
+    /** Voisins carrousel : next à droite, prev à gauche (index dans la liste). */
+    function getCarouselNeighborEggs(zoneId) {
+      const eggs = getZoneCarouselEggs(zoneId);
+      const activeId = getZoneSelectedEggId(zoneId);
+      const idx = eggs.findIndex((e) => e.id === activeId);
+      if (idx < 0 || eggs.length < 2) return { prev: null, next: null };
+      /* 2 œufs : l'autre est à droite si index supérieur, à gauche sinon (pas de wrap visuel). */
+      if (eggs.length === 2) {
+        const other = eggs[idx === 0 ? 1 : 0];
+        if (idx === 0) return { prev: null, next: other };
+        return { prev: other, next: null };
+      }
+      const next = eggs[(idx + 1) % eggs.length];
+      const prev = eggs[(idx - 1 + eggs.length) % eggs.length];
+      return {
+        prev: prev && prev.id !== activeId ? prev : null,
+        next: next && next.id !== activeId ? next : null
+      };
+    }
+
+    function getCurrentEggData() {
+      return getEquippedEggDef();
+    }
+
+    function getEggHatchPool(eggId) {
+      const id = eggId || gameState.equippedEggId;
+      const def = getEggDef(id);
+      const pool = (def && def.dragonPool) || [];
+      if (!pool.length) {
+        console.warn("[DragonClicker] Aucun dragon dans le pool de l'œuf:", id);
+        return [];
+      }
+      const valid = [];
+      pool.forEach((entry) => {
+        const d = getDragonDef(entry.dragonId);
+        if (!d) {
+          console.warn("[DragonClicker] dragonId inconnu dans le pool de", id + ":", entry.dragonId);
+          return;
+        }
+        if (d.eggId && def && d.eggId !== def.id) {
+          console.warn(
+            "[DragonClicker] Dragon hors famille ignoré dans le pool de",
+            id + ":",
+            entry.dragonId,
+            "(eggId=",
+            d.eggId + ")"
+          );
+          return;
+        }
+        valid.push(entry);
+      });
+      if (!valid.length) {
+        console.warn("[DragonClicker] Pool cascade/œuf invalide après filtre:", id);
+      }
+      return valid;
+    }
+
+    /** Dragons liés à un œuf (via egg.dragonPool, source de vérité). */
+    function getDragonsForEgg(eggId) {
+      return getEggHatchPool(eggId)
+        .map((e) => getDragonDef(e.dragonId))
+        .filter(Boolean);
+    }
+
+    function ensureZoneEggSelection(zoneId, state) {
+      const s = state || gameState;
+      if (!s.zoneEggSelection || typeof s.zoneEggSelection !== "object") {
+        s.zoneEggSelection = {};
+      }
+      const eggs = getZoneCarouselEggs(zoneId);
+      if (!eggs.length) return null;
+      const cur = s.zoneEggSelection[zoneId];
+      let selected = cur && cur.selectedEggId ? cur.selectedEggId : null;
+      if (!selected || !eggs.some((e) => e.id === selected)) {
+        selected = eggs[0].id;
+      }
+      s.zoneEggSelection[zoneId] = { selectedEggId: selected };
+      return s.zoneEggSelection[zoneId];
+    }
+
+    function getZoneSelectedEggId(zoneId) {
+      const zid = zoneId || gameState.currentZoneId || "sanctuary";
+      const sel = ensureZoneEggSelection(zid);
+      return sel ? sel.selectedEggId : (gameState.equippedEggId || "basic");
+    }
+
+    function setZoneSelectedEggId(zoneId, eggId) {
+      const zid = zoneId || gameState.currentZoneId;
+      ensureZoneEggSelection(zid);
+      gameState.zoneEggSelection[zid].selectedEggId = eggId;
+      gameState.equippedEggId = eggId;
+    }
+
+    function getEggVisualSrcForProgress(eggDef, progress) {
+      if (!eggDef) return "assets/eggs/oeuf de base.png";
+      const pct = getHatchPercent(eggDef, progress);
+      const info = getEggVisualByProgress(pct, eggDef);
+      return (info && info.src) || eggDef.image || "assets/eggs/oeuf de base.png";
+    }
+
+    function syncActiveEggFromZoneSelection() {
+      const zoneId = gameState.currentZoneId || "sanctuary";
+      if (!zoneSupportsEggCarousel(zoneId)) return;
+      ensureZoneEggSelection(zoneId);
+      const selected = getZoneSelectedEggId(zoneId);
+      if (selected && gameState.equippedEggId !== selected) {
+        gameState.equippedEggId = selected;
+      }
+      getZoneCarouselEggs(zoneId).forEach((e) => getEggProgress(e.id));
+    }
+
+    function renderEggCarouselDots() {
+      const dots = document.getElementById("egg-carousel-dots");
+      if (!dots) return;
+      const zoneId = gameState.currentZoneId || "sanctuary";
+      const eggs = getZoneCarouselEggs(zoneId);
+      if (!zoneSupportsEggCarousel(zoneId) || eggs.length < 2) {
+        dots.hidden = true;
+        dots.setAttribute("aria-hidden", "true");
+        dots.innerHTML = "";
+        return;
+      }
+      const activeId = getZoneSelectedEggId(zoneId);
+      dots.hidden = false;
+      dots.setAttribute("aria-hidden", "false");
+      dots.innerHTML = "";
+      eggs.forEach((egg) => {
+        const d = document.createElement("span");
+        d.className = "egg-carousel-dot" + (egg.id === activeId ? " is-active" : "");
+        d.setAttribute("aria-hidden", "true");
+        dots.appendChild(d);
+      });
+    }
+
+    function updateEggCarouselPeer() {
+      const stage = document.getElementById("egg-stage");
+      const peerNext = document.getElementById("egg-carousel-peer");
+      const peerNextImg = document.getElementById("egg-carousel-peer-img");
+      const peerPrev = document.getElementById("egg-carousel-peer-prev");
+      const peerPrevImg = document.getElementById("egg-carousel-peer-prev-img");
+      const picker = document.getElementById("egg-picker");
+      const root = document.getElementById("egg-carousel-root");
+      const activeSlot = document.getElementById("egg-carousel-active-slot");
+      const zoneId = gameState.currentZoneId || "sanctuary";
+      const eggs = getZoneCarouselEggs(zoneId);
+      /* Pendant l'éclosion : GARDER is-egg-carousel (sinon l'actif saute en haut-gauche).
+         On masque seulement les secondaires / interactions. */
+      const carouselCapable = zoneSupportsEggCarousel(zoneId);
+
+      if (stage) stage.classList.toggle("is-egg-carousel", carouselCapable);
+      if (picker) picker.classList.toggle("carousel-mode", carouselCapable && !hatchSequenceActive);
+
+      const resetPeerEl = (el) => {
+        if (!el) return;
+        el.classList.remove("to-center");
+        el.style.transform = "";
+        el.style.opacity = "";
+        el.style.filter = "";
+        el.style.zIndex = "";
+        el.style.width = "";
+      };
+
+      const clearActiveMotion = () => {
+        if (!activeSlot) return;
+        activeSlot.classList.remove(
+          "is-leaving-prev",
+          "is-leaving-next",
+          "to-side",
+          "to-side-left"
+        );
+        activeSlot.style.transform = "";
+        activeSlot.style.opacity = "";
+        activeSlot.style.filter = "";
+        /* Ne pas toucher left/top/position : gérés uniquement par le CSS carrousel */
+      };
+
+      const hidePeer = (el) => {
+        if (!el) return;
+        el.hidden = true;
+        el.classList.add("is-hidden");
+        el.setAttribute("aria-hidden", "true");
+        el.removeAttribute("data-egg-id");
+        resetPeerEl(el);
+      };
+
+      const showPeer = (el, img, eggDef, sideClass) => {
+        if (!el || !img || !eggDef) {
+          hidePeer(el);
+          return;
+        }
+        const prog = getEggProgress(eggDef.id);
+        const src = getEggVisualSrcForProgress(eggDef, prog.progress);
+        el.dataset.eggId = eggDef.id;
+        el.setAttribute("aria-label", "Sélectionner " + (eggDef.name || "œuf"));
+        el.hidden = false;
+        el.classList.remove("is-hidden");
+        el.classList.remove("is-next", "is-prev");
+        el.classList.add(sideClass);
+        el.setAttribute("aria-hidden", "false");
+        img.alt = eggDef.name || "";
+        if (img.getAttribute("src") !== src) img.src = src;
+        resetPeerEl(el);
+      };
+
+      if (!carouselCapable || eggs.length < 2 || hatchSequenceActive) {
+        hidePeer(peerNext);
+        hidePeer(peerPrev);
+        if (root) {
+          root.classList.remove("is-animating");
+          root.classList.remove("is-settling");
+        }
+        clearActiveMotion();
+        renderEggCarouselDots();
+        return;
+      }
+
+      const neighbors = getCarouselNeighborEggs(zoneId);
+      showPeer(peerNext, peerNextImg, neighbors.next, "is-next");
+      showPeer(peerPrev, peerPrevImg, neighbors.prev, "is-prev");
+
+      if (root) root.classList.remove("is-animating");
+      clearActiveMotion();
+      renderEggCarouselDots();
+      scheduleUpdateGameCenterAxis();
+    }
+
+    function selectCarouselEgg(eggId) {
+      if (isEggCarouselAnimating || hatchSequenceActive || clicksLocked) return;
+      const zoneId = gameState.currentZoneId || "sanctuary";
+      if (!zoneSupportsEggCarousel(zoneId)) return;
+      const eggs = getZoneCarouselEggs(zoneId);
+      if (!eggs.some((e) => e.id === eggId)) return;
+      if (getZoneSelectedEggId(zoneId) === eggId) return;
+
+      const root = document.getElementById("egg-carousel-root");
+      const activeSlot = document.getElementById("egg-carousel-active-slot");
+      const peerNext = document.getElementById("egg-carousel-peer");
+      const peerPrev = document.getElementById("egg-carousel-peer-prev");
+      const fromNext = peerNext && !peerNext.hidden && peerNext.dataset.eggId === eggId;
+      const fromPrev = peerPrev && !peerPrev.hidden && peerPrev.dataset.eggId === eggId;
+      const peer = fromPrev ? peerPrev : peerNext;
+      /* Clic next (droite) => actif part à gauche ; clic prev => actif part à droite */
+      const leaveClass = fromPrev ? "is-leaving-next" : "is-leaving-prev";
+      const reduce = prefersReducedMotion();
+
+      const finishSwap = () => {
+        setZoneSelectedEggId(zoneId, eggId);
+        isEggCarouselAnimating = false;
+        if (root) {
+          root.classList.add("is-settling");
+          root.classList.remove("is-animating");
+        }
+        if (activeSlot) {
+          activeSlot.classList.remove("is-leaving-prev", "is-leaving-next", "to-side", "to-side-left");
+          activeSlot.style.transform = "";
+          activeSlot.style.opacity = "";
+          activeSlot.style.filter = "";
+        }
+        if (peerNext) peerNext.classList.remove("to-center");
+        if (peerPrev) peerPrev.classList.remove("to-center");
+        applyEggScene(getEquippedEggDef());
+        renderCurrentEgg();
+        updateEggCarouselPeer();
+        renderEggPicker();
+        if (root) {
+          void root.offsetWidth;
+          root.classList.remove("is-settling");
+        }
+        eggsDirty = true;
+        uiDirty = true;
+        saveGame(true);
+      };
+
+      if (reduce || !root || !activeSlot || !peer || peer.hidden) {
+        finishSwap();
+        return;
+      }
+
+      isEggCarouselAnimating = true;
+      root.classList.add("is-animating");
+      void root.offsetWidth;
+      activeSlot.classList.add(leaveClass);
+      peer.classList.add("to-center");
+      if (fromNext && peerPrev) peerPrev.style.opacity = "0";
+      if (fromPrev && peerNext) peerNext.style.opacity = "0";
+
+      let done = false;
+      const end = () => {
+        if (done) return;
+        done = true;
+        finishSwap();
+      };
+      const t = setTimeout(end, 450);
+      const onEnd = (ev) => {
+        if (ev.target !== peer && ev.target !== activeSlot) return;
+        clearTimeout(t);
+        peer.removeEventListener("transitionend", onEnd);
+        activeSlot.removeEventListener("transitionend", onEnd);
+        end();
+      };
+      peer.addEventListener("transitionend", onEnd);
+      activeSlot.addEventListener("transitionend", onEnd);
+    }
+
     function getEggProgress(eggId) {
       if (!gameState.eggs[eggId]) {
         const def = getEggDef(eggId);
@@ -11672,6 +12641,21 @@
       }
     }
 
+    function applyEggVisualOffset(eggDef, stageKey) {
+      const inner = document.getElementById("egg-visual-inner");
+      if (!inner) return;
+      let ox = 0;
+      if (eggDef) {
+        const map = eggDef.visualOffsetXByKey;
+        if (map && stageKey && map[stageKey] != null) {
+          ox = safeNumber(map[stageKey], 0);
+        } else {
+          ox = safeNumber(eggDef.visualOffsetX, 0);
+        }
+      }
+      inner.style.setProperty("--egg-visual-ox", ox ? (ox + "%") : "0%");
+    }
+
     function applyEggProgressImage(src) {
       const img = document.getElementById("egg-img");
       const visual = document.getElementById("egg-visual");
@@ -11698,6 +12682,7 @@
       if (hatchSequenceActive && !force) return;
       const visual = getEggVisualByProgress(pct, eggDef);
       const eggId = eggDef && eggDef.id;
+      applyEggVisualOffset(eggDef, visual && visual.key);
       if (!force &&
           currentEggImageEggId === eggId &&
           currentEggImageStage === visual.stage) {
@@ -11730,7 +12715,7 @@
      * Base egg.dragonPool data is never mutated.
      */
     function getAdjustedEggPool(eggDef) {
-      const base = (eggDef && eggDef.dragonPool) || [];
+      const base = getEggHatchPool(eggDef && eggDef.id);
       const luck = safeNumber(gameState.multipliers?.rarityLuck, 0);
       return base.map((entry) => {
         const def = getDragonDef(entry.dragonId);
@@ -11762,7 +12747,10 @@
     function rollDragonFromEgg(eggId) {
       const egg = getEggDef(eggId);
       const pool = getAdjustedEggPool(egg);
-      if (!pool.length) return null;
+      if (!pool.length) {
+        console.warn("[DragonClicker] Impossible de tirer un dragon — pool vide pour l'œuf:", eggId);
+        return null;
+      }
 
       /* Future pity hooks — intentionally inactive */
       if (egg && egg.pity && egg.pity.enabled) {
@@ -11839,7 +12827,7 @@
 
     function countEggPoolDiscovered(eggDef) {
       let n = 0;
-      (eggDef.dragonPool || []).forEach((entry) => {
+      getEggHatchPool(eggDef && eggDef.id).forEach((entry) => {
         if (isDragonDiscovered(null, entry.dragonId, gameState)) n++;
       });
       return n;
@@ -11994,7 +12982,7 @@
     }
 
     function handleClick(clientX, clientY) {
-      if (clicksLocked || hatchSequenceActive) return;
+      if (clicksLocked || hatchSequenceActive || isEggCarouselAnimating) return;
 
       const now = performance.now();
       clickTimestamps.push(now);
@@ -12035,7 +13023,7 @@
 
     /** Visual-only press feedback — never grants resources */
     function handleEggPointerDown(clientX, clientY) {
-      if (clicksLocked || hatchSequenceActive) return;
+      if (clicksLocked || hatchSequenceActive || isEggCarouselAnimating) return;
       AudioManager.unlock();
       playEggClickPress(false);
     }
@@ -12060,7 +13048,7 @@
     }
 
     function advanceEggProgress(amount) {
-      if (hatchSequenceActive || clicksLocked) return;
+      if (hatchSequenceActive || clicksLocked || isEggCarouselAnimating) return;
       amount = safeNumber(amount, 0);
       if (amount <= 0) return;
 
@@ -12318,6 +13306,7 @@
       currentEggImageEggId = null;
       updateEggVisualState({ forceImage: true });
       renderEggProgressUI();
+      updateEggCarouselPeer();
     }
 
     function renderActiveEggVisual() {
@@ -12382,7 +13371,7 @@
       const req = getEggHatchRequirement(eggDef);
       const cur = Math.min(safeNumber(prog.progress, 0), req);
       const pct = getHatchPercent(eggDef, cur);
-      const poolSize = (eggDef.dragonPool || []).length;
+      const poolSize = getEggHatchPool(eggDef.id).length;
       const discovered = countEggPoolDiscovered(eggDef);
 
       const nums = document.getElementById("hatch-bar-nums");
@@ -12469,7 +13458,7 @@
         if (RARITIES[egg.rarity]) btn.classList.add(RARITIES[egg.rarity].css);
         btn.disabled = !unlocked && !egg.comingSoon ? true : !unlocked;
 
-        const poolLen = (egg.dragonPool || []).length;
+        const poolLen = getEggHatchPool(egg.id).length;
         const pct = unlocked ? Math.floor(getHatchPercent(egg, prog.progress)) : 0;
 
         btn.innerHTML =
@@ -12508,11 +13497,16 @@
       const prog = getEggProgress(eggId);
       const def = getEggDef(eggId);
       if (!prog.unlocked || (def && def.comingSoon)) return;
-      if (hatchSequenceActive) return;
+      if (hatchSequenceActive || isEggCarouselAnimating) return;
       gameState.equippedEggId = eggId;
+      const zoneId = def.zoneId || gameState.currentZoneId;
+      if (zoneSupportsEggCarousel(zoneId) && (getZoneDef(zoneId).eggIds || []).indexOf(eggId) !== -1) {
+        setZoneSelectedEggId(zoneId, eggId);
+      }
       applyEggScene(def);
       renderCurrentEgg();
       renderEggPicker();
+      updateEggCarouselPeer();
       showNotification("🥚 Œuf équipé", def.name);
       switchPanel("kingdom");
     }
@@ -12622,6 +13616,10 @@
     function resolveHatchReward(eggDef) {
       const prog = getEggProgress(eggDef.id);
       const dragonId = rollDragonFromEgg(eggDef.id);
+      if (!dragonId) {
+        console.warn("[DragonClicker] Éclosion annulée — aucun dragon tiré pour", eggDef && eggDef.id);
+        return null;
+      }
       const primary = grantHatchDragonReward(eggDef, dragonId);
       if (!primary) return null;
 
@@ -12685,11 +13683,17 @@
 
     function startHatchSequence(eggDef) {
       if (hatchSequenceActive) return;
-      if (!eggDef || !(eggDef.dragonPool || []).length) return;
+      if (!eggDef || !getEggHatchPool(eggDef.id).length) {
+        console.warn("[DragonClicker] Éclosion impossible — pool vide pour", eggDef && eggDef.id);
+        return;
+      }
 
       hatchSequenceActive = true;
       clicksLocked = true;
       document.getElementById("click-zone").classList.add("clicks-disabled");
+      const stageEl = document.getElementById("egg-stage");
+      if (stageEl) stageEl.classList.add("is-hatching");
+      updateEggCarouselPeer();
 
       /* Resolve + save FIRST so refresh / spam cannot duplicate */
       const reveal = resolveHatchReward(eggDef);
@@ -12697,6 +13701,8 @@
         hatchSequenceActive = false;
         clicksLocked = false;
         document.getElementById("click-zone").classList.remove("clicks-disabled");
+        if (stageEl) stageEl.classList.remove("is-hatching");
+        updateEggCarouselPeer();
         return;
       }
       pendingReveal = reveal;
@@ -12905,7 +13911,7 @@
     function findEggChanceForDragon(dragonId) {
       for (let i = 0; i < EGG_DEFS.length; i++) {
         const egg = EGG_DEFS[i];
-        const pool = egg.dragonPool || [];
+        const pool = getEggHatchPool(egg.id);
         for (let j = 0; j < pool.length; j++) {
           if (pool[j].dragonId === dragonId) {
             return getPoolChancePercent(egg, dragonId);
@@ -13220,6 +14226,8 @@
       clearHatchFxTimers();
       hatchSequenceActive = false;
       clicksLocked = false;
+      const stageEl = document.getElementById("egg-stage");
+      if (stageEl) stageEl.classList.remove("is-hatching");
       const clickZone = document.getElementById("click-zone");
       if (clickZone) clickZone.classList.remove("clicks-disabled");
       const dragonImg = document.getElementById("hatch-dragon-img");
@@ -13237,7 +14245,7 @@
 
     function openPoolModal() {
       const eggDef = getEquippedEggDef();
-      const pool = eggDef.dragonPool || [];
+      const pool = getEggHatchPool(eggDef.id);
       const discovered = countEggPoolDiscovered(eggDef);
       document.getElementById("pool-modal-title").textContent =
         "Collection de l'" + eggDef.name;
@@ -13815,15 +14823,15 @@
 
     function getVisibleExpeditions() {
       const zone = getCurrentZone();
-      const unlocked = gameState.unlockedZones || [];
-      return EXPEDITION_DEFS.filter((e) => {
-        if (!e.zoneId) return true;
-        if (unlocked.indexOf(e.zoneId) === -1) return false;
-        return e.zoneId === zone.id || unlocked.indexOf(e.zoneId) !== -1;
-      }).filter((e) => {
-        /* V1: show expeditions for current zone primarily; also keep older unlocked zones visible if same zone active */
-        return e.zoneId === zone.id;
-      });
+      return EXPEDITION_DEFS.filter((e) => e.zoneId === zone.id);
+    }
+
+    function getExpeditionZoneLabel(defOrZoneId) {
+      const zoneId = typeof defOrZoneId === "string"
+        ? defOrZoneId
+        : (defOrZoneId && defOrZoneId.zoneId);
+      const zone = getZoneDef(zoneId);
+      return zone ? zone.name : "Zone inconnue";
     }
 
     function makeSeededRng(seed) {
@@ -14124,6 +15132,7 @@
       if (btn) btn.setAttribute("aria-expanded", "true");
       expeditionIntroAnimPending = true;
       expeditionsDirty = true;
+      preloadExpeditionImagesForCurrentZone();
       renderExpeditions();
       updateExpeditionButtonIndicator();
       playSound("button");
@@ -14153,6 +15162,9 @@
       if (!areExpeditionsUnlocked()) return { ok: false, reason: "locked" };
       const def = getExpeditionDef(expeditionId);
       if (!def) return { ok: false, reason: "invalid" };
+      if (def.zoneId && def.zoneId !== getCurrentZone().id) {
+        return { ok: false, reason: "wrong_zone" };
+      }
       if (!hasFreeExpeditionSlot()) return { ok: false, reason: "busy" };
       const ids = (dragonIds || []).slice();
       if (ids.length !== def.requiredDragons) return { ok: false, reason: "count" };
@@ -14184,9 +15196,11 @@
       exp.slots[slotIndex] = {
         id: "run_" + startTime + "_" + slotIndex,
         expeditionId: def.id,
+        zoneId: def.zoneId,
         dragonIds: ids.slice(),
         startTime,
         endTime,
+        durationMs: def.durationMs,
         teamPower,
         recommendedPower: def.recommendedPower,
         successChance,
@@ -14294,6 +15308,38 @@
       return String(path).split("/").map(encodeURIComponent).join("/");
     }
 
+    const EXPEDITION_IMAGE_FALLBACK = "assets/expedition/background expedition.png";
+
+    function applyExpeditionImage(imgEl, imagePath, label) {
+      if (!imgEl) return;
+      const path = imagePath || EXPEDITION_IMAGE_FALLBACK;
+      imgEl.alt = label || "";
+      imgEl.draggable = false;
+      imgEl.onerror = function () {
+        if (imgEl.dataset.expeditionImgFallback === "1") return;
+        imgEl.dataset.expeditionImgFallback = "1";
+        console.warn("[Expedition] Image introuvable :", path);
+        imgEl.src = encodeAssetPath(EXPEDITION_IMAGE_FALLBACK);
+      };
+      imgEl.src = encodeAssetPath(path);
+    }
+
+    function preloadExpeditionImagesForCurrentZone() {
+      const paths = {};
+      getVisibleExpeditions().forEach((def) => {
+        if (def.image) paths[def.image] = true;
+      });
+      const busy = getBusyExpeditionRun();
+      if (busy && busy.run) {
+        const activeDef = getExpeditionDef(busy.run.expeditionId);
+        if (activeDef && activeDef.image) paths[activeDef.image] = true;
+      }
+      Object.keys(paths).forEach((path) => {
+        const img = new Image();
+        img.src = encodeAssetPath(path);
+      });
+    }
+
     function isExpeditionLocked(def, state) {
       state = state || gameState;
       if (!def) return true;
@@ -14342,8 +15388,27 @@
       zoneLabel.textContent = "Zone — " + zone.name;
       wrap.appendChild(zoneLabel);
 
+      const busy = getBusyExpeditionRun();
       const defs = getVisibleExpeditions();
-      if (!defs.length) {
+      const shownIds = {};
+
+      buildExpeditionDestinationCard._i = 0;
+
+      if (busy && busy.run) {
+        const activeDef = getExpeditionDef(busy.run.expeditionId);
+        if (activeDef && activeDef.zoneId !== zone.id) {
+          const activeHead = document.createElement("p");
+          activeHead.className = "expedition-zone-label";
+          activeHead.textContent = "Expédition en cours";
+          wrap.appendChild(activeHead);
+          wrap.appendChild(buildExpeditionDestinationCard(activeDef, busy, {
+            foreignActive: true
+          }));
+          shownIds[activeDef.id] = true;
+        }
+      }
+
+      if (!defs.length && !Object.keys(shownIds).length) {
         const empty = document.createElement("p");
         empty.className = "expedition-list-hint";
         empty.textContent = "Aucune expédition disponible dans cette zone.";
@@ -14351,16 +15416,16 @@
         return wrap;
       }
 
-      const busy = getBusyExpeditionRun();
-      buildExpeditionDestinationCard._i = 0;
       defs.forEach((def) => {
+        if (shownIds[def.id]) return;
         wrap.appendChild(buildExpeditionDestinationCard(def, busy));
       });
       expeditionIntroAnimPending = false;
       return wrap;
     }
 
-    function buildExpeditionDestinationCard(def, busy) {
+    function buildExpeditionDestinationCard(def, busy, opts) {
+      opts = opts || {};
       const status = getExpeditionCardStatus(def, busy);
       const card = document.createElement("article");
       card.className = "expedition-card";
@@ -14377,10 +15442,8 @@
       const media = document.createElement("div");
       media.className = "expedition-card-media";
       const img = document.createElement("img");
-      img.alt = "";
-      img.draggable = false;
-      img.loading = "lazy";
-      img.src = encodeAssetPath(def.image || "");
+      img.loading = "eager";
+      applyExpeditionImage(img, def.image, def.name);
       media.appendChild(img);
       card.appendChild(media);
 
@@ -14406,6 +15469,13 @@
       const body = document.createElement("div");
       body.className = "expedition-card-body";
 
+      if (opts.foreignActive || (status !== "idle" && def.zoneId !== getCurrentZone().id)) {
+        const origin = document.createElement("p");
+        origin.className = "expedition-card-origin";
+        origin.textContent = "Zone — " + getExpeditionZoneLabel(def);
+        body.appendChild(origin);
+      }
+
       const meta = document.createElement("div");
       meta.className = "expedition-card-meta";
       meta.innerHTML =
@@ -14417,6 +15487,13 @@
       metas[1].textContent = String(def.requiredDragons);
       metas[2].textContent = formatNumber(def.recommendedPower);
       body.appendChild(meta);
+
+      if (def.description && status === "idle") {
+        const lore = document.createElement("p");
+        lore.className = "expedition-card-lore";
+        lore.textContent = def.description;
+        body.appendChild(lore);
+      }
 
       if (status === "running" && busy && busy.run) {
         const remaining = getExpeditionRemainingTime(busy.run);
@@ -14435,6 +15512,13 @@
         progress.querySelector(".exp-card-timer").textContent = formatCountdown(remaining) + " restantes";
         progress.querySelector(".expedition-card-progress-fill").style.width = pct.toFixed(1) + "%";
         body.appendChild(progress);
+
+        const powerLine = document.createElement("p");
+        powerLine.className = "expedition-card-claim-msg";
+        powerLine.textContent =
+          "Puissance équipe : " + formatNumber(safeNumber(busy.run.teamPower, 0)) +
+          " / " + formatNumber(safeNumber(busy.run.recommendedPower, def.recommendedPower));
+        body.appendChild(powerLine);
 
         const sent = document.createElement("div");
         sent.className = "expedition-card-sent";
@@ -14480,7 +15564,7 @@
           renderExpeditions();
         });
         actions.appendChild(claimBtn);
-      } else {
+      } else if (status !== "running") {
         const launchBtn = document.createElement("button");
         launchBtn.type = "button";
         launchBtn.className = "expedition-btn-launch";
@@ -14529,7 +15613,7 @@
           '<div class="expedition-card-media"><img alt="" draggable="false" /></div>' +
           '<div class="expedition-card-overlay"></div>' +
           '<h3 class="expedition-card-title"></h3>';
-        preview.querySelector("img").src = encodeAssetPath(def.image);
+        applyExpeditionImage(preview.querySelector("img"), def.image, def.name);
         preview.querySelector(".expedition-card-title").textContent = def.name;
         wrap.appendChild(preview);
       }
@@ -14542,6 +15626,13 @@
         "Durée " + formatDuration(def.durationMs) +
         " · Dragons " + expeditionUi.selectedDragons.length + " / " + def.requiredDragons;
       wrap.appendChild(head);
+
+      if (def.description) {
+        const lore = document.createElement("p");
+        lore.className = "expedition-card-lore";
+        lore.textContent = def.description;
+        wrap.appendChild(lore);
+      }
 
       const teamPower = calculateExpeditionTeamPower(expeditionUi.selectedDragons);
       const chance = calculateSuccessChance(teamPower, def.recommendedPower);
@@ -15289,15 +16380,18 @@
         visual.appendChild(img);
       }
 
-      /* Overlay cadenas + progression : uniquement si zone encore verrouillée */
+      /* Overlay cadenas PNG + progression : uniquement si zone encore verrouillée */
       if (!unlocked && !zone.comingSoon) {
         const overlay = document.createElement("div");
         overlay.className = "world-zone-lock-overlay";
 
-        const lockEmoji = document.createElement("div");
-        lockEmoji.className = "world-zone-lock-emoji";
-        lockEmoji.textContent = "🔒";
-        overlay.appendChild(lockEmoji);
+        const lockImg = document.createElement("img");
+        lockImg.className = "world-lock-icon world-zone-lock-icon";
+        lockImg.src = WORLD_ZONE_LOCK_ICON;
+        lockImg.alt = "";
+        lockImg.decoding = "async";
+        lockImg.draggable = false;
+        overlay.appendChild(lockImg);
 
         if (invest) {
           const progress = document.createElement("div");
@@ -15346,7 +16440,7 @@
         const overlay = document.createElement("div");
         overlay.className = "world-zone-lock-overlay";
         const lockImg = document.createElement("img");
-        lockImg.className = "world-zone-lock-icon";
+        lockImg.className = "world-lock-icon world-zone-lock-icon";
         lockImg.src = WORLD_ZONE_LOCK_ICON;
         lockImg.alt = "";
         lockImg.decoding = "async";
@@ -16266,6 +17360,7 @@
         eggs: gameState.eggs,
         dragons: gameState.dragons,
         equippedEggId: gameState.equippedEggId,
+        zoneEggSelection: gameState.zoneEggSelection || {},
         totalEggsHatched: gameState.totalEggsHatched,
         totalDragonsObtained: gameState.totalDragonsObtained,
         rarityStats: gameState.rarityStats,
@@ -16533,6 +17628,11 @@
               /* Old progress was click-count based (typically /500) — scale into hatch power */
               const oldReq = Math.max(1, safeNumber(src.requiredClicks, e.requiredClicks || 500));
               progress = Math.floor(progress * (newReq / oldReq));
+            } else if (saveVer < 13 && (e.id === "plant" || e.id === "cascade")) {
+              /* Zone 2 rebalance v13 : conserver le % de progression (ancien seuil 400). */
+              const oldReq = 400;
+              const pct = Math.min(1, progress / oldReq);
+              progress = Math.floor(pct * newReq);
             }
             fresh.eggs[e.id] = {
               unlocked: src.unlocked != null ? !!src.unlocked : !!e.startUnlocked,
@@ -16674,6 +17774,39 @@
         if (firstUnlocked) fresh.equippedEggId = firstUnlocked;
       }
 
+      /* Carrousel Zone 2+ : selectedEggId + progression par œuf déjà dans fresh.eggs */
+      fresh.zoneEggSelection = {};
+      if (data.zoneEggSelection && typeof data.zoneEggSelection === "object") {
+        Object.keys(data.zoneEggSelection).forEach((zid) => {
+          const src = data.zoneEggSelection[zid];
+          if (!src || typeof src !== "object") return;
+          const zEggs = getZoneCarouselEggs(zid);
+          let sel = src.selectedEggId;
+          if (!sel || !zEggs.some((e) => e.id === sel)) {
+            sel = zEggs.length ? zEggs[0].id : null;
+          }
+          if (sel) fresh.zoneEggSelection[zid] = { selectedEggId: sel };
+        });
+      }
+      ZONE_DEFS.forEach((z) => {
+        if (!zoneSupportsEggCarousel(z.id)) return;
+        if (!isZoneUnlocked(fresh, z.id)) return;
+        const hadSaved = !!(
+          data.zoneEggSelection &&
+          data.zoneEggSelection[z.id] &&
+          data.zoneEggSelection[z.id].selectedEggId
+        );
+        ensureZoneEggSelection(z.id, fresh);
+        /* Ancienne sauvegarde sans selectedEggId : garder l'œuf équipé si valide */
+        if (!hadSaved && z.id === fresh.currentZoneId && zoneEggIds.indexOf(fresh.equippedEggId) !== -1) {
+          fresh.zoneEggSelection[z.id].selectedEggId = fresh.equippedEggId;
+        }
+        if (z.id === fresh.currentZoneId) {
+          const selId = fresh.zoneEggSelection[z.id] && fresh.zoneEggSelection[z.id].selectedEggId;
+          if (selId) fresh.equippedEggId = selId;
+        }
+      });
+
       fresh.fragmentBonusAccumulator = Math.max(0, safeNumber(data.fragmentBonusAccumulator, 0));
       fresh.eggProgressAccumulator = Math.max(0, safeNumber(data.eggProgressAccumulator, 0));
 
@@ -16712,9 +17845,14 @@
           fresh.expeditions.slots[i] = {
             id: run.id || ("run_" + i),
             expeditionId: run.expeditionId,
+            zoneId: run.zoneId || (getExpeditionDef(run.expeditionId) || {}).zoneId || null,
             dragonIds,
             startTime: safeNumber(run.startTime, Date.now()),
             endTime: safeNumber(run.endTime, Date.now()),
+            durationMs: safeNumber(
+              run.durationMs,
+              (getExpeditionDef(run.expeditionId) || {}).durationMs || 0
+            ),
             teamPower: safeNumber(run.teamPower, 0),
             recommendedPower: safeNumber(run.recommendedPower, 0),
             successChance: Math.min(1, Math.max(0.4, safeNumber(run.successChance, 0.4))),
@@ -16809,6 +17947,8 @@
       gameState.introSeen = opts.skipIntro !== false;
       clickTimestamps = [];
       hatchSequenceActive = false;
+      const stageReset = document.getElementById("egg-stage");
+      if (stageReset) stageReset.classList.remove("is-hatching");
       clicksLocked = false;
       currentEggImageStage = null;
       currentEggImageEggId = null;
@@ -17713,6 +18853,7 @@
           currentEggImageEggId = null;
           updateEggVisualState({ forceImage: true });
         }
+        scheduleUpdateGameCenterAxis();
       }
       renderUI();
       if (name === "shop") {
@@ -17781,10 +18922,24 @@
 
       zone.addEventListener("pointerdown", (e) => {
         if (e.button != null && e.button !== 0) return;
+        if (e.target.closest && e.target.closest("#egg-carousel-peer, #egg-carousel-peer-prev, .egg-carousel-item:not(.is-active-slot)")) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         handleEggPointerDown(e.clientX, e.clientY);
       });
 
       zone.addEventListener("click", (e) => {
+        const peer = e.target.closest && e.target.closest("#egg-carousel-peer, #egg-carousel-peer-prev, .egg-carousel-item:not(.is-active-slot)");
+        if (peer) {
+          e.preventDefault();
+          e.stopPropagation();
+          const id = peer.dataset.eggId;
+          if (id) selectCarouselEgg(id);
+          return;
+        }
+        if (isEggCarouselAnimating) return;
         handleClick(e.clientX, e.clientY);
       });
 
@@ -17811,7 +18966,18 @@
       if (worldMenuClose) worldMenuClose.addEventListener("click", () => switchPanel("kingdom"));
       window.addEventListener("resize", () => {
         syncShopDividerToKingdomNav();
+        if (gameCenterAxisResizeTimer) clearTimeout(gameCenterAxisResizeTimer);
+        gameCenterAxisResizeTimer = setTimeout(() => {
+          gameCenterAxisResizeTimer = 0;
+          scheduleUpdateGameCenterAxis();
+        }, 50);
       });
+
+      const gameLogo = document.querySelector(".header-logo-wrap .game-logo") || document.querySelector(".game-logo");
+      if (gameLogo) {
+        if (gameLogo.complete) scheduleUpdateGameCenterAxis();
+        else gameLogo.addEventListener("load", () => scheduleUpdateGameCenterAxis(), { once: true });
+      }
       document.addEventListener("keydown", (e) => {
         if (e.key !== "Escape") return;
         if (!document.getElementById("team-picker-modal").classList.contains("hidden")) {
@@ -17987,6 +19153,8 @@
 
       const loaded = loadGame();
 
+      syncActiveEggFromZoneSelection();
+
       if (!gameState.introSeen) {
         document.getElementById("intro-modal").classList.remove("hidden");
       } else {
@@ -17997,8 +19165,11 @@
       applyEggScene(getEquippedEggDef());
       renderEgg();
       renderEggPicker();
+      updateEggCarouselPeer();
+      scheduleUpdateGameCenterAxis();
       renderDragons();
       renderAllStatic();
+      scheduleUpdateGameCenterAxis();
       updateAudioToggles();
       AudioManager.ensureEggCrack();
       AudioManager.ensureDragonPopup();
