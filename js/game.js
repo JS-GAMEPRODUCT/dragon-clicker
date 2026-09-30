@@ -1494,6 +1494,7 @@
         visitedZones: ["sanctuary"],
         zoneSpent: {},
         team: [null, null, null],
+        redeemedCodes: [],
         expeditions: {
           unlockedSlots: DEFAULT_EXPEDITION_SLOTS,
           slots: [null],
@@ -2746,6 +2747,61 @@
     /* -------------------------------------------------------
        CORE ACTIONS
        ------------------------------------------------------- */
+    /* Codes bonus (extensible) — un seul redeem par code / sauvegarde */
+    const BONUS_CODES = {
+      "1234": { type: "essence", amount: 1000000 }
+    };
+
+    function setBonusCodeFeedback(message, kind) {
+      const el = document.getElementById("bonus-code-feedback");
+      if (!el) return;
+      el.hidden = !message;
+      el.textContent = message || "";
+      el.classList.remove("is-ok", "is-error");
+      if (kind === "ok") el.classList.add("is-ok");
+      if (kind === "error") el.classList.add("is-error");
+    }
+
+    function redeemBonusCode(rawCode) {
+      const code = String(rawCode == null ? "" : rawCode).trim();
+      if (!code) {
+        setBonusCodeFeedback("CODE INVALIDE", "error");
+        showNotification("CODES BONUS", "CODE INVALIDE");
+        return false;
+      }
+      const reward = BONUS_CODES[code];
+      if (!reward) {
+        setBonusCodeFeedback("CODE INVALIDE", "error");
+        showNotification("CODES BONUS", "CODE INVALIDE");
+        return false;
+      }
+      if (!Array.isArray(gameState.redeemedCodes)) gameState.redeemedCodes = [];
+      if (gameState.redeemedCodes.indexOf(code) !== -1) {
+        setBonusCodeFeedback("CODE DÉJÀ UTILISÉ", "error");
+        showNotification("CODES BONUS", "CODE DÉJÀ UTILISÉ");
+        return false;
+      }
+
+      if (reward.type === "essence") {
+        /* addEssence incrémente aussi totalEssenceEarned (= Essence totale) */
+        addEssence(safeNumber(reward.amount, 0), "bonus");
+        gameState.redeemedCodes.push(code);
+        uiDirty = true;
+        calculateProduction();
+        saveGame(true);
+        const label = "+" + formatNumber(reward.amount) + " Essence";
+        setBonusCodeFeedback("CODE VALIDÉ ! " + label, "ok");
+        showNotification("CODE VALIDÉ !", label);
+        const input = document.getElementById("bonus-code-input");
+        if (input) input.value = "";
+        return true;
+      }
+
+      setBonusCodeFeedback("CODE INVALIDE", "error");
+      showNotification("CODES BONUS", "CODE INVALIDE");
+      return false;
+    }
+
     function addEssence(amount, source) {
       amount = safeNumber(amount, 0);
       if (amount <= 0) return;
@@ -7777,6 +7833,7 @@
         visitedZones: gameState.visitedZones || ["sanctuary"],
         zoneSpent: ensureZoneSpent(gameState),
         team: gameState.team,
+        redeemedCodes: Array.isArray(gameState.redeemedCodes) ? gameState.redeemedCodes.slice() : [],
         fragmentBonusAccumulator: safeNumber(gameState.fragmentBonusAccumulator, 0),
         eggProgressAccumulator: safeNumber(gameState.eggProgressAccumulator, 0),
         expeditions: gameState.expeditions,
@@ -8202,6 +8259,15 @@
           if (selId) fresh.equippedEggId = selId;
         }
       });
+
+      fresh.redeemedCodes = [];
+      if (Array.isArray(data.redeemedCodes)) {
+        data.redeemedCodes.forEach((c) => {
+          if (typeof c === "string" && c && fresh.redeemedCodes.indexOf(c) === -1) {
+            fresh.redeemedCodes.push(c);
+          }
+        });
+      }
 
       fresh.fragmentBonusAccumulator = Math.max(0, safeNumber(data.fragmentBonusAccumulator, 0));
       fresh.eggProgressAccumulator = Math.max(0, safeNumber(data.eggProgressAccumulator, 0));
@@ -9543,6 +9609,21 @@
       });
 
       document.getElementById("btn-save").addEventListener("click", () => saveGame(false));
+      const bonusInput = document.getElementById("bonus-code-input");
+      const bonusBtn = document.getElementById("btn-redeem-bonus-code");
+      if (bonusBtn) {
+        bonusBtn.addEventListener("click", () => {
+          redeemBonusCode(bonusInput ? bonusInput.value : "");
+        });
+      }
+      if (bonusInput) {
+        bonusInput.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter") {
+            ev.preventDefault();
+            redeemBonusCode(bonusInput.value);
+          }
+        });
+      }
       document.getElementById("btn-export").addEventListener("click", exportSave);
       document.getElementById("btn-import").addEventListener("click", importSave);
       document.getElementById("btn-reset").addEventListener("click", resetGame);

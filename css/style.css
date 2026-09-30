@@ -2600,6 +2600,53 @@
 
     .settings-actions .btn { width: 100%; }
 
+    .bonus-codes-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .bonus-code-input {
+      flex: 1 1 180px;
+      min-width: 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(212, 168, 75, 0.45);
+      background: rgba(6, 12, 22, 0.85);
+      color: var(--text);
+      font-family: var(--font-body, inherit);
+      font-size: 0.95rem;
+      box-sizing: border-box;
+    }
+
+    .bonus-code-input:focus {
+      outline: none;
+      border-color: rgba(232, 196, 110, 0.85);
+      box-shadow: 0 0 0 2px rgba(212, 168, 75, 0.2);
+    }
+
+    .bonus-codes-row .btn {
+      flex: 0 0 auto;
+      min-width: 110px;
+      width: auto;
+    }
+
+    .bonus-code-feedback {
+      margin: 10px 0 0;
+      font-size: 0.82rem;
+      color: var(--gold);
+      letter-spacing: 0.04em;
+    }
+
+    .bonus-code-feedback.is-error {
+      color: #e8a090;
+    }
+
+    .bonus-code-feedback.is-ok {
+      color: #9af0b8;
+    }
+
     .import-area {
       width: 100%;
       min-height: 80px;
@@ -10400,6 +10447,8 @@ html {
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
     padding: 0 2px 96px !important;
   }
   #panel-dragons .dragon-grid {
@@ -10408,6 +10457,7 @@ html {
     gap: 8px !important;
     width: 100% !important;
     max-width: 100% !important;
+    touch-action: pan-y;
   }
   #panel-dragons .dragon-tile {
     aspect-ratio: auto !important;
@@ -10418,6 +10468,17 @@ html {
     max-height: 250px !important;
     padding: 6px 6px 8px !important;
     margin: 0 !important;
+    touch-action: pan-y;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  #panel-dragons .dragon-tile *,
+  #panel-dragons .dt-art,
+  #panel-dragons .dt-meta,
+  #panel-dragons .dt-name,
+  #panel-dragons .dt-stars,
+  #panel-dragons .dt-bonus {
+    touch-action: pan-y;
   }
   #panel-dragons .dt-art {
     flex: 0 0 auto !important;
@@ -10432,6 +10493,9 @@ html {
     width: 100% !important;
     height: 100% !important;
     object-fit: contain !important;
+    -webkit-user-drag: none;
+    user-select: none;
+    pointer-events: none;
   }
   #panel-dragons .dragon-tile.undiscovered .dc-emoji {
     font-size: 2.1rem !important;
@@ -10699,7 +10763,8 @@ html {
   }
 
   .nav {
-    z-index: 45 !important;
+    position: relative;
+    z-index: 120 !important;
   }
 
   /* Overlay / équipe ouverte : main (menus) passe au-dessus du HUD */
@@ -10726,13 +10791,18 @@ html {
     z-index: 20 !important;
   }
 
+  /*
+   * Menus au-dessus du HUD, mais AU-DESSUS de la nav basse :
+   * le panneau s'arrête avant la barre Boutique/Dragons/…
+   * La nav (z:120) reste cliquable.
+   */
   #app:has(.overlay-panel.active) .panel.overlay-panel.active {
     position: fixed !important;
     inset: 0 !important;
     top: 0 !important;
     right: 0 !important;
-    bottom: 0 !important;
     left: 0 !important;
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
     z-index: 80 !important;
   }
 
@@ -10750,6 +10820,17 @@ html {
 
   #team-module.team-module.open {
     z-index: 95 !important;
+  }
+
+  /* Dragons / Boutique : hauteur limitée au-dessus de la nav */
+  #app:has(#panel-dragons.active) #panel-dragons .game-large-panel {
+    bottom: max(10px, env(safe-area-inset-bottom, 0px)) !important;
+    max-height: calc(100dvh - 88px - env(safe-area-inset-bottom, 0px) - 12px) !important;
+  }
+
+  #app:has(#panel-shop.active) #panel-shop .shop-menu {
+    height: min(78vh, calc(100dvh - 88px - env(safe-area-inset-bottom, 0px) - 24px)) !important;
+    max-height: min(78vh, calc(100dvh - 88px - env(safe-area-inset-bottom, 0px) - 24px)) !important;
   }
 
   /* ----- HUD : colonnes Gauche / Logo / Droite ----- */
@@ -10904,12 +10985,13 @@ html {
     display: none !important;
   }
 
-  /* ----- Mini barre équipe à gauche ----- */
+  /* ----- Mini barre équipe à gauche (ancrée à l'autel / œuf) ----- */
   .mobile-team-rail {
     display: flex !important;
     position: absolute;
     left: max(2px, env(safe-area-inset-left, 0px));
-    top: 52%;
+    /* Remontée : moitié supérieure de l'œuf, pas la barre de progression */
+    top: clamp(28%, calc(var(--altar-y, 64%) - 22%), 40%);
     transform: translateY(-50%);
     z-index: 22;
     flex-direction: row;
@@ -11041,5 +11123,16 @@ html {
   .mobile-team-slot {
     width: clamp(50px, 13vw, 58px);
     height: clamp(50px, 13vw, 58px);
+  }
+}
+
+/* Mobile settings: codes bonus stack on narrow screens */
+@media (max-width: 768px) {
+  .bonus-codes-row {
+    flex-direction: column;
+  }
+  .bonus-codes-row .btn {
+    width: 100%;
+    min-width: 0;
   }
 }
