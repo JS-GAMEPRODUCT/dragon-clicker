@@ -273,12 +273,12 @@ var ZONE_RANK_META = [
         /* Force Draconique : 3 paliers lourds de puissance de clic (totaux cumulés). */
         heavyClickFlat: true,
         clickPowerFlatValues: [2, 5, 8],
-        clickPowerFlatCosts: [50000, 100000, 180000],
+        clickPowerFlatCosts: [15000, 30000, 55000],
         icons: { fervor: "💪" },
-        /* Z1 ≈ boutique 474K + upgrades ~489K − ancienne Résonance + Force 330K ≈ 1.05–1.1M. */
-        baseCosts: { claws: 500, instinct: 2500, bite: 10000, fervor: 50000 },
-        costGrowth: 1.22,
-        familyGrowth: { claws: 1.22, instinct: 1.3, bite: 1.35, fervor: 2 },
+        /* Prix Z1 — bonus inchangés ; boutique Z1 non touchée. */
+        baseCosts: { claws: 250, instinct: 1500, bite: 7000, fervor: 15000 },
+        costGrowth: 1.25,
+        familyGrowth: { claws: 1.25, instinct: 1.28, bite: 1.30, fervor: 1 },
         maxLevels: { claws: 15, instinct: 10, bite: 5, fervor: 3 }
       },
       {

@@ -61,6 +61,9 @@
     const TEAM_SIZE = 3;
     const DEFAULT_EXPEDITION_SLOTS = 1;
     const EXPEDITION_UNLOCK_DRAGON_POWER = 2000;
+    /* Sélection libre : 1 à 3 dragons pour toute expédition */
+    const EXPEDITION_PARTY_MIN = 1;
+    const EXPEDITION_PARTY_MAX = 3;
 
     const EXPEDITION_BASE_POWER = {
       common: 100,
@@ -1476,11 +1479,39 @@
     let eggClickGlowAnimation = null;
     let hatchFxTimers = [];
     let hatchFxToken = 0;
+    /**
+     * Unique source of truth for the final hatch reveal timeline (visual only).
+     * Total ≈ 2.4–2.6s from 100% to fully visible dragon.
+     */
+    /**
+     * Hatch reveal timeline — ~3.1–3.3s total (readable, not instant).
+     * Single source of truth; runHatchSequence awaits each phase in order.
+     */
+    const HATCH_SEQUENCE_TIMINGS = {
+      crackSound: 90,           /* EGG CRACK ~90ms after 100% */
+      finalShake: 560,          /* progressive final tremble */
+      breakPhase: 380,          /* glow / fissure / open */
+      hatchSoundAt: 70,         /* early into break → hatch follows opening (~730ms) */
+      eggVanish: 320,           /* progressive egg fade */
+      pauseAfterBreak: 150,     /* beat between egg gone and magic */
+      summonEffect: 750,        /* magic sprite sheet */
+      dragonReveal: 980,        /* progressive materialize */
+      dragonRevealSoundAt: 180, /* rarity SFX shortly after reveal starts */
+      twinPause: 350,
+      twinSummonEffect: 700
+    };
+    const DRAGON_SUMMON_COLS = 5;
+    const DRAGON_SUMMON_ROWS = 2;
+    const DRAGON_SUMMON_TOTAL_FRAMES = DRAGON_SUMMON_COLS * DRAGON_SUMMON_ROWS;
+    const DRAGON_SUMMON_SRC = "assets/animation/magic-electric-lightning-ball-animation-sprite.png";
+    let dragonSummonSpriteReady = null;
+    let dragonSummonActiveEl = null;
     let lastEggAmbientShakeAt = 0;
     let activeClickFloats = [];
     let activeClickParticles = [];
     const MAX_CLICK_FLOATS = 18;
     const MAX_CLICK_PARTICLES = 24;
+    let lastHudDragonPower = null;
 
     /* -------------------------------------------------------
        UTILITY — formatNumber
@@ -2439,8 +2470,18 @@
         }
         return;
       }
+      const stageChanged = !force &&
+        currentEggImageEggId === eggId &&
+        currentEggImageStage != null &&
+        currentEggImageStage !== visual.stage;
       currentEggImageEggId = eggId;
       currentEggImageStage = visual.stage;
+      if (stageChanged && window.DCAnim && typeof DCAnim.playCrackTransition === "function") {
+        DCAnim.playCrackTransition(function () {
+          applyEggProgressImage(visual.src);
+        });
+        return;
+      }
       applyEggProgressImage(visual.src);
     }
 
@@ -2622,6 +2663,11 @@
       if (gameState.dragonEssence < 0) gameState.dragonEssence = 0;
       if (opts && opts.zoneId) recordZoneSpend(opts.zoneId, amount);
       uiDirty = true;
+      if (window.DCAnim && DCAnim.pulseHudSpend) DCAnim.pulseHudSpend();
+      else {
+        const pill = document.querySelector(".essence-stat");
+        if (pill) triggerAnim(pill, "anim-hud-spend", 220);
+      }
       return true;
     }
 
@@ -2771,6 +2817,7 @@
       spawnClickEffects(clientX, clientY, essenceGain, isCrit, { charged: isCharged });
       AudioManager.unlock();
       playSound("click", isCrit || isCharged);
+      updateChargedAuraVisual();
       checkAchievements();
       shopDirty = true;
       upgradesDirty = true;
@@ -2782,25 +2829,6 @@
       if (clicksLocked || hatchSequenceActive || isEggCarouselAnimating) return;
       AudioManager.unlock();
       playEggClickPress(false);
-    }
-
-    const EGG_CRACK_SOUND_THRESHOLD = 0.92; /* 92 % de progression */
-
-    function maybePlayEggCrackSound(eggDef, oldProgress, newProgress) {
-      if (!eggDef) return;
-      const prog = getEggProgress(eggDef.id);
-      if (prog.crackSoundPlayed) return;
-      const req = getEggHatchRequirement(eggDef);
-      if (req <= 0) return;
-      const oldRatio = safeNumber(oldProgress, 0) / req;
-      const newRatio = safeNumber(newProgress, 0) / req;
-      if (oldRatio >= EGG_CRACK_SOUND_THRESHOLD) {
-        prog.crackSoundPlayed = true;
-        return;
-      }
-      if (newRatio < EGG_CRACK_SOUND_THRESHOLD) return;
-      prog.crackSoundPlayed = true;
-      playSound("eggCrack");
     }
 
     function advanceEggProgress(amount) {
@@ -2818,15 +2846,13 @@
       }
 
       const req = getEggHatchRequirement(eggDef);
+      /* Already at max — single hatch path; crack plays inside startHatchSequence at 100%. */
       if (prog.progress >= req) {
-        maybePlayEggCrackSound(eggDef, prog.progress, prog.progress);
         startHatchSequence(eggDef);
         return;
       }
 
-      const oldProgress = safeNumber(prog.progress, 0);
-      prog.progress = Math.min(req, oldProgress + amount);
-      maybePlayEggCrackSound(eggDef, oldProgress, prog.progress);
+      prog.progress = Math.min(req, safeNumber(prog.progress, 0) + amount);
       renderEggProgressUI();
       updateEggVisualState();
 
@@ -2878,8 +2904,10 @@
         playSound("buy");
         const boughtCard = document.querySelector('[data-producer-id="' + id + '"]');
         if (boughtCard) {
-          triggerAnim(boughtCard, "anim-purchase", 300);
-          spawnUiFloat(boughtCard, "Niv. " + lvl);
+          const atMax = lvl >= maxLvl;
+          if (window.DCAnim && DCAnim.purchaseFlash) DCAnim.purchaseFlash(boughtCard, atMax);
+          else triggerAnim(boughtCard, atMax ? "anim-purchase-max" : "anim-purchase", atMax ? 420 : 300);
+          spawnUiFloat(boughtCard, atMax ? "MAX" : ("Niv. " + lvl));
         }
         checkAchievements();
         shopDirty = true;
@@ -2911,6 +2939,13 @@
           "Niveau " + nl + " / " + def.maxLevel + (nl >= def.maxLevel ? " · MAX" : "")
         );
         playSound("upgrade");
+        const upCard = document.querySelector('[data-active-id="' + id + '"]');
+        if (upCard) {
+          const atMax = nl >= def.maxLevel;
+          if (window.DCAnim && DCAnim.purchaseFlash) DCAnim.purchaseFlash(upCard, atMax);
+          else triggerAnim(upCard, atMax ? "anim-purchase-max" : "anim-purchase", atMax ? 420 : 300);
+          spawnUiFloat(upCard, atMax ? "MAX" : ("Niv. " + nl));
+        }
         checkAchievements();
         upgradesDirty = true;
         uiDirty = true;
@@ -3437,6 +3472,98 @@
       }, 1100);
     }
 
+    function preloadDragonSummonSprite() {
+      if (dragonSummonSpriteReady) return dragonSummonSpriteReady;
+      dragonSummonSpriteReady = new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = DRAGON_SUMMON_SRC;
+      });
+      return dragonSummonSpriteReady;
+    }
+
+    function clearDragonSummonEffectDom() {
+      if (dragonSummonActiveEl && dragonSummonActiveEl.parentNode) {
+        try { dragonSummonActiveEl.parentNode.removeChild(dragonSummonActiveEl); } catch (e) { /* ignore */ }
+      }
+      dragonSummonActiveEl = null;
+      document.querySelectorAll(".dragon-summon-effect").forEach((el) => {
+        try { el.remove(); } catch (e) { /* ignore */ }
+      });
+    }
+
+    /**
+     * Sprite-sheet summon FX — dragon stays invisible until this resolves.
+     * Duration driven by HATCH_SEQUENCE_TIMINGS.summonEffect (or twin override).
+     */
+    function playDragonSummonEffect(opts) {
+      opts = opts || {};
+      const T = HATCH_SEQUENCE_TIMINGS;
+      const duration = Math.max(200, opts.duration != null ? opts.duration : T.summonEffect);
+      const reduce = prefersReducedMotion();
+      clearDragonSummonEffectDom();
+      if (reduce) return Promise.resolve();
+
+      return preloadDragonSummonSprite().then((img) => {
+        if (!img || !img.naturalWidth) return;
+        /* Above hatch-overlay (z 1500) so the FX is actually visible */
+        const zone = document.getElementById("click-zone");
+        const host = document.body;
+        const el = document.createElement("div");
+        el.className = "dragon-summon-effect";
+        el.setAttribute("aria-hidden", "true");
+        const frameW = img.naturalWidth / DRAGON_SUMMON_COLS;
+        const frameH = img.naturalHeight / DRAGON_SUMMON_ROWS;
+        el.style.width = Math.round(frameW) + "px";
+        el.style.height = Math.round(frameH) + "px";
+        el.style.backgroundImage = "url(\"" + DRAGON_SUMMON_SRC + "\")";
+        el.style.backgroundRepeat = "no-repeat";
+        el.style.backgroundSize = (DRAGON_SUMMON_COLS * 100) + "% " + (DRAGON_SUMMON_ROWS * 100) + "%";
+        if (zone) {
+          const r = zone.getBoundingClientRect();
+          el.style.left = (r.left + r.width / 2) + "px";
+          el.style.top = (r.top + r.height * 0.48) + "px";
+        }
+        host.appendChild(el);
+        dragonSummonActiveEl = el;
+
+        const frameMs = Math.max(40, Math.floor(duration / DRAGON_SUMMON_TOTAL_FRAMES));
+        let frame = 0;
+        return new Promise((resolve) => {
+          const tick = () => {
+            if (!el.parentNode) { resolve(); return; }
+            const col = frame % DRAGON_SUMMON_COLS;
+            const row = Math.floor(frame / DRAGON_SUMMON_COLS);
+            el.style.backgroundPosition =
+              (-Math.round(col * frameW)) + "px " + (-Math.round(row * frameH)) + "px";
+            frame++;
+            if (frame >= DRAGON_SUMMON_TOTAL_FRAMES) {
+              el.classList.add("is-fading");
+              setTimeout(() => {
+                clearDragonSummonEffectDom();
+                resolve();
+              }, 120);
+              return;
+            }
+            setTimeout(tick, frameMs);
+          };
+          /* Soft scale-in */
+          try {
+            el.animate(
+              [
+                { opacity: 0, transform: "translate(-50%, -50%) scale(0.72)" },
+                { opacity: 1, transform: "translate(-50%, -50%) scale(1.05)", offset: 0.2 },
+                { opacity: 1, transform: "translate(-50%, -50%) scale(1)" }
+              ],
+              { duration: Math.min(280, duration * 0.35), easing: "ease-out", fill: "forwards" }
+            );
+          } catch (e) { /* optional */ }
+          tick();
+        });
+      }).catch(() => {});
+    }
+
     function startHatchSequence(eggDef) {
       if (hatchSequenceActive) return;
       if (!eggDef || !getEggHatchPool(eggDef.id).length) {
@@ -3462,6 +3589,7 @@
         return;
       }
       pendingReveal = reveal;
+      preloadDragonSummonSprite();
 
       const wrap = document.getElementById("entity-wrap");
       const overlay = document.getElementById("hatch-overlay");
@@ -3473,6 +3601,8 @@
       const isMythic = rarity === "mythic" || rarity === "divine";
       const isRare = rarity === "rare" || rarity === "epic";
       const reduce = prefersReducedMotion();
+      const T = HATCH_SEQUENCE_TIMINGS;
+      let sequenceCrackPlayed = false;
 
       safeCancelAnimation(eggClickAnimation);
       safeCancelAnimation(eggAmbientAnimation);
@@ -3481,6 +3611,7 @@
       eggAmbientAnimation = null;
       eggHatchAnimation = null;
       clearHatchFxTimers();
+      clearDragonSummonEffectDom();
       const token = ++hatchFxToken;
 
       wrap.classList.remove(
@@ -3501,24 +3632,28 @@
       overlay.setAttribute("aria-hidden", "false");
       clearSuspenseText();
 
-      (async function runHatchFx() {
-        /* ÉTAPE 1 — CHARGE (~550ms) */
+      (async function runHatchSequence() {
         setSuspenseText("L'œuf est en train d'éclore...");
+
+        /* --- 1) CRACK puis tremblement (strictement séquentiel) --- */
+        if (!(await hatchDelay(T.crackSound, token))) return;
+        if (!sequenceCrackPlayed) {
+          sequenceCrackPlayed = true;
+          playSound("eggCrack", { force: true });
+        }
+
         if (!reduce && hatchWrap && typeof hatchWrap.animate === "function") {
           eggHatchAnimation = hatchWrap.animate(
             [
               { transform: "translate(0,0) rotate(0deg) scale(1)", filter: "brightness(1)" },
-              { transform: "translate(-2px,0) rotate(-1deg) scale(1.015)", filter: "brightness(1.12)" },
-              { transform: "translate(2px,0) rotate(1.2deg) scale(1.025)", filter: "brightness(1.22)" },
-              { transform: "translate(-2.5px,0) rotate(-1.4deg) scale(1.035)", filter: "brightness(1.32)" },
-              { transform: "translate(2px,0) rotate(1deg) scale(1.04)", filter: "brightness(1.4)" },
-              { transform: "translate(-1px,0) rotate(-0.6deg) scale(1.045)", filter: "brightness(1.48)" }
+              { transform: "translate(-3px,1px) rotate(-1.4deg) scale(1.025)", filter: "brightness(1.15)", offset: 0.25 },
+              { transform: "translate(4px,-1px) rotate(2deg) scale(1.045)", filter: "brightness(1.35)", offset: 0.5 },
+              { transform: "translate(-5px,1px) rotate(-2.4deg) scale(1.06)", filter: "brightness(1.55)", offset: 0.78 },
+              { transform: "translate(0,0) rotate(0deg) scale(1.04)", filter: "brightness(1.5)" }
             ],
-            { duration: 550, easing: "ease-in", fill: "none" }
+            { duration: T.finalShake, easing: "ease-in", fill: "none" }
           );
           spawnHatchParticles(isMythic ? 6 : isLegendary ? 4 : 3, isMythic);
-          playSound("hatch");
-          if (!(await hatchDelay(550, token))) return;
           await waitAnimation(eggHatchAnimation);
           safeCancelAnimation(eggHatchAnimation);
           eggHatchAnimation = null;
@@ -3526,32 +3661,46 @@
             hatchWrap.style.transform = "";
             hatchWrap.style.filter = "";
           }
+          if (token !== hatchFxToken) return;
         } else {
-          playSound("hatch");
-          if (!(await hatchDelay(400, token))) return;
+          if (!(await hatchDelay(Math.round(T.finalShake * 0.7), token))) return;
         }
 
-        /* ÉTAPE 2 — RUPTURE (~400ms) */
+        /* --- 2) Fissuration / glow / ouverture + HATCH SOUND --- */
         setSuspenseText("Quelque chose se réveille...");
         if (flash) {
           flash.classList.remove("burst");
           void flash.offsetWidth;
           flash.classList.add("burst");
         }
+
         if (!reduce && hatchWrap && typeof hatchWrap.animate === "function") {
           safeCancelAnimation(eggHatchAnimation);
           eggHatchAnimation = hatchWrap.animate(
             [
-              { transform: "translate(0,0) rotate(0deg) scale(1.045)", filter: "brightness(1.45)" },
-              { transform: "translate(-5px,1px) rotate(-2.2deg) scale(1.05)", filter: "brightness(1.7)" },
-              { transform: "translate(5px,-1px) rotate(2.2deg) scale(1.06)", filter: "brightness(1.95)" },
-              { transform: "translate(-4px,1px) rotate(-1.6deg) scale(1.05)", filter: "brightness(1.75)" },
-              { transform: "translate(0,0) rotate(0deg) scale(1.03)", filter: "brightness(1.55)" }
+              { transform: "translate(0,0) rotate(0deg) scale(1.04)", filter: "brightness(1.5)" },
+              { transform: "translate(-6px,2px) rotate(-3deg) scale(1.07)", filter: "brightness(1.85)", offset: 0.35 },
+              { transform: "translate(6px,-2px) rotate(3deg) scale(1.1)", filter: "brightness(2.2)", offset: 0.7 },
+              { transform: "translate(0,0) rotate(0deg) scale(1.05)", filter: "brightness(1.8)" }
             ],
-            { duration: 400, easing: "ease-in-out", fill: "none" }
+            { duration: T.breakPhase, easing: "ease-in-out", fill: "none" }
           );
           spawnHatchParticles(isMythic ? 10 : isLegendary ? 7 : isRare ? 5 : 3, isMythic);
-          if (!(await hatchDelay(400, token))) return;
+          if (window.DCAnim && DCAnim.burst) {
+            const zone = document.getElementById("click-zone");
+            if (zone) {
+              const r = zone.getBoundingClientRect();
+              DCAnim.burst(r.left + r.width / 2, r.top + r.height / 2, {
+                count: DCAnim.particleCount(isMythic ? "mythic" : "hatch"),
+                palette: isMythic ? ["#ff4ad2", "#ffe29a", "#7ad7ff"] : ["#ffe29a", "#ffb347"],
+                speed: 3.0,
+                life: 700
+              });
+            }
+          }
+          /* Hatch SFX mid-break, then wait for the rest of the WAAPI */
+          if (!(await hatchDelay(T.hatchSoundAt, token))) return;
+          playSound("hatch");
           await waitAnimation(eggHatchAnimation);
           safeCancelAnimation(eggHatchAnimation);
           eggHatchAnimation = null;
@@ -3559,76 +3708,85 @@
             hatchWrap.style.transform = "";
             hatchWrap.style.filter = "";
           }
+          if (token !== hatchFxToken) return;
         } else {
-          if (!(await hatchDelay(280, token))) return;
+          if (!(await hatchDelay(T.hatchSoundAt, token))) return;
+          playSound("hatch");
+          if (!(await hatchDelay(Math.max(80, T.breakPhase - T.hatchSoundAt), token))) return;
         }
 
-        /* ÉTAPE 3 — ÉCLOSION (~450ms) */
+        /* --- 3) Disparition progressive de l'œuf --- */
         wrap.classList.remove("hatching");
         wrap.classList.add("hatch-vanish");
         if (!reduce && clickWrap && typeof clickWrap.animate === "function") {
           safeCancelAnimation(eggClickAnimation);
           eggClickAnimation = clickWrap.animate(
             [
-              { transform: "scale(1)", filter: "brightness(1.4)", opacity: 1 },
-              { transform: "scale(0.86)", filter: "brightness(1.85)", opacity: 1 },
-              { transform: "scale(1.14)", filter: "brightness(2.25)", opacity: 0.45 },
-              { transform: "scale(0.72)", filter: "brightness(2.5)", opacity: 0 }
+              { transform: "scale(1)", filter: "brightness(1.5)", opacity: 1 },
+              { transform: "scale(0.94)", filter: "brightness(1.9)", opacity: 0.85, offset: 0.3 },
+              { transform: "scale(1.06)", filter: "brightness(2.25)", opacity: 0.4, offset: 0.65 },
+              { transform: "scale(0.7)", filter: "brightness(2.5)", opacity: 0 }
             ],
-            { duration: 450, easing: "cubic-bezier(.4,0,.2,1)", fill: "none" }
+            { duration: T.eggVanish, easing: "cubic-bezier(.4,0,.2,1)", fill: "forwards" }
           );
           spawnHatchParticles(isMythic ? 12 : isLegendary ? 8 : 5, isMythic);
-          if (!(await hatchDelay(450, token))) return;
+          if (window.DCAnim && DCAnim.spawnShockwave) {
+            const zone = document.getElementById("click-zone");
+            if (zone) {
+              const r = zone.getBoundingClientRect();
+              DCAnim.spawnShockwave(zone, r.width / 2, r.height / 2, isMythic ? "shockwave-combo" : "shockwave-crit");
+            }
+          }
           await waitAnimation(eggClickAnimation);
           safeCancelAnimation(eggClickAnimation);
           eggClickAnimation = null;
-          if (clickWrap) {
-            clickWrap.style.transform = "";
-            clickWrap.style.filter = "";
-            clickWrap.style.opacity = "";
-          }
+          if (token !== hatchFxToken) return;
         } else {
-          if (!(await hatchDelay(320, token))) return;
+          if (!(await hatchDelay(T.eggVanish, token))) return;
         }
 
         wrap.classList.remove("hatch-vanish");
         wrap.style.opacity = "0";
+        if (clickWrap) {
+          clickWrap.style.transform = "";
+          clickWrap.style.filter = "";
+          clickWrap.style.opacity = "0";
+        }
         if (isMythic) setSuspenseText("", true);
         else clearSuspenseText();
 
-        const settle = isMythic ? 750 : reduce ? 280 : 520;
-        if (!(await hatchDelay(settle, token))) {
-          /* Abandon mid-hatch : ne jamais laisser l'œuf invisible */
+        /* --- 4) Pause réelle avant magie --- */
+        if (!(await hatchDelay(reduce ? 100 : T.pauseAfterBreak, token))) {
           if (token !== hatchFxToken) return;
           resetEggVisualState();
           return;
         }
 
-        /* ÉTAPE 4+5 — modal + apparition */
+        /* --- 5) Effet magique (dragon encore invisible) --- */
         if (token !== hatchFxToken) return;
+        await playDragonSummonEffect({ duration: T.summonEffect });
+        if (token !== hatchFxToken) return;
+
         clearSuspenseText();
         if (flash) flash.classList.remove("burst");
         overlay.classList.remove("active");
         overlay.setAttribute("aria-hidden", "true");
-        wrap.style.opacity = "";
+        wrap.style.opacity = "0";
         wrap.classList.remove("hatch-vanish", "hatching", "hatched");
         safeCancelAnimation(eggClickAnimation);
         safeCancelAnimation(eggHatchAnimation);
         eggClickAnimation = null;
         eggHatchAnimation = null;
-        if (clickWrap) {
-          clickWrap.style.transform = "";
-          clickWrap.style.filter = "";
-          clickWrap.style.opacity = "";
-        }
         if (hatchWrap) {
           hatchWrap.style.transform = "";
           hatchWrap.style.filter = "";
         }
-        openRevealModal(pendingReveal);
+        clearDragonSummonEffectDom();
+
+        /* --- 6) Unique reveal path — await full dragon materialize --- */
+        await openRevealModal(pendingReveal);
         renderEggProgressUI();
         renderEggPicker();
-        /* Rareté : plus de SFX immédiat ici — le popup dragon est joué dans openRevealModal. */
       })();
     }
 
@@ -3680,7 +3838,7 @@
     function openRevealModal(reveal) {
       if (!reveal || !reveal.dragonDef) {
         finishHatchCleanup();
-        return;
+        return Promise.resolve();
       }
       const dragonDef = reveal.dragonDef;
       const rarity = RARITIES[dragonDef.rarity] || RARITIES.common;
@@ -3752,18 +3910,29 @@
       emoji.textContent = dragonDef.icon || "🐲";
       loadAssetImage(img, emoji, dragonDef.image, { silhouette: false });
 
+      /* Hide portraits BEFORE showing modal — never flash opacity 1 */
+      const preImg = document.getElementById("dragon-modal-img");
+      const preEmoji = document.getElementById("dragon-modal-emoji");
+      [preImg, preEmoji].forEach((el) => {
+        if (!el) return;
+        el.style.opacity = "0";
+        el.style.transform = "scale(0.65)";
+      });
+
       modal.classList.add("reveal-animating");
       modal.classList.remove("hidden");
-      /* Popup dragon SFX : synchronisé avec l'apparition visuelle (1× par révélation). */
-      playDragonPopupSound();
-      playDragonRevealAppear(dragonDef.rarity, !!reveal.isNew);
+      /* Await full materialize — sole reveal path after hatch sequence */
+      return playDragonRevealAppear(dragonDef.rarity, !!reveal.isNew);
     }
 
     function playDragonRevealAppear(rarity, isNew) {
       const reduce = prefersReducedMotion();
-      const isMythic = rarity === "mythic" || rarity === "divine";
-      const isLegendary = rarity === "legendary";
-      const isRare = rarity === "rare" || rarity === "epic";
+      const timing = (window.DCAnim && DCAnim.revealTiming)
+        ? DCAnim.revealTiming(rarity, !!isNew)
+        : null;
+      const isMythic = timing ? timing.isMythic : (rarity === "mythic" || rarity === "divine");
+      const isLegendary = timing ? timing.isLegendary : (rarity === "legendary");
+      const isRare = timing ? timing.isRare : (rarity === "rare" || rarity === "epic");
       const modal = document.getElementById("dragon-modal");
       const modalInner = document.getElementById("dragon-modal-inner");
       const art = document.getElementById("dragon-modal-art");
@@ -3781,11 +3950,25 @@
         isRare ? "drop-shadow(0 0 20px rgba(100,170,255,0.9))" :
         "drop-shadow(0 0 14px rgba(255,230,180,0.65))";
 
-      let dragonDur = isNew ? 900 : 700;
-      if (isMythic) dragonDur += 450;
-      else if (isLegendary) dragonDur += 220;
-      else if (isRare) dragonDur += 120;
-      if (reduce) dragonDur = Math.min(dragonDur, 360);
+      /* Single source: HATCH_SEQUENCE_TIMINGS.dragonReveal (~1200ms) */
+      let dragonDur = HATCH_SEQUENCE_TIMINGS.dragonReveal;
+      if (isMythic) dragonDur = Math.round(dragonDur * 1.08);
+      else if (isLegendary) dragonDur = Math.round(dragonDur * 1.04);
+      if (reduce) dragonDur = Math.min(dragonDur, 400);
+      const soundAt = Math.max(0, HATCH_SEQUENCE_TIMINGS.dragonRevealSoundAt || 250);
+
+      if (timing && timing.dimScreen && modal) {
+        modal.classList.add("reveal-mythic-dim");
+        setTimeout(() => modal.classList.remove("reveal-mythic-dim"), Math.min(dragonDur + 200, 1400));
+      }
+
+      if (isNew && modal) {
+        modal.classList.add("reveal-new-dragon");
+        setTimeout(() => modal.classList.remove("reveal-new-dragon"), dragonDur + 400);
+      } else if (modal) {
+        modal.classList.add("reveal-duplicate");
+        setTimeout(() => modal.classList.remove("reveal-duplicate"), dragonDur + 200);
+      }
 
       [modalInner, art, aura, ring, flash].concat(portraits).forEach((el) => {
         if (el && el.getAnimations) {
@@ -3793,36 +3976,53 @@
         }
       });
 
+      const finishPortraitStyles = (portrait) => {
+        if (!portrait) return;
+        portrait.style.opacity = "";
+        portrait.style.transform = "";
+        portrait.style.filter = "";
+      };
+
       if (reduce) {
-        if (art) {
-          art.animate(
+        playDragonRevealSound(rarity);
+        const tasks = [];
+        if (art && typeof art.animate === "function") {
+          tasks.push(waitAnimation(art.animate(
             [
               { transform: "scale(0.88)", opacity: 0.6 },
               { transform: "scale(1)", opacity: 1 }
             ],
             { duration: dragonDur, easing: "ease-out", fill: "forwards" }
-          ).finished.catch(() => {});
+          )));
         }
-        if (modal) modal.classList.remove("reveal-animating");
-        document.querySelectorAll("#dragon-modal .dragon-reveal-ui").forEach((el) => {
-          el.style.opacity = "";
-          el.style.transform = "";
+        return Promise.all(tasks).then(() => {
+          if (modal) modal.classList.remove("reveal-animating");
+          document.querySelectorAll("#dragon-modal .dragon-reveal-ui").forEach((el) => {
+            el.style.opacity = "";
+            el.style.transform = "";
+          });
         });
-        return;
       }
 
-      if (modalInner) {
+      /* Force invisible before any frame paints */
+      portraits.forEach((p) => {
+        if (!p) return;
+        p.style.opacity = "0";
+        p.style.transform = "scale(0.65)";
+      });
+
+      if (modalInner && typeof modalInner.animate === "function") {
         modalInner.animate(
           [
-            { transform: "scale(0.92) translateY(18px)", opacity: 0 },
-            { transform: "scale(1.015) translateY(-2px)", opacity: 1, offset: 0.7 },
+            { transform: "scale(0.94) translateY(14px)", opacity: 0 },
+            { transform: "scale(1.01) translateY(-2px)", opacity: 1, offset: 0.65 },
             { transform: "scale(1) translateY(0)", opacity: 1 }
           ],
-          { duration: 420, easing: "cubic-bezier(.2,.85,.25,1)" }
-        ).finished.catch(() => {});
+          { duration: Math.min(700, dragonDur * 0.55), easing: "cubic-bezier(.2,.85,.25,1)" }
+        );
       }
 
-      if (ring) {
+      if (ring && typeof ring.animate === "function") {
         ring.animate(
           [
             { opacity: 0, transform: "translate(-50%, -50%) scale(0.35)" },
@@ -3830,82 +4030,104 @@
             { opacity: 0.55, transform: "translate(-50%, -50%) scale(1.55)", offset: 0.7 },
             { opacity: 0, transform: "translate(-50%, -50%) scale(2.1)" }
           ],
-          { duration: isMythic ? 900 : 700, easing: "cubic-bezier(.15,.8,.25,1)", delay: 80 }
-        ).finished.catch(() => {});
+          { duration: Math.round(dragonDur * 0.85), easing: "cubic-bezier(.15,.8,.25,1)", delay: 120 }
+        );
       }
 
-      if (flash) {
+      if (flash && typeof flash.animate === "function") {
         flash.animate(
           [
             { opacity: 0, transform: "scale(0.5)" },
             { opacity: isMythic ? 1 : 0.85, transform: "scale(1.05)", offset: 0.25 },
             { opacity: 0, transform: "scale(1.35)" }
           ],
-          { duration: isMythic ? 520 : 380, easing: "ease-out", delay: 120 }
-        ).finished.catch(() => {});
+          { duration: isMythic ? 640 : 480, easing: "ease-out", delay: 160 }
+        );
       }
 
-      if (aura) {
+      if (aura && typeof aura.animate === "function") {
         aura.animate(
           [
             { opacity: 0, transform: "scale(0.45)" },
             { opacity: 1, transform: "scale(1.12)", offset: 0.55 },
             { opacity: 1, transform: "scale(1)" }
           ],
-          { duration: dragonDur * 0.85, easing: "cubic-bezier(.2,.85,.25,1)", delay: 100 }
-        ).finished.catch(() => {});
+          { duration: dragonDur * 0.9, easing: "cubic-bezier(.2,.85,.25,1)", delay: 140 }
+        );
       }
 
+      const portraitAnims = [];
       if (portraits.length) {
-        const startScale = isNew ? 0.42 : 0.55;
-        const peakScale = isMythic ? 1.12 : isNew ? 1.08 : 1.05;
         const frames = [
           {
-            transform: "scale(" + startScale + ") translateY(28px)",
+            transform: "scale(0.65)",
             opacity: 0,
-            filter: "brightness(0.2) saturate(0.4) " + glow
+            filter: "brightness(0.2) saturate(0.4) " + glow,
+            offset: 0
           },
           {
-            transform: "scale(" + (startScale + 0.18) + ") translateY(10px)",
-            opacity: 0.55,
-            filter: "brightness(0.7) saturate(0.8) " + glow,
-            offset: 0.28
+            transform: "scale(0.72)",
+            opacity: 0.1,
+            filter: "brightness(0.45) saturate(0.55) " + glow,
+            offset: 0.2
           },
           {
-            transform: "scale(" + peakScale + ") translateY(-4px)",
+            transform: "scale(0.85)",
+            opacity: 0.4,
+            filter: "brightness(0.75) saturate(0.85) " + glow,
+            offset: 0.45
+          },
+          {
+            transform: "scale(1.04)",
+            opacity: 0.75,
+            filter: "brightness(1.2) saturate(1.1) " + glow,
+            offset: 0.7
+          },
+          {
+            transform: "scale(1.02)",
             opacity: 1,
-            filter: "brightness(1.35) saturate(1.15) " + glow,
-            offset: 0.62
+            filter: "brightness(1.1) saturate(1.05) " + glow,
+            offset: 0.9
           },
           {
-            transform: "scale(1) translateY(0)",
+            transform: "scale(1)",
             opacity: 1,
-            filter: "brightness(1) saturate(1) " + glow
+            filter: "brightness(1) saturate(1) " + glow,
+            offset: 1
           }
         ];
         portraits.forEach((portrait) => {
           if (!portrait || typeof portrait.animate !== "function") return;
-          portrait.animate(frames, {
+          const anim = portrait.animate(frames, {
             duration: dragonDur,
-            easing: "cubic-bezier(.18,.9,.22,1)",
-            delay: 60
-          }).finished.catch(() => {});
+            easing: "cubic-bezier(.22,.75,.25,1)",
+            delay: 0,
+            fill: "forwards"
+          });
+          portraitAnims.push(
+            waitAnimation(anim).then(() => finishPortraitStyles(portrait))
+          );
         });
       }
 
-      if (art) {
+      /* Rarity SFX ~250ms into materialize — not at magic start */
+      const soundPromise = hatchDelay(soundAt, hatchFxToken).then((ok) => {
+        if (ok) playDragonRevealSound(rarity);
+      });
+
+      if (art && typeof art.animate === "function") {
         art.animate(
           [
             { transform: "scale(1)" },
-            { transform: "scale(1.025)", offset: 0.5 },
+            { transform: "scale(1.02)", offset: 0.5 },
             { transform: "scale(1)" }
           ],
           {
-            duration: isMythic ? 700 : 520,
-            delay: Math.max(200, dragonDur - 80),
+            duration: Math.round(dragonDur * 0.55),
+            delay: Math.max(280, Math.round(dragonDur * 0.55)),
             easing: "ease-in-out"
           }
-        ).finished.catch(() => {});
+        );
       }
 
       spawnDragonRevealSparks(sparksHost, rarity, isNew);
@@ -3915,7 +4137,7 @@
       );
       uiNodes.forEach((el, i) => {
         if (el.hidden) return;
-        const delay = 280 + i * 90 + (isNew ? 40 : 0) + (isMythic ? 60 : 0);
+        const delay = 420 + i * 110 + (isNew ? 40 : 0) + (isMythic ? 60 : 0);
         if (el.getAnimations) el.getAnimations().forEach((a) => { try { a.cancel(); } catch (e) {} });
         el.animate(
           [
@@ -3923,22 +4145,24 @@
             { opacity: 1, transform: "translateY(0) scale(1)" }
           ],
           {
-            duration: 420,
+            duration: 520,
             delay: delay,
             easing: "cubic-bezier(.2,.85,.25,1)",
             fill: "both"
           }
-        ).finished.catch(() => {});
+        );
       });
-
-      const clearAt = dragonDur + 520 + uiNodes.length * 90;
-      setTimeout(() => {
-        if (modal) modal.classList.remove("reveal-animating");
-      }, clearAt);
 
       if (isMythic) spawnHatchParticles(10, true);
       else if (isLegendary) spawnHatchParticles(6, false);
       else if (isRare) spawnHatchParticles(4, false);
+
+      const waitList = portraitAnims.length ? portraitAnims.slice() : [hatchDelay(dragonDur, hatchFxToken)];
+      waitList.push(soundPromise);
+
+      return Promise.all(waitList).then(() => {
+        if (modal) modal.classList.remove("reveal-animating");
+      });
     }
 
     function spawnDragonRevealSparks(host, rarity, isNew) {
@@ -3980,12 +4204,21 @@
     function finishHatchCleanup() {
       hatchFxToken++;
       clearHatchFxTimers();
+      clearDragonSummonEffectDom();
       hatchSequenceActive = false;
       clicksLocked = false;
       const stageEl = document.getElementById("egg-stage");
       if (stageEl) stageEl.classList.remove("is-hatching");
       const clickZone = document.getElementById("click-zone");
       if (clickZone) clickZone.classList.remove("clicks-disabled");
+      const wrap = document.getElementById("entity-wrap");
+      if (wrap) wrap.style.opacity = "";
+      const clickWrap = getEggClickWrapper();
+      if (clickWrap) {
+        clickWrap.style.opacity = "";
+        clickWrap.style.transform = "";
+        clickWrap.style.filter = "";
+      }
       const dragonImg = document.getElementById("hatch-dragon-img");
       if (dragonImg) dragonImg.hidden = true;
       const dragonEmoji = document.getElementById("hatch-dragon-emoji");
@@ -4923,7 +5156,9 @@
       }
       if (!hasFreeExpeditionSlot()) return { ok: false, reason: "busy" };
       const ids = (dragonIds || []).slice();
-      if (ids.length !== def.requiredDragons) return { ok: false, reason: "count" };
+      if (ids.length < EXPEDITION_PARTY_MIN || ids.length > EXPEDITION_PARTY_MAX) {
+        return { ok: false, reason: "count" };
+      }
       for (let i = 0; i < ids.length; i++) {
         if (!isDragonAvailableForExpedition(ids[i])) return { ok: false, reason: "unavailable" };
       }
@@ -4977,6 +5212,12 @@
       saveGame(true);
       showNotification("🧭 Expédition lancée !", def.name + " — Retour dans " + formatDuration(def.durationMs) + ".");
       playSound("expeditionStart");
+      const launchCard = document.querySelector('[data-expedition-id="' + expeditionId + '"]');
+      if (launchCard && window.DCAnim && DCAnim.expeditionLaunchFx) {
+        DCAnim.expeditionLaunchFx(launchCard);
+      } else if (launchCard) {
+        triggerAnim(launchCard, "anim-exp-launch", 420);
+      }
       return { ok: true, slotIndex };
     }
 
@@ -5009,6 +5250,10 @@
         "🧭 Récompenses récupérées",
         (def ? def.name + " — " : "") + "+" + formatNumber(result.power + (result.rarePower || 0)) + " ✨"
       );
+      const claimHost = document.getElementById("expeditions-root");
+      if (claimHost && window.DCAnim && DCAnim.expeditionClaimFx) {
+        DCAnim.expeditionClaimFx(claimHost);
+      }
       return { ok: true, result };
     }
 
@@ -5049,8 +5294,8 @@
       if (idx !== -1) {
         expeditionUi.selectedDragons.splice(idx, 1);
       } else {
-        if (expeditionUi.selectedDragons.length >= def.requiredDragons) {
-          showNotification("🧭 Expédition", "Nombre de dragons atteint (" + def.requiredDragons + ").");
+        if (expeditionUi.selectedDragons.length >= EXPEDITION_PARTY_MAX) {
+          showNotification("🧭 Expédition", "Maximum " + EXPEDITION_PARTY_MAX + " dragons.");
           return;
         }
         expeditionUi.selectedDragons.push(dragonId);
@@ -5236,12 +5481,10 @@
       meta.className = "expedition-card-meta";
       meta.innerHTML =
         '<span class="expedition-chip-meta">⏱ <strong></strong></span>' +
-        '<span class="expedition-chip-meta">🐉 <strong></strong></span>' +
-        '<span class="expedition-chip-meta">💪 <strong></strong></span>';
+        '<span class="expedition-chip-meta">💪 Puissance conseillée : <strong></strong></span>';
       const metas = meta.querySelectorAll("strong");
       metas[0].textContent = formatDuration(def.durationMs);
-      metas[1].textContent = String(def.requiredDragons);
-      metas[2].textContent = formatNumber(def.recommendedPower);
+      metas[1].textContent = formatNumber(def.recommendedPower);
       body.appendChild(meta);
 
       if (def.description && status === "idle") {
@@ -5307,24 +5550,31 @@
       rewardsBtn.dataset.action = "rewards";
       rewardsBtn.disabled = true;
       rewardsBtn.setAttribute("aria-disabled", "true");
-      rewardsBtn.innerHTML = 'Récompenses possibles <span class="soon">· À venir</span>';
+      rewardsBtn.innerHTML = '🎁 Récompenses : <span class="soon">À venir</span>';
       actions.appendChild(rewardsBtn);
 
       if (status === "done" && busy) {
         const claimBtn = document.createElement("button");
         claimBtn.type = "button";
         claimBtn.className = "expedition-btn-claim";
-        claimBtn.textContent = "Récupérer";
+        claimBtn.textContent = "RÉCUPÉRER";
         claimBtn.addEventListener("click", () => {
           claimExpedition(busy.slotIndex);
           renderExpeditions();
         });
         actions.appendChild(claimBtn);
-      } else if (status !== "running") {
+      } else if (status === "running") {
+        const runBtn = document.createElement("button");
+        runBtn.type = "button";
+        runBtn.className = "expedition-btn-launch is-status";
+        runBtn.textContent = "EN COURS";
+        runBtn.disabled = true;
+        actions.appendChild(runBtn);
+      } else {
         const launchBtn = document.createElement("button");
         launchBtn.type = "button";
         launchBtn.className = "expedition-btn-launch";
-        launchBtn.textContent = "Lancer l’expédition";
+        launchBtn.textContent = "LANCER";
         const slotBusy = !!(busy && busy.run && (!busy.run.claimed));
         launchBtn.disabled = status === "locked" || status === "running" || slotBusy;
         launchBtn.addEventListener("click", () => {
@@ -5380,7 +5630,7 @@
       head.querySelector("h3").textContent = def.name;
       head.querySelector("p").textContent =
         "Durée " + formatDuration(def.durationMs) +
-        " · Dragons " + expeditionUi.selectedDragons.length + " / " + def.requiredDragons;
+        " · Puissance conseillée " + formatNumber(def.recommendedPower);
       wrap.appendChild(head);
 
       if (def.description) {
@@ -5406,8 +5656,42 @@
 
       const pickTitle = document.createElement("h4");
       pickTitle.className = "expedition-subtitle";
-      pickTitle.textContent = "Dragons disponibles";
+      pickTitle.textContent = "Sélectionnez jusqu'à " + EXPEDITION_PARTY_MAX + " dragons";
       wrap.appendChild(pickTitle);
+
+      const countLine = document.createElement("p");
+      countLine.className = "expedition-party-count";
+      countLine.textContent =
+        "Dragons sélectionnés : " + expeditionUi.selectedDragons.length + " / " + EXPEDITION_PARTY_MAX;
+      wrap.appendChild(countLine);
+
+      const slots = document.createElement("div");
+      slots.className = "expedition-party-slots";
+      slots.setAttribute("aria-label", "Emplacements de dragons");
+      for (let s = 0; s < EXPEDITION_PARTY_MAX; s++) {
+        const slot = document.createElement("div");
+        const dragonId = expeditionUi.selectedDragons[s];
+        slot.className = "expedition-party-slot" + (dragonId ? " filled" : "");
+        if (dragonId) {
+          const d = getDragonDef(dragonId);
+          slot.innerHTML =
+            '<span class="eps-label"></span><button type="button" class="eps-remove" aria-label="Retirer">✕</button>';
+          slot.querySelector(".eps-label").textContent = d ? d.name : dragonId;
+          slot.querySelector(".eps-remove").addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            toggleExpeditionDragon(dragonId);
+          });
+        } else {
+          slot.innerHTML = '<span class="eps-empty">Slot ' + (s + 1) + "</span>";
+        }
+        slots.appendChild(slot);
+      }
+      wrap.appendChild(slots);
+
+      const gridTitle = document.createElement("h4");
+      gridTitle.className = "expedition-subtitle";
+      gridTitle.textContent = "Dragons disponibles";
+      wrap.appendChild(gridTitle);
 
       const grid = document.createElement("div");
       grid.className = "expedition-dragon-grid";
@@ -5462,7 +5746,8 @@
       launch.type = "button";
       launch.className = "btn expedition-launch";
       launch.textContent = "Lancer l'expédition";
-      launch.disabled = expeditionUi.selectedDragons.length !== def.requiredDragons;
+      const nSel = expeditionUi.selectedDragons.length;
+      launch.disabled = nSel < EXPEDITION_PARTY_MIN || nSel > EXPEDITION_PARTY_MAX;
       launch.addEventListener("click", () => {
         const res = startExpedition(def.id, expeditionUi.selectedDragons);
         if (!res.ok) {
@@ -6435,7 +6720,14 @@
       return document.getElementById("egg-hatch-wrapper");
     }
 
-    function playEggClickPress(isCrit) {
+    function playEggClickPress(isCrit, opts) {
+      opts = opts || {};
+      const isCharged = !!opts.charged;
+      let kind = "normal";
+      if (isCharged && isCrit) kind = "chargedCrit";
+      else if (isCharged) kind = "charged";
+      else if (isCrit) kind = "crit";
+
       const el = getEggClickWrapper();
       if (!el || typeof el.animate !== "function") {
         if (!el) return;
@@ -6443,52 +6735,41 @@
         void el.offsetWidth;
         el.classList.add("egg-press-fallback");
         clearTimeout(el._pressTimer);
-        el._pressTimer = setTimeout(() => el.classList.remove("egg-press-fallback"), isCrit ? 170 : 150);
+        el._pressTimer = setTimeout(() => el.classList.remove("egg-press-fallback"), kind === "normal" ? 150 : 280);
         return;
       }
 
+      /* Cancel previous press so spam stays on identity — never touch carousel wrappers */
       safeCancelAnimation(eggClickAnimation);
       eggClickAnimation = null;
 
       const reduce = prefersReducedMotion();
-      let keyframes;
-      let duration;
-      if (reduce) {
-        keyframes = [
-          { transform: "scale(1)" },
-          { transform: "scale(0.97)", offset: 0.45 },
-          { transform: "scale(1)" }
-        ];
-        duration = 120;
-      } else if (isCrit) {
-        /* Crit: deeper press, soft return — no bounce overshoot */
-        keyframes = [
-          { transform: "scale(1)", offset: 0 },
-          { transform: "scale(0.915)", offset: 0.4 },
-          { transform: "scale(1)", offset: 1 }
-        ];
-        duration = 165;
-      } else {
-        /* Soft compress then ease back to 1 — no rebound above 1 */
-        keyframes = [
-          { transform: "scale(1)", offset: 0 },
-          { transform: "scale(0.94)", offset: 0.4 },
-          { transform: "scale(1)", offset: 1 }
-        ];
-        duration = 150;
-      }
+      const preset = (window.DCAnim && DCAnim.eggPressKeyframes)
+        ? DCAnim.eggPressKeyframes(kind, reduce)
+        : {
+            keyframes: [
+              { transform: "scale(1) rotate(0deg)" },
+              { transform: "scale(0.96) rotate(-1deg)", offset: 0.3 },
+              { transform: "scale(1.045) rotate(1deg)", offset: 0.65 },
+              { transform: "scale(1) rotate(0deg)" }
+            ],
+            duration: 160
+          };
 
-      eggClickAnimation = el.animate(keyframes, {
-        duration: duration,
-        easing: "cubic-bezier(.33, 0, .2, 1)"
+      eggClickAnimation = el.animate(preset.keyframes, {
+        duration: preset.duration,
+        easing: "ease-out"
       });
       waitAnimation(eggClickAnimation).then(() => {
         if (eggClickAnimation && eggClickAnimation.playState === "finished") {
           eggClickAnimation = null;
         }
+        if (el) {
+          el.style.transform = "";
+        }
       });
 
-      playEggClickGlow(!!isCrit);
+      playEggClickGlow(kind !== "normal");
     }
 
     /** Soft gold flash on glow ring only — never touches egg image opacity */
@@ -6574,46 +6855,97 @@
       const rect = zone.getBoundingClientRect();
       const localX = (typeof x === "number" ? x : rect.left + rect.width / 2) - rect.left;
       const localY = (typeof y === "number" ? y : rect.top + rect.height / 2) - rect.top;
+      const jitterX = localX + (Math.random() - 0.5) * 28;
+      const jitterY = localY + (Math.random() - 0.5) * 18;
       const reduce = prefersReducedMotion();
-      const mobile = isMobileFx();
       const isCharged = !!opts.charged;
+      const both = isCrit && isCharged;
 
-      /* Crit upgrades the press; normal click already animated on pointerdown */
-      if (isCrit || isCharged) playEggClickPress(true);
+      /* Upgrade press for special hits (normal already on pointerdown) */
+      if (isCrit || isCharged) playEggClickPress(!!isCrit, { charged: isCharged });
 
       pruneFxList(activeClickFloats, MAX_CLICK_FLOATS);
       const ft = document.createElement("div");
-      ft.className = "float-text" + (isCrit ? " critical" : "") + (isCharged ? " charged" : "");
-      ft.textContent = (isCharged ? "FRAPPE +" : (isCrit ? "CRITIQUE +" : "+")) + formatNumber(amount);
-      ft.style.left = localX + "px";
-      ft.style.top = localY + "px";
+      ft.className = "float-text" +
+        (both ? " critical charged combo" : isCrit ? " critical" : "") +
+        (isCharged && !both ? " charged" : "");
+      ft.textContent = "+" + formatNumber(amount);
+      ft.style.left = jitterX + "px";
+      ft.style.top = jitterY + "px";
       zone.appendChild(ft);
       activeClickFloats.push(ft);
-      scheduleFxRemove(activeClickFloats, ft, isCrit ? 560 : 480);
+      scheduleFxRemove(activeClickFloats, ft, both ? 620 : isCrit || isCharged ? 560 : 480);
 
-      if (!reduce) {
-        const maxP = isCrit ? (mobile ? 4 : 5) : (mobile ? 1 : 2);
-        for (let i = 0; i < maxP; i++) {
-          pruneFxList(activeClickParticles, MAX_CLICK_PARTICLES);
-          const p = document.createElement("div");
-          p.className = "particle";
-          const angle = (Math.PI * 2 * i) / Math.max(1, maxP) + Math.random() * 0.5;
-          const dist = 28 + Math.random() * 36;
-          p.style.left = localX + "px";
-          p.style.top = localY + "px";
-          p.style.setProperty("--px", Math.cos(angle) * dist + "px");
-          p.style.setProperty("--py", Math.sin(angle) * dist + "px");
-          zone.appendChild(p);
-          activeClickParticles.push(p);
-          scheduleFxRemove(activeClickParticles, p, 520);
-        }
+      if ((isCrit || isCharged) && !reduce) {
+        pruneFxList(activeClickFloats, MAX_CLICK_FLOATS);
+        const label = document.createElement("div");
+        label.className = "float-text float-label" +
+          (both ? " critical charged combo" : isCrit ? " critical" : " charged");
+        label.textContent = both ? "FRAPPE CRITIQUE !" : isCharged ? "FRAPPE CHARGÉE !" : "CRITIQUE !";
+        label.style.left = (jitterX + (Math.random() - 0.5) * 12) + "px";
+        label.style.top = (jitterY - 22) + "px";
+        zone.appendChild(label);
+        activeClickFloats.push(label);
+        scheduleFxRemove(activeClickFloats, label, both ? 680 : 600);
       }
 
-      if (isCrit && !reduce) {
-        const flash = document.createElement("div");
-        flash.className = "crit-flash";
-        zone.appendChild(flash);
-        setTimeout(() => flash.remove(), 280);
+      if (!reduce) {
+        let tier = "click";
+        if (both) tier = "chargedCrit";
+        else if (isCharged) tier = "charged";
+        else if (isCrit) tier = "crit";
+        const count = (window.DCAnim && DCAnim.particleCount)
+          ? DCAnim.particleCount(tier)
+          : (isCrit || isCharged ? (isMobileFx() ? 3 : 5) : (isMobileFx() ? 1 : 2));
+
+        const clientX = rect.left + localX;
+        const clientY = rect.top + localY;
+        if (window.DCAnim && DCAnim.burst && count > 0) {
+          const palette = both
+            ? ["#ffe29a", "#ff8c42", "#7ad7ff", "#ffd36a"]
+            : isCharged
+              ? ["#7ad7ff", "#dff4ff", "#ffd36a"]
+              : isCrit
+                ? ["#ffe29a", "#ffb347", "#ff6a00"]
+                : ["#ffb347", "#ffe29a"];
+          DCAnim.burst(clientX, clientY, {
+            count: count,
+            palette: palette,
+            speed: both ? 4.2 : isCharged || isCrit ? 3.4 : 2.4,
+            size: both ? 4 : 3,
+            life: both ? 560 : 420
+          });
+        } else {
+          for (let i = 0; i < count; i++) {
+            pruneFxList(activeClickParticles, MAX_CLICK_PARTICLES);
+            const p = document.createElement("div");
+            p.className = "particle" + (isCharged ? " particle-charged" : "");
+            const angle = (Math.PI * 2 * i) / Math.max(1, count) + Math.random() * 0.5;
+            const dist = 28 + Math.random() * 36;
+            p.style.left = localX + "px";
+            p.style.top = localY + "px";
+            p.style.setProperty("--px", Math.cos(angle) * dist + "px");
+            p.style.setProperty("--py", Math.sin(angle) * dist + "px");
+            zone.appendChild(p);
+            activeClickParticles.push(p);
+            scheduleFxRemove(activeClickParticles, p, 520);
+          }
+        }
+
+        if (window.DCAnim && DCAnim.spawnShockwave) {
+          if (both) DCAnim.spawnShockwave(zone, localX, localY, "shockwave-combo");
+          else if (isCharged) DCAnim.spawnShockwave(zone, localX, localY, "shockwave-charged");
+          else if (isCrit) DCAnim.spawnShockwave(zone, localX, localY, "shockwave-crit");
+        }
+
+        if (isCrit || isCharged) {
+          const flash = document.createElement("div");
+          flash.className = both ? "crit-flash charged-flash combo-flash" : isCharged ? "crit-flash charged-flash" : "crit-flash";
+          flash.style.left = localX + "px";
+          flash.style.top = localY + "px";
+          zone.appendChild(flash);
+          setTimeout(() => { if (flash.parentNode) flash.remove(); }, 340);
+        }
       }
     }
 
@@ -6660,9 +6992,22 @@
       eggCrackSrc: "assets/sound/egg%20crack.mp3",
       eggCrackBaseVolume: 0.55,
 
-      /* File-based SFX — real asset: assets/sound/popup dragon.mp3 */
-      dragonPopupEl: null,
-      dragonPopupSrc: "assets/sound/popup%20dragon.mp3",
+      /**
+       * Dragon reveal SFX by rarity — real files in assets/sound/
+       * Association (intensité ≈ taille fichier) :
+       *   common    → popup dragon2.mp3  (le plus léger)
+       *   rare      → popup dragon.mp3
+       *   legendary → popup dragon4.mp3
+       *   mythic    → popup dragon3.mp3  (le plus long / impressionnant)
+       * epic → rare ; divine → mythic ; inconnu → common
+       */
+      dragonRevealSoundSrc: {
+        common: "assets/sound/popup%20dragon2.mp3",
+        rare: "assets/sound/popup%20dragon.mp3",
+        legendary: "assets/sound/popup%20dragon4.mp3",
+        mythic: "assets/sound/popup%20dragon3.mp3"
+      },
+      dragonRevealSoundEls: Object.create(null),
       dragonPopupBaseVolume: 0.6,
 
       getCtx() {
@@ -6682,7 +7027,7 @@
         if (ctx.state === "suspended") ctx.resume();
         this.unlocked = true;
         this.ensureEggCrack();
-        this.ensureDragonPopup();
+        this.ensureDragonRevealSounds();
         this.startMusic({ fade: !this.musicStarted });
       },
 
@@ -6697,21 +7042,45 @@
         return el;
       },
 
-      ensureDragonPopup() {
-        if (this.dragonPopupEl) return this.dragonPopupEl;
-        const el = new Audio(this.dragonPopupSrc);
+      /** Map game rarity → sound key (common / rare / legendary / mythic). */
+      resolveDragonRevealSoundKey(rarity) {
+        const r = rarity || "common";
+        if (r === "mythic" || r === "divine") return "mythic";
+        if (r === "legendary") return "legendary";
+        if (r === "rare" || r === "epic") return "rare";
+        return "common";
+      },
+
+      ensureDragonRevealSound(key) {
+        const k = this.dragonRevealSoundSrc[key] ? key : "common";
+        if (this.dragonRevealSoundEls[k]) return this.dragonRevealSoundEls[k];
+        const src = this.dragonRevealSoundSrc[k] || this.dragonRevealSoundSrc.common;
+        const el = new Audio(src);
         el.preload = "auto";
         el.volume = 0;
         el.setAttribute("playsinline", "");
-        this.dragonPopupEl = el;
+        this.dragonRevealSoundEls[k] = el;
         try { el.load(); } catch (e) { /* optional */ }
         return el;
       },
 
-      playEggCrack() {
+      ensureDragonRevealSounds() {
+        const keys = Object.keys(this.dragonRevealSoundSrc);
+        for (let i = 0; i < keys.length; i++) this.ensureDragonRevealSound(keys[i]);
+        return this.dragonRevealSoundEls;
+      },
+
+      /* Legacy alias — précharge les 4 sons de rareté */
+      ensureDragonPopup() {
+        return this.ensureDragonRevealSounds();
+      },
+
+      playEggCrack(opts) {
+        opts = opts || {};
         const level = this.sfx();
         if (level <= 0) return;
-        if (!this.canPlay("eggCrack", 400)) return;
+        if (!opts.force && !this.canPlay("eggCrack", 400)) return;
+        if (opts.force) this.lastPlayAt.eggCrack = performance.now();
         const el = this.ensureEggCrack();
         el.volume = Math.max(0, Math.min(1, this.eggCrackBaseVolume * level));
         try {
@@ -6723,12 +7092,17 @@
         }
       },
 
-      playDragonPopup() {
+      /**
+       * Play rarity-specific dragon reveal SFX (cached Audio elements).
+       * @param {string} [rarity]
+       */
+      playDragonRevealSound(rarity) {
         const level = this.sfx();
         if (level <= 0) return;
-        /* Court throttle : évite double fire si openRevealModal est rappelé immédiatement */
+        /* Court throttle : évite double fire immédiat sur le même reveal */
         if (!this.canPlay("dragonPopup", 180)) return;
-        const el = this.ensureDragonPopup();
+        const key = this.resolveDragonRevealSoundKey(rarity);
+        const el = this.ensureDragonRevealSound(key);
         el.volume = Math.max(0, Math.min(1, this.dragonPopupBaseVolume * level));
         try {
           el.currentTime = 0;
@@ -6737,6 +7111,11 @@
         if (p && typeof p.catch === "function") {
           p.catch(() => { /* autoplay / unlock may block once */ });
         }
+      },
+
+      /* Legacy name — délègue au son de rareté (common par défaut) */
+      playDragonPopup(rarity) {
+        this.playDragonRevealSound(rarity);
       },
 
       master() {
@@ -6982,16 +7361,17 @@
           return;
         }
         if (type === "hatch" || type === "dragonReveal") {
-          this.tone({ type: "triangle", freq: 200, freqEnd: 520, dur: 0.28, vol: 0.06 });
-          this.tone({ type: "sine", freq: 680, dur: 0.2, vol: 0.04, delay: 0.15 });
+          /* Légèrement plus snappy pour coller à l'ouverture visuelle (~+8–10 %). */
+          this.tone({ type: "triangle", freq: 200, freqEnd: 520, dur: 0.25, vol: 0.06 });
+          this.tone({ type: "sine", freq: 680, dur: 0.17, vol: 0.04, delay: 0.12 });
           return;
         }
         if (type === "eggCrack") {
-          this.playEggCrack();
+          this.playEggCrack(opts);
           return;
         }
-        if (type === "dragonPopup") {
-          this.playDragonPopup();
+        if (type === "dragonPopup" || type === "dragonRevealSound") {
+          this.playDragonRevealSound(opts.rarity);
           return;
         }
         if (type === "rare") {
@@ -7033,8 +7413,14 @@
       }
     };
 
-    function playDragonPopupSound() {
-      AudioManager.playDragonPopup();
+    /** Son de reveal dragon selon la rareté — joué au moment où le dragon devient visible. */
+    function playDragonRevealSound(rarity) {
+      AudioManager.playDragonRevealSound(rarity);
+    }
+
+    /* Alias conservé pour appels existants (passe la rareté si fournie). */
+    function playDragonPopupSound(rarity) {
+      playDragonRevealSound(rarity);
     }
 
     function playSound(type, isCrit) {
@@ -7046,15 +7432,55 @@
     }
 
     function prefersReducedMotion() {
+      if (window.DCAnim && typeof DCAnim.prefersReducedMotion === "function") {
+        return DCAnim.prefersReducedMotion();
+      }
       return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
     }
 
     function isMobileFx() {
+      if (window.DCAnim && typeof DCAnim.isMobileFx === "function") {
+        return DCAnim.isMobileFx();
+      }
       return window.innerWidth <= 799;
+    }
+
+    function updateChargedAuraVisual() {
+      const every = getChargedStrikeTriggerClicks();
+      const mult = getChargedStrikeMultiplier();
+      if (!every || every <= 0 || !mult || mult <= 1) {
+        if (window.DCAnim && DCAnim.setChargedAura) DCAnim.setChargedAura(false, false);
+        else {
+          const wrap = document.getElementById("entity-wrap");
+          if (wrap) {
+            wrap.classList.remove("charged-aura", "charged-aura-hot");
+          }
+        }
+        return;
+      }
+      const cur = Math.max(0, Math.floor(safeNumber(gameState.chargedStrikeClicks, 0)));
+      const left = every - cur;
+      const near = left <= 2 && left > 0;
+      const hot = left === 1;
+      if (window.DCAnim && DCAnim.setChargedAura) DCAnim.setChargedAura(near, hot);
+      else {
+        const wrap = document.getElementById("entity-wrap");
+        if (wrap) {
+          wrap.classList.toggle("charged-aura", near);
+          wrap.classList.toggle("charged-aura-hot", near && hot);
+        }
+      }
+      if (near && !prefersReducedMotion() && Math.random() < (hot ? 0.45 : 0.22)) {
+        spawnAmbientSpark();
+      }
     }
 
     function triggerAnim(el, className, ms) {
       if (!el || prefersReducedMotion()) return;
+      if (window.DCAnim && DCAnim.triggerClass) {
+        DCAnim.triggerClass(el, className, ms);
+        return;
+      }
       el.classList.remove(className);
       void el.offsetWidth;
       el.classList.add(className);
@@ -7063,6 +7489,10 @@
     }
 
     function pulseHudEssence() {
+      if (window.DCAnim && DCAnim.pulseHudGain) {
+        DCAnim.pulseHudGain();
+        return;
+      }
       const pill = document.querySelector(".essence-stat");
       if (pill) triggerAnim(pill, "anim-pulse", 200);
     }
@@ -7411,13 +7841,7 @@
             if (fresh.eggs[e.id].progress >= newReq) {
               fresh.eggs[e.id].progress = Math.min(fresh.eggs[e.id].progress, newReq - 1);
             }
-            /* Si déjà au-delà du seuil au chargement, ne pas rejouer le craquement. */
-            if (!fresh.eggs[e.id].crackSoundPlayed) {
-              const ratio = fresh.eggs[e.id].progress / Math.max(1, newReq);
-              if (ratio >= EGG_CRACK_SOUND_THRESHOLD) {
-                fresh.eggs[e.id].crackSoundPlayed = true;
-              }
-            }
+            /* Egg crack is reserved for the 100% hatch sequence only — no anticipatory flag. */
           }
         });
       }
@@ -7832,8 +8256,15 @@
       document.getElementById("ui-prod").textContent = formatNumber(gameState.powerPerSecond);
       document.getElementById("ui-click").textContent = formatNumber(gameState.powerPerClick);
       const powerEl = document.getElementById("ui-dragon-power");
-      if (powerEl) powerEl.textContent = formatNumber(getPlayerDragonPower());
+      const powerNow = getPlayerDragonPower();
+      if (powerEl) powerEl.textContent = formatNumber(powerNow);
+      if (lastHudDragonPower != null && powerNow !== lastHudDragonPower) {
+        if (window.DCAnim && DCAnim.pulseHudPower) DCAnim.pulseHudPower();
+        else if (powerEl) triggerAnim(powerEl.closest(".stat-pill") || powerEl, "anim-pulse", 180);
+      }
+      lastHudDragonPower = powerNow;
       updateExpeditionButtonIndicator();
+      updateChargedAuraVisual();
       document.getElementById("ui-cps").textContent = String(gameState.currentCps || 0);
       const rec = document.getElementById("ui-cps-record");
       if (rec) rec.textContent = String(gameState.peakCps || 0);
@@ -8591,7 +9022,12 @@
       const gear = document.getElementById("btn-open-settings");
       if (gear) gear.classList.toggle("active", group === "settings");
       const activePanel = document.querySelector('.panel.overlay-panel.active');
-      if (activePanel) activePanel.scrollTop = 0;
+      if (activePanel) {
+        activePanel.scrollTop = 0;
+        if (window.DCAnim && DCAnim.staggerCards) {
+          DCAnim.staggerCards(activePanel);
+        }
+      }
       uiDirty = true;
       if (name === "shop") {
         shopDirty = true;
@@ -8803,8 +9239,13 @@
           pendingReveal = twin;
           pendingReveal.twinReveal = null;
           showTwinHatchBanner(() => {
-            openRevealModal(pendingReveal);
-            /* Popup dragon rejoué via openRevealModal — pas de 2e son d'éclosion. */
+            const TT = HATCH_SEQUENCE_TIMINGS;
+            (async () => {
+              await hatchDelay(TT.twinPause, hatchFxToken);
+              await playDragonSummonEffect({ duration: TT.twinSummonEffect });
+              await openRevealModal(pendingReveal);
+              /* Pas de 2e crack/hatch — reveal lent du dragon 2 uniquement. */
+            })();
           });
           return;
         }
@@ -8909,6 +9350,7 @@
        ------------------------------------------------------- */
     function init() {
       initSparks();
+      if (window.DCAnim && DCAnim.initParticles) DCAnim.initParticles();
       preloadEggProgressImages();
       bindEvents();
 
@@ -8933,7 +9375,7 @@
       scheduleUpdateGameCenterAxis();
       updateAudioToggles();
       AudioManager.ensureEggCrack();
-      AudioManager.ensureDragonPopup();
+      AudioManager.ensureDragonRevealSounds();
       AudioManager.startMusic({ fade: true });
       if (!AudioManager.musicStarted) {
         AudioManager.bindMusicGestureOnce();

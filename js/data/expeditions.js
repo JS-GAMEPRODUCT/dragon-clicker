@@ -11,7 +11,6 @@ var EXPEDITION_DEFS = [
         name: "Les Ruines de l’Aube Draconique",
         image: "assets/expedition/expeditionbase1-Les Ruines de l’Aube Draconique.png",
         durationMs: 10 * 60 * 1000,
-        requiredDragons: 1,
         recommendedPower: 500,
         rewardPreview: "Essence Draconique · petite chance de fragments",
         rewardConfig: {
@@ -32,7 +31,6 @@ var EXPEDITION_DEFS = [
         name: "La Vallée des Cascades Célestes",
         image: "assets/expedition/expeditionbase2-Vallée des Cascades Célestes.png",
         durationMs: 30 * 60 * 1000,
-        requiredDragons: 2,
         recommendedPower: 2500,
         rewardPreview: "Essence Draconique · fragments · petit bonus possible",
         rewardConfig: {
@@ -53,7 +51,6 @@ var EXPEDITION_DEFS = [
         name: "Le Sanctuaire des Hautes Plaines",
         image: "assets/expedition/expeditionbase3-Le Sanctuaire des Hautes Plaines.png",
         durationMs: 2 * 60 * 60 * 1000,
-        requiredDragons: 3,
         recommendedPower: 10000,
         rewardPreview: "Beaucoup d'Essence · fragments · chance de récompense rare",
         rewardConfig: {
@@ -75,7 +72,6 @@ var EXPEDITION_DEFS = [
         image: "assets/expedition/expedition zone 2 Sentier Sylvestre.png",
         description: "Un ancien sentier disparaît sous une végétation chargée d'essence draconique.",
         durationMs: 10 * 60 * 1000,
-        requiredDragons: 1,
         recommendedPower: 1000,
         rewardPreview: "Essence Draconique · petite chance de fragments",
         rewardConfig: {
@@ -97,7 +93,6 @@ var EXPEDITION_DEFS = [
         image: "assets/expedition/expedition zone 2 Grottes des Cascades.png",
         description: "Derrière les grandes chutes de la vallée se cache un réseau de grottes encore inexploré.",
         durationMs: 30 * 60 * 1000,
-        requiredDragons: 2,
         recommendedPower: 4000,
         rewardPreview: "Essence Draconique · fragments · petit bonus possible",
         rewardConfig: {
@@ -119,7 +114,6 @@ var EXPEDITION_DEFS = [
         image: "assets/expedition/expedition zone 2 Ruines de la Vallée.png",
         description: "Les vestiges d'une ancienne civilisation draconique émergent au cœur de la vallée.",
         durationMs: 90 * 60 * 1000,
-        requiredDragons: 3,
         recommendedPower: 10000,
         rewardPreview: "Beaucoup d'Essence · fragments · chance de récompense rare",
         rewardConfig: {
@@ -141,7 +135,6 @@ var EXPEDITION_DEFS = [
         image: "assets/expedition/expedition zone 2 Sanctuaire oublié.png",
         description: "Très loin dans la vallée repose un sanctuaire dont l'énergie attire les dragons les plus puissants.",
         durationMs: 4 * 60 * 60 * 1000,
-        requiredDragons: 3,
         recommendedPower: 25000,
         rewardPreview: "Très grande Essence · fragments · forte chance de récompense rare",
         rewardConfig: {
