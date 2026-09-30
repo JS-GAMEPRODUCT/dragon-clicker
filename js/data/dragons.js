@@ -18,7 +18,7 @@ var DRAGON_DEFS = [
         bonus: {
           type: "clickPowerPercent",
           name: "Griffes Ancestrales",
-          values: [1, 1.5, 2, 3, 4]
+          values: [1, 2, 3, 4, 5]
         }
       },
       {
@@ -34,7 +34,7 @@ var DRAGON_DEFS = [
         bonus: {
           type: "essenceProductionPercent",
           name: "Souffle d'Essence",
-          values: [1, 1.5, 2, 3, 4]
+          values: [1, 2, 3, 4, 5]
         }
       },
       {
@@ -50,7 +50,7 @@ var DRAGON_DEFS = [
         bonus: {
           type: "critChanceFlatPercent",
           name: "Œil du Prédateur",
-          values: [0.2, 0.3, 0.4, 0.6, 0.8]
+          values: [0.25, 0.4, 0.55, 0.7, 0.9]
         }
       },
       {
@@ -66,7 +66,7 @@ var DRAGON_DEFS = [
         bonus: {
           type: "fragmentGainPercent",
           name: "Instinct du Collectionneur",
-          values: [1.5, 2.5, 3.5, 5, 6]
+          values: [4, 6, 8, 11, 14]
         }
       },
       {
@@ -79,11 +79,73 @@ var DRAGON_DEFS = [
         icon: "🌌",
         zoneId: "sanctuary",
         eggId: "basic",
+        bonuses: [
+          {
+            type: "essenceGlobalPercent",
+            name: "Héritage Céleste",
+            values: [7, 9, 11, 14, 17]
+          },
+          {
+            type: "critChanceFlatPercent",
+            name: "Héritage Céleste",
+            values: [0.15, 0.2, 0.3, 0.4, 0.5]
+          }
+        ]
+      },
+      {
+        id: "emberion",
+        name: "Emberion",
+        element: "neutral",
+        rarity: "epic",
+        description: "Ses écailles retiennent la chaleur des premières forges. On dit qu'il attire les découvertes plus rares.",
+        image: "assets/dragons/dragon de base epic.png",
+        icon: "🔥",
+        zoneId: "sanctuary",
+        eggId: "basic",
         bonus: {
-          type: "duplicateBonusFragmentChance",
-          name: "Héritage Céleste",
-          values: [5, 10, 15, 20, 25]
+          type: "clickEssencePercent",
+          name: "Braises Fatidiques",
+          values: [3, 5, 7, 9, 11]
         }
+      },
+      {
+        id: "scaldris",
+        name: "Scaldris",
+        element: "neutral",
+        rarity: "epic",
+        description: "Un prédateur aux reflets métalliques, aussi rare qu'il est redoutable dans l'arène du clic.",
+        image: "assets/dragons/dragon de base epic2.png",
+        icon: "⚔️",
+        zoneId: "sanctuary",
+        eggId: "basic",
+        bonus: {
+          type: "essenceProductionPercent",
+          name: "Lame d'Écaille",
+          values: [3, 5, 7, 9, 11]
+        }
+      },
+      {
+        id: "noctyron",
+        name: "Noctyron",
+        element: "celestial",
+        rarity: "mythic",
+        description: "Né sous un ciel sans lune. Sa présence prolongerait la veille des sanctuaires abandonnés.",
+        image: "assets/dragons/dragon de base mythique2.png",
+        icon: "🌑",
+        zoneId: "sanctuary",
+        eggId: "basic",
+        bonuses: [
+          {
+            type: "clickPowerPercent",
+            name: "Veille Nocturne",
+            values: [8, 10, 12, 15, 18]
+          },
+          {
+            type: "fragmentGainPercent",
+            name: "Veille Nocturne",
+            values: [2, 3, 4, 5, 7]
+          }
+        ]
       },
       /* Zone 2 — Œuf Sylvestre (assets dragon plante *) */
       {
@@ -286,12 +348,17 @@ var EGG_DEFS = [
         comingSoon: false,
         secret: false,
         visualOffsetX: 0,
+        /* Tirage par rareté (voir RARITY_DROP_WEIGHTS dans game.js).
+           weight=1 = égalité entre dragons d'une même rareté. */
         dragonPool: [
-          { dragonId: "drakel", weight: 40 },
-          { dragonId: "vyrn", weight: 35 },
-          { dragonId: "aeryx", weight: 15 },
-          { dragonId: "vaelgor", weight: 8 },
-          { dragonId: "astralyon", weight: 2 }
+          { dragonId: "drakel", weight: 1 },
+          { dragonId: "vyrn", weight: 1 },
+          { dragonId: "aeryx", weight: 1 },
+          { dragonId: "emberion", weight: 1 },
+          { dragonId: "scaldris", weight: 1 },
+          { dragonId: "vaelgor", weight: 1 },
+          { dragonId: "astralyon", weight: 1 },
+          { dragonId: "noctyron", weight: 1 }
         ],
         pity: {
           enabled: false,
@@ -324,12 +391,13 @@ var EGG_DEFS = [
         /* PNG plante : contenu ~13px à gauche du cadre (pad L/R asymétrique) → +1% */
         visualOffsetX: 1,
         visualOffsetXByKey: { intact: 1, cracked35: -0.2, cracked75: -0.45 },
+        /* Tirage par rareté — pas d'Épique dans ce pool (poids absents ignorés / normalisés). */
         dragonPool: [
-          { dragonId: "verdalis", weight: 40 },
-          { dragonId: "mossik", weight: 35 },
-          { dragonId: "florwyn", weight: 15 },
-          { dragonId: "sylvagor", weight: 8 },
-          { dragonId: "gaiathis", weight: 2 }
+          { dragonId: "verdalis", weight: 1 },
+          { dragonId: "mossik", weight: 1 },
+          { dragonId: "florwyn", weight: 1 },
+          { dragonId: "sylvagor", weight: 1 },
+          { dragonId: "gaiathis", weight: 1 }
         ],
         pity: {
           enabled: false,
@@ -360,14 +428,14 @@ var EGG_DEFS = [
         secret: false,
         visualOffsetX: 0,
         visualOffsetXByKey: { intact: 0.1, cracked35: -0.45, cracked75: -0.25 },
-        /* Pool dédié Cascades — uniquement dragons eggId "cascade" */
+        /* Tirage par rareté — 5 raretés présentes. */
         dragonPool: [
-          { dragonId: "rivulet", weight: 36 },
-          { dragonId: "cascadeur", weight: 30 },
-          { dragonId: "torrentis", weight: 14 },
-          { dragonId: "spumara", weight: 10 },
-          { dragonId: "abyssara", weight: 8 },
-          { dragonId: "naiadryn", weight: 2 }
+          { dragonId: "rivulet", weight: 1 },
+          { dragonId: "cascadeur", weight: 1 },
+          { dragonId: "torrentis", weight: 1 },
+          { dragonId: "spumara", weight: 1 },
+          { dragonId: "abyssara", weight: 1 },
+          { dragonId: "naiadryn", weight: 1 }
         ],
         pity: {
           enabled: false,

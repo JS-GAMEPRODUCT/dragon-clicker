@@ -596,7 +596,10 @@
         criticalChance: "critChanceFlatPercent",
         critChance: "critChanceFlatPercent",
         fragmentYield: "fragmentGainPercent",
-        fragmentMult: "fragmentGainPercent"
+        fragmentMult: "fragmentGainPercent",
+        clickGainPercent: "clickEssencePercent",
+        gainsAuClic: "clickEssencePercent",
+        essenceGlobal: "essenceGlobalPercent"
       };
       return map[type] || type;
     }
@@ -604,7 +607,9 @@
     function getDragonBonusDisplayLabel(type) {
       const labels = {
         clickPowerPercent: "PUISSANCE DE CLIC",
+        clickEssencePercent: "GAINS AU CLIC",
         essenceProductionPercent: "PRODUCTION D'ESSENCE",
+        essenceGlobalPercent: "ESSENCE GLOBALE",
         critChanceFlatPercent: "CHANCE CRITIQUE",
         fragmentGainPercent: "FRAGMENTS OBTENUS",
         duplicateBonusFragmentChance: "FRAGMENT SUPPLÉMENTAIRE À L'ÉCLOSION D'UN DOUBLON",
@@ -615,13 +620,20 @@
       return labels[normalizeDragonBonusType(type)] || "";
     }
 
+    /** One or many bonus entries from dragon data (`bonus` or `bonuses`). */
+    function getDragonBonusDefs(def) {
+      if (!def) return [];
+      if (Array.isArray(def.bonuses) && def.bonuses.length) return def.bonuses.filter(Boolean);
+      if (def.bonus) return [def.bonus];
+      return [];
+    }
+
     /**
-     * Returns the gameplay fraction for a dragon bonus at a given star level.
-     * Prefers data-driven `bonus.values` (percent points for stars 1..5).
-     * Falls back to legacy `valuesByStars` (already fractional, indexed by star).
+     * Returns the gameplay fraction for a single bonus entry at a given star level.
+     * Prefers data-driven `values` (percent points for stars 1..5).
      */
-    function getDragonBonusValue(def, stars) {
-      const b = def && def.bonus;
+    function getDragonBonusEntryValue(bonusEntry, stars) {
+      const b = bonusEntry;
       if (!b) return 0;
       const s = Math.max(1, Math.min(MAX_DRAGON_STARS, Math.floor(safeNumber(stars, 1))));
       if (Array.isArray(b.values) && b.values.length) {
@@ -631,16 +643,37 @@
       return safeNumber(b.base, 0) + Math.max(0, s - 1) * safeNumber(b.perStar, 0);
     }
 
+    /** @deprecated Prefer getDragonBonusEntryValue — kept for single-bonus callers. */
+    function getDragonBonusValue(def, stars) {
+      const list = getDragonBonusDefs(def);
+      return list.length ? getDragonBonusEntryValue(list[0], stars) : 0;
+    }
+
     function getDragonActiveBonus(def, stars) {
-      if (!def || !def.bonus) return null;
-      const type = normalizeDragonBonusType(def.bonus.type);
+      const list = getDragonBonusDefs(def);
+      if (!list.length) return null;
+      const b = list[0];
+      const type = normalizeDragonBonusType(b.type);
       return {
         type: type,
-        name: def.bonus.name || "",
-        description: def.bonus.description || "",
+        name: b.name || "",
+        description: b.description || "",
         label: getDragonBonusDisplayLabel(type),
-        value: getDragonBonusValue(def, stars)
+        value: getDragonBonusEntryValue(b, stars)
       };
+    }
+
+    function getDragonActiveBonuses(def, stars) {
+      return getDragonBonusDefs(def).map((b) => {
+        const type = normalizeDragonBonusType(b.type);
+        return {
+          type: type,
+          name: b.name || "",
+          description: b.description || "",
+          label: getDragonBonusDisplayLabel(type),
+          value: getDragonBonusEntryValue(b, stars)
+        };
+      }).filter((b) => b.value > 0 || b.type);
     }
 
     function formatBonusPercent(value, digits) {
@@ -657,15 +690,36 @@
       return text.replace(".", ",");
     }
 
-    function formatDragonBonusNextLine(def, nextStars) {
-      const value = getDragonBonusValue(def, nextStars);
+    function formatOneDragonBonusLine(bonusEntry, stars, opts) {
+      opts = opts || {};
+      const value = getDragonBonusEntryValue(bonusEntry, stars);
       if (value <= 0) return "";
+      const type = normalizeDragonBonusType(bonusEntry.type);
       const pct = formatBonusPercent(value);
-      const type = normalizeDragonBonusType(def && def.bonus && def.bonus.type);
       if (type === "duplicateBonusFragmentChance") {
-        return "Prochaine étoile : " + pct + " %";
+        return opts.compact
+          ? pct + " % CHANCE +1 FRAGMENT DOUBLON"
+          : pct + " % DE CHANCE D'OBTENIR +1 FRAGMENT À L'ÉCLOSION D'UN DOUBLON";
       }
-      return "Prochaine étoile : +" + pct + " %";
+      const label = getDragonBonusDisplayLabel(type);
+      if (label) return "+" + pct + " % " + label;
+      return "+" + pct + " %";
+    }
+
+    function formatDragonBonusNextLine(def, nextStars) {
+      const lines = getDragonBonusDefs(def)
+        .map((b) => {
+          const value = getDragonBonusEntryValue(b, nextStars);
+          if (value <= 0) return "";
+          const pct = formatBonusPercent(value);
+          const type = normalizeDragonBonusType(b.type);
+          if (type === "duplicateBonusFragmentChance") return pct + " %";
+          const label = getDragonBonusDisplayLabel(type);
+          return label ? ("+" + pct + " % " + label) : ("+" + pct + " %");
+        })
+        .filter(Boolean);
+      if (!lines.length) return "";
+      return "Prochaine étoile : " + lines.join(" · ");
     }
 
     function getFragmentYieldRate(state) {
@@ -1600,6 +1654,7 @@
       const m = {
         clickFlat: 0,
         clickPct: 0,
+        clickEssencePct: 0,
         click: 1,
         globalProduction: 1,
         autoProduction: 1,
@@ -1700,19 +1755,25 @@
       /* Active team dragons only (not owned collection, not on expedition). */
       for (let ti = 0; ti < TEAM_SIZE; ti++) {
         const td = getTeamDragon(ti);
-        if (!td || !td.def.bonus) continue;
+        if (!td || !getDragonBonusDefs(td.def).length) continue;
         if (isDragonOnExpedition(td.def.id)) continue;
-        const value = getDragonBonusValue(td.def, td.stars);
-        if (value <= 0) continue;
-        const t = normalizeDragonBonusType(td.def.bonus.type);
-        if (t === "clickPowerPercent") m.clickPct += value;
-        else if (t === "essenceProductionPercent") m.globalProduction *= (1 + value);
-        else if (t === "critChanceFlatPercent") m.critChance += value;
-        else if (t === "fragmentGainPercent") m.fragmentYield += value;
-        else if (t === "duplicateBonusFragmentChance") m.duplicateFragmentChance += value;
-        else if (t === "expeditionReward") m.expeditionReward += value;
-        else if (t === "rarityLuck") m.rarityLuck += value;
-        else if (t === "offlineMult") m.offlineMult *= (1 + value);
+        getDragonBonusDefs(td.def).forEach((bonusEntry) => {
+          const value = getDragonBonusEntryValue(bonusEntry, td.stars);
+          if (value <= 0) return;
+          const t = normalizeDragonBonusType(bonusEntry.type);
+          if (t === "clickPowerPercent") m.clickPct += value;
+          else if (t === "clickEssencePercent") m.clickEssencePct += value;
+          else if (t === "essenceProductionPercent") m.globalProduction *= (1 + value);
+          else if (t === "essenceGlobalPercent") {
+            m.clickEssencePct += value;
+            m.globalProduction *= (1 + value);
+          } else if (t === "critChanceFlatPercent") m.critChance += value;
+          else if (t === "fragmentGainPercent") m.fragmentYield += value;
+          else if (t === "duplicateBonusFragmentChance") m.duplicateFragmentChance += value;
+          else if (t === "expeditionReward") m.expeditionReward += value;
+          else if (t === "rarityLuck") m.rarityLuck += value;
+          else if (t === "offlineMult") m.offlineMult *= (1 + value);
+        });
       }
 
       m.click *= m.globalPower;
@@ -1728,6 +1789,7 @@
       if (!Number.isFinite(m.fragmentYield) || m.fragmentYield < 0) m.fragmentYield = 0;
       if (!Number.isFinite(m.expeditionReward) || m.expeditionReward < 0) m.expeditionReward = 0;
       if (!Number.isFinite(m.rarityLuck) || m.rarityLuck < 0) m.rarityLuck = 0;
+      if (!Number.isFinite(m.clickEssencePct) || m.clickEssencePct < 0) m.clickEssencePct = 0;
       if (!Number.isFinite(m.duplicateFragmentChance) || m.duplicateFragmentChance < 0) {
         m.duplicateFragmentChance = 0;
       }
@@ -2500,25 +2562,61 @@
       return (pool || []).reduce((sum, e) => sum + Math.max(0, safeNumber(e.weight, 0)), 0);
     }
 
+    /** Global rarity drop rates (percent points). Missing rarities in a pool are skipped; remaining weights keep their relative share. */
+    const RARITY_DROP_WEIGHTS = {
+      common: 64,
+      rare: 25,
+      epic: 9,
+      legendary: 1.75,
+      mythic: 0.25
+    };
+
     function isRarePlusRarity(rarity) {
       return rarity === "rare" || rarity === "epic" || rarity === "legendary" || rarity === "mythic" || rarity === "divine";
     }
 
     /**
-     * Returns a COPY of the egg pool with Rare+ weights boosted by equipped rarityLuck.
+     * Group hatch-pool entries by dragon rarity.
+     * Returns { common: [{dragonId, weight}, ...], ... }
+     */
+    function groupEggPoolByRarity(pool) {
+      const buckets = Object.create(null);
+      (pool || []).forEach((entry) => {
+        const def = getDragonDef(entry.dragonId);
+        if (!def) return;
+        const rar = def.rarity || "common";
+        if (!buckets[rar]) buckets[rar] = [];
+        buckets[rar].push(entry);
+      });
+      return buckets;
+    }
+
+    /**
+     * Build an effective weighted pool:
+     * 1) each present rarity gets RARITY_DROP_WEIGHTS[rarity]
+     * 2) that weight is split equally among dragons of that rarity
+     * rarityLuck boosts Rare+ rarity weights before the equal split.
      * Base egg.dragonPool data is never mutated.
      */
     function getAdjustedEggPool(eggDef) {
       const base = getEggHatchPool(eggDef && eggDef.id);
       const luck = safeNumber(gameState.multipliers?.rarityLuck, 0);
-      return base.map((entry) => {
-        const def = getDragonDef(entry.dragonId);
-        let weight = Math.max(0, safeNumber(entry.weight, 0));
-        if (luck > 0 && def && isRarePlusRarity(def.rarity)) {
-          weight = weight * (1 + luck);
+      const buckets = groupEggPoolByRarity(base);
+      const out = [];
+      Object.keys(buckets).forEach((rar) => {
+        const members = buckets[rar];
+        if (!members.length) return;
+        let rarWeight = safeNumber(RARITY_DROP_WEIGHTS[rar], 0);
+        if (rarWeight <= 0) return;
+        if (luck > 0 && isRarePlusRarity(rar)) {
+          rarWeight = rarWeight * (1 + luck);
         }
-        return { dragonId: entry.dragonId, weight: weight };
+        const perDragon = rarWeight / members.length;
+        members.forEach((entry) => {
+          out.push({ dragonId: entry.dragonId, weight: perDragon });
+        });
       });
+      return out;
     }
 
     function getPoolChancePercent(eggDef, dragonId) {
@@ -2535,7 +2633,10 @@
     }
 
     /**
-     * Weighted random pull from an egg's dragonPool.
+     * Two-step hatch roll:
+     * 1) pick a rarity among those present in the egg pool (global rarity weights)
+     * 2) pick uniformly among dragons of that rarity
+     * Implemented via getAdjustedEggPool weights so display % and twin rolls stay consistent.
      * Pity architecture is prepared but NOT applied while pity.enabled is false.
      */
     function rollDragonFromEgg(eggId) {
@@ -2760,7 +2861,9 @@
       const ppc = safeNumber(clickPower != null ? clickPower : gameState.powerPerClick, BASE_CLICK_POWER);
       const charged = Math.max(1, safeNumber(chargedMult, 1));
       const mult = charged * (isCrit ? safeNumber(critMult, CRIT_MULT_BASE) : 1) * (1 + safeNumber(comboBonus, 0));
-      return ppc * mult;
+      /* clickEssencePct / essenceGlobal : Essence du clic uniquement — pas la progression d'éclosion */
+      const essenceOnly = 1 + safeNumber(gameState.multipliers?.clickEssencePct, 0);
+      return ppc * mult * Math.max(0, essenceOnly);
     }
 
     function calculateClickEssence(isCrit, critMult, comboBonus) {
@@ -4299,26 +4402,19 @@
 
     function describeDragonBonusShort(def, stars, opts) {
       opts = opts || {};
-      const active = getDragonActiveBonus(def, stars);
-      if (!active || active.value <= 0) return "";
-      const pct = formatBonusPercent(active.value);
-      const t = active.type;
-      if (t === "duplicateBonusFragmentChance") {
-        return opts.compact
-          ? pct + " % CHANCE +1 FRAGMENT DOUBLON"
-          : pct + " % DE CHANCE D'OBTENIR +1 FRAGMENT À L'ÉCLOSION D'UN DOUBLON";
-      }
-      const label = active.label || getDragonBonusDisplayLabel(t);
-      if (label) return "+" + pct + " % " + label;
-      return "+" + pct + " %";
+      const lines = getDragonBonusDefs(def)
+        .map((b) => formatOneDragonBonusLine(b, stars, opts))
+        .filter(Boolean);
+      if (!lines.length) return "";
+      return lines.join(" · ");
     }
 
     function describeDragonBonus(def, stars) {
       const active = getDragonActiveBonus(def, stars);
       if (!active) return "";
       const short = describeDragonBonusShort(def, stars);
-      if (active.name) return active.name + " — " + short;
-      return short;
+      if (active.name) return active.name + " — " + short.replace(/\n/g, " · ");
+      return short.replace(/\n/g, " · ");
     }
 
     function getDragonsForFilter(filterZoneId) {
@@ -4713,7 +4809,9 @@
        ------------------------------------------------------- */
     const TEAM_BONUS_SHORT = {
       clickPowerPercent: "puissance de clic",
+      clickEssencePercent: "gains au clic",
       essenceProductionPercent: "production d'Essence",
+      essenceGlobalPercent: "Essence globale",
       critChanceFlatPercent: "chance critique",
       fragmentGainPercent: "fragments obtenus",
       duplicateBonusFragmentChance: "fragment doublon",
@@ -4731,7 +4829,9 @@
 
     const TEAM_BONUS_ICON = {
       clickPowerPercent: "⚔",
+      clickEssencePercent: "✧",
       essenceProductionPercent: "✧",
+      essenceGlobalPercent: "✧",
       critChanceFlatPercent: "✦",
       fragmentGainPercent: "◆",
       duplicateBonusFragmentChance: "✧",
@@ -4785,11 +4885,14 @@
       const totals = {};
       for (let i = 0; i < TEAM_SIZE; i++) {
         const d = getTeamDragon(i);
-        if (!d || !d.def.bonus) continue;
+        if (!d || !getDragonBonusDefs(d.def).length) continue;
         if (isDragonOnExpedition(d.def.id)) continue;
-        const active = getDragonActiveBonus(d.def, d.stars);
-        if (!active || active.value <= 0) continue;
-        totals[active.type] = (totals[active.type] || 0) + active.value;
+        getDragonBonusDefs(d.def).forEach((bonusEntry) => {
+          const value = getDragonBonusEntryValue(bonusEntry, d.stars);
+          if (value <= 0) return;
+          const t = normalizeDragonBonusType(bonusEntry.type);
+          totals[t] = (totals[t] || 0) + value;
+        });
       }
       return totals;
     }
@@ -6173,8 +6276,8 @@
         const bonusText = describeDragonBonusShort(def, stars, { compact: true });
         const bonusEl = card.querySelector(".tp-card-bonus");
         if (bonusText) {
-          const icon = TEAM_BONUS_ICON[normalizeDragonBonusType(def.bonus && def.bonus.type)] ||
-            TEAM_BONUS_ICON[def.bonus && def.bonus.type] || "";
+          const firstBonus = getDragonBonusDefs(def)[0];
+          const icon = TEAM_BONUS_ICON[normalizeDragonBonusType(firstBonus && firstBonus.type)] || "";
           bonusEl.textContent = (icon ? icon + " " : "") + bonusText;
         } else {
           bonusEl.hidden = true;
