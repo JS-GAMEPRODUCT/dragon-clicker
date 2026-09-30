@@ -6025,6 +6025,32 @@
       return wrap;
     }
 
+    function renderMobileTeamRail() {
+      const host = document.getElementById("mobile-team-slots");
+      if (!host) return;
+      const buttons = host.querySelectorAll(".mobile-team-slot");
+      for (let i = 0; i < TEAM_SIZE; i++) {
+        const slot = buttons[i];
+        if (!slot) continue;
+        const d = getTeamDragon(i);
+        slot.className = "mobile-team-slot";
+        if (d) {
+          const rarity = RARITIES[d.def.rarity] || RARITIES.common;
+          slot.classList.add("filled", rarity.css);
+          slot.setAttribute("aria-label", "Emplacement " + (i + 1) + " : " + d.def.name);
+          slot.innerHTML =
+            '<span class="mts-art"><img alt="" draggable="false" hidden /><span class="dc-emoji"></span></span>';
+          const emoji = slot.querySelector(".dc-emoji");
+          emoji.textContent = d.def.icon || "🐲";
+          loadAssetImage(slot.querySelector("img"), emoji, d.def.image, { silhouette: false });
+        } else {
+          slot.classList.add("empty");
+          slot.setAttribute("aria-label", "Emplacement " + (i + 1) + " vide — ouvrir l'équipe");
+          slot.innerHTML = '<span class="mts-plus" aria-hidden="true">+</span>';
+        }
+      }
+    }
+
     function renderTeamModule() {
       const slots = document.getElementById("team-slots");
       const list = document.getElementById("team-bonus-list");
@@ -6063,6 +6089,8 @@
         slot.addEventListener("click", () => openTeamPicker(i));
         slots.appendChild(slot);
       }
+
+      renderMobileTeamRail();
 
       list.innerHTML = "";
       const totals = getTeamBonusTotals();
@@ -9482,7 +9510,18 @@
       document.getElementById("btn-team-confirm").addEventListener("click", confirmTeamPickerSelection);
       document.getElementById("btn-team-mobile").addEventListener("click", () => toggleTeamDrawer());
       document.getElementById("btn-team-tablet").addEventListener("click", () => toggleTeamDrawer());
-
+      const mobileTeamOpen = document.getElementById("btn-mobile-team-open");
+      if (mobileTeamOpen) {
+        mobileTeamOpen.addEventListener("click", () => toggleTeamDrawer(true));
+      }
+      const mobileTeamSlots = document.getElementById("mobile-team-slots");
+      if (mobileTeamSlots) {
+        mobileTeamSlots.addEventListener("click", (ev) => {
+          const btn = ev.target.closest(".mobile-team-slot");
+          if (!btn) return;
+          toggleTeamDrawer(true);
+        });
+      }
       const expBtn = document.getElementById("btn-expeditions");
       const expClose = document.getElementById("expedition-drawer-close");
       if (expBtn) expBtn.addEventListener("click", () => toggleExpeditionDrawer());

@@ -49,14 +49,14 @@
               <strong id="ui-essence" class="hud-resource-value">0</strong>
             </div>
           </div>
-          <div class="stat-pill">
+          <div class="stat-pill hud-badge-prod">
             <span class="label">⚡ Essence/sec</span>
             <span class="stat-value-row">
               <strong id="ui-prod">0</strong>
               <span class="stat-unit">/sec</span>
             </span>
           </div>
-          <div class="stat-pill">
+          <div class="stat-pill hud-badge-click">
             <span class="label">👆 /clic</span>
             <strong id="ui-click">1</strong>
           </div>
@@ -97,7 +97,7 @@
                 <strong id="ui-dragon-power" class="hud-resource-value">0</strong>
               </div>
             </div>
-            <div class="hud-resource-card" aria-label="CPS">
+            <div class="hud-resource-card hud-cps-card" aria-label="CPS">
               <img
                 class="hud-resource-frame"
                 src="assets/contenant/essence%20fond.png"
@@ -212,6 +212,22 @@
           <div class="mobile-scene-actions" id="mobile-scene-actions">
             <button type="button" class="scene-btn team-toggle-btn" id="btn-team-mobile">🛡️ Équipe</button>
           </div>
+        </div>
+
+        <!-- Mini équipe mobile — miroir de l'équipe active (desktop inchangé) -->
+        <div class="mobile-team-rail" id="mobile-team-rail" aria-label="Équipe active">
+          <div class="mobile-team-slots" id="mobile-team-slots" role="list">
+            <button type="button" class="mobile-team-slot empty" data-slot="0" aria-label="Emplacement 1 vide" role="listitem">
+              <span class="mts-plus" aria-hidden="true">+</span>
+            </button>
+            <button type="button" class="mobile-team-slot empty" data-slot="1" aria-label="Emplacement 2 vide" role="listitem">
+              <span class="mts-plus" aria-hidden="true">+</span>
+            </button>
+            <button type="button" class="mobile-team-slot empty" data-slot="2" aria-label="Emplacement 3 vide" role="listitem">
+              <span class="mts-plus" aria-hidden="true">+</span>
+            </button>
+          </div>
+          <button type="button" class="mobile-team-open" id="btn-mobile-team-open" aria-label="Ouvrir l'équipe" title="Équipe">›</button>
         </div>
 
         <div class="scene-actions" id="desktop-scene-actions">
