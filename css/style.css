@@ -5852,13 +5852,18 @@
     }
     .team-title::before,
     .team-title::after {
-      content: "â€”";
+      content: "\2014";
       font-weight: 400;
       letter-spacing: 0;
       color: rgba(240, 208, 120, 0.55);
       text-shadow: none;
     }
     .team-close { display: none; }
+
+    .team-scroll {
+      position: relative;
+      z-index: 1;
+    }
 
     .team-slots {
       display: flex;
@@ -6699,38 +6704,103 @@
 
       /* Team module drawer (side panel → modal) — mobile only */
       .team-module {
-        width: min(94vw, 360px);
+        display: flex;
+        flex-direction: column;
+        inset: auto;
+        left: 50%;
+        right: auto;
+        top: max(120px, calc(env(safe-area-inset-top, 0px) + 96px));
+        bottom: auto;
+        margin: 0;
+        transform: translateX(-50%);
+        width: 94vw;
         max-width: 94vw;
-        max-height: min(84vh, calc(100dvh - 64px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
-        top: max(56px, calc(env(safe-area-inset-top, 0px) + 48px));
-        padding: 12px 10px 10px;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
+        height: auto;
+        max-height: min(72vh, calc(100dvh - 120px - var(--nav-h, 64px) - env(safe-area-inset-bottom, 0px)));
+        padding: 10px 10px 8px;
+        overflow: hidden;
+        z-index: 40;
+        box-sizing: border-box;
+      }
+      .team-module.open {
+        display: flex;
+      }
+      .team-head {
+        flex: 0 0 auto;
+        margin-bottom: 8px;
+        padding-right: 0;
+        justify-content: center;
       }
       .team-close {
+        display: grid;
+        place-items: center;
+        position: absolute;
         width: 36px;
         height: 36px;
-        top: 8px;
+        top: 6px;
         right: 6px;
+        z-index: 3;
       }
-      .team-title { font-size: 0.95rem; margin-bottom: 8px; padding-right: 36px; }
-      .team-slots { gap: 6px; }
+      .team-title {
+        font-size: 0.82rem;
+        letter-spacing: 0.16em;
+        margin-bottom: 0;
+        padding: 0 40px;
+        text-align: center;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+      .team-title::before,
+      .team-title::after {
+        display: none;
+      }
+      .team-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+      }
+      .team-slots { gap: 8px; }
       .team-slot {
-        min-height: 64px;
+        min-height: 74px;
+        max-height: 82px;
         gap: 8px;
-        padding: 6px 8px 6px 6px;
+        padding: 6px 8px;
         border-radius: 12px;
       }
+      .team-slot:hover,
+      .team-slot:focus-visible {
+        transform: none;
+      }
       .team-slot .ts-art {
-        width: 52px;
-        height: 52px;
+        width: 50px;
+        height: 50px;
         border-radius: 10px;
-        font-size: 1.45rem;
+        font-size: 1.35rem;
+      }
+      .team-slot .ts-art img {
+        object-fit: contain;
+      }
+      .team-slot.empty .ts-art.ts-plus {
+        font-size: 1.35rem;
+      }
+      .team-slot.empty .ts-name,
+      .team-slot.empty .ts-add {
+        font-size: 0.94rem;
+        letter-spacing: 0.04em;
       }
       .ts-name { font-size: 0.78rem; }
       .ts-rarity,
       .ts-bonus,
       .ts-add { font-size: 0.62rem; }
+      .team-bonus {
+        margin-top: 10px;
+        padding: 8px;
+      }
+      .team-bonus-title { font-size: 0.68rem; margin-bottom: 6px; }
     }
 
     @media (max-width: 480px) {
@@ -6741,14 +6811,25 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 6px;
       }
-      .tp-card-art { width: 72px; height: 72px; font-size: 1.85rem; }
-      .tp-card-name { font-size: 0.74rem; }
+      .tp-card-art { width: 64px; height: 64px; font-size: 1.7rem; }
+      .tp-card-name { font-size: 0.7rem; }
+      .tp-card-stars { font-size: 0.58rem; }
       .tp-slot-art { width: 40px; height: 40px; }
       .team-module {
-        max-height: min(82vh, calc(100dvh - 56px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+        top: max(110px, calc(env(safe-area-inset-top, 0px) + 88px));
+        max-height: min(70vh, calc(100dvh - 110px - var(--nav-h, 56px) - env(safe-area-inset-bottom, 0px)));
+        padding: 8px 8px 6px;
       }
-      .team-slot { min-height: 58px; }
+      .team-slot {
+        min-height: 70px;
+        max-height: 78px;
+        gap: 6px;
+        padding: 5px 6px;
+      }
       .team-slot .ts-art { width: 46px; height: 46px; }
+      .team-slot.empty .ts-name,
+      .team-slot.empty .ts-add { font-size: 0.88rem; }
+      .team-slots { gap: 8px; }
     }
 
     @media (max-width: 768px) and (orientation: landscape) {
@@ -6760,7 +6841,9 @@
       }
       .tp-slots { padding-top: 6px; padding-bottom: 4px; }
       .team-module {
-        max-height: min(88vh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+        top: max(56px, calc(env(safe-area-inset-top, 0px) + 44px));
+        max-height: min(78vh, calc(100dvh - 56px - env(safe-area-inset-bottom, 0px)));
+        width: min(94vw, 420px);
       }
     }
 
@@ -6781,18 +6864,25 @@
         display: none;
         inset: auto;
         left: 50%;
+        right: auto;
         top: 50%;
         margin: 0;
         height: fit-content;
         max-height: min(82vh, 640px);
-        overflow-y: auto;
+        overflow: hidden;
         transform: translate(-50%, -50%);
         width: min(360px, 90vw);
         z-index: 32;
         background: linear-gradient(180deg, rgba(14, 18, 24, 0.96), rgba(8, 11, 16, 0.98));
         animation: sheetIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
       }
-      .team-module.open { display: block; }
+      .team-module.open { display: flex; flex-direction: column; }
+      .team-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
       .team-close {
         display: grid;
         place-items: center;
@@ -6810,6 +6900,95 @@
         z-index: 2;
       }
       .team-toggle-tablet { display: inline-flex; }
+    }
+
+    /* Phones: override tablet drawer centering (must stay after 899px rule) */
+    @media (max-width: 768px) {
+      .team-module,
+      .team-module.open {
+        display: none;
+        inset: auto;
+        left: 50%;
+        right: auto;
+        top: max(120px, calc(env(safe-area-inset-top, 0px) + 96px));
+        bottom: auto;
+        margin: 0;
+        transform: translateX(-50%);
+        width: 94vw;
+        max-width: 94vw;
+        height: auto;
+        max-height: min(72vh, calc(100dvh - 120px - var(--nav-h, 64px) - env(safe-area-inset-bottom, 0px)));
+        overflow: hidden;
+        z-index: 40;
+        padding: 10px 10px 8px;
+        box-sizing: border-box;
+      }
+      .team-module.open {
+        display: flex;
+        flex-direction: column;
+      }
+      .team-head {
+        flex: 0 0 auto;
+        margin-bottom: 8px;
+        justify-content: center;
+      }
+      .team-close {
+        width: 36px;
+        height: 36px;
+        top: 6px;
+        right: 6px;
+        z-index: 3;
+      }
+      .team-title {
+        font-size: 0.82rem;
+        letter-spacing: 0.16em;
+        padding: 0 40px;
+        text-align: center;
+      }
+      .team-title::before,
+      .team-title::after {
+        display: none;
+      }
+      .team-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+      }
+      .team-slots { gap: 8px; }
+      .team-slot {
+        min-height: 74px;
+        max-height: 82px;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 12px;
+      }
+      .team-slot:hover,
+      .team-slot:focus-visible {
+        transform: none;
+      }
+      .team-slot .ts-art {
+        width: 50px;
+        height: 50px;
+        border-radius: 10px;
+        font-size: 1.35rem;
+      }
+      .team-slot .ts-art img { object-fit: contain; }
+      .team-slot.empty .ts-art.ts-plus { font-size: 1.35rem; }
+      .team-slot.empty .ts-name,
+      .team-slot.empty .ts-add {
+        font-size: 0.94rem;
+        letter-spacing: 0.04em;
+      }
+      .ts-name { font-size: 0.78rem; }
+      .ts-rarity,
+      .ts-bonus,
+      .ts-add { font-size: 0.62rem; }
+      .team-bonus { margin-top: 10px; padding: 8px; }
+      .team-bonus-title { font-size: 0.68rem; margin-bottom: 6px; }
     }
 
     @supports not ((backdrop-filter: blur(6px)) or (-webkit-backdrop-filter: blur(6px))) {
@@ -7908,6 +8087,69 @@
       font-size: 0.78rem;
       color: rgba(190, 170, 140, 0.78);
       line-height: 1.35;
+    }
+    .expedition-unlock-gate {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      text-align: center;
+      padding: 28px 18px 24px;
+      min-height: 240px;
+    }
+    .expedition-unlock-ico {
+      font-size: 2.6rem;
+      line-height: 1;
+      filter: drop-shadow(0 0 12px rgba(240, 208, 120, 0.35));
+    }
+    .expedition-unlock-title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #f5e2a8;
+    }
+    .expedition-unlock-desc {
+      margin: 0;
+      max-width: 34ch;
+      font-size: 0.88rem;
+      line-height: 1.45;
+      color: rgba(220, 205, 175, 0.88);
+    }
+    .expedition-unlock-price {
+      margin: 4px 0 0;
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #ffe29a;
+    }
+    .expedition-unlock-btn {
+      margin-top: 6px;
+      min-height: 44px;
+      padding: 10px 28px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 210, 110, 0.65);
+      font-family: var(--font-display);
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #2a1606;
+      cursor: pointer;
+      background: linear-gradient(180deg, #ffe7a0 0%, #d4a84b 100%);
+      box-shadow: 0 4px 0 #6a4a18, 0 8px 18px rgba(0, 0, 0, 0.35);
+    }
+    .expedition-unlock-btn:hover:not(:disabled) {
+      filter: brightness(1.05);
+    }
+    .expedition-unlock-btn:disabled,
+    .expedition-unlock-btn.is-disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      filter: grayscale(0.25);
+      box-shadow: 0 3px 0 #3a3228;
     }
     .expedition-zone-label {
       margin: 0;
@@ -9239,9 +9481,119 @@ html {
     padding: 56px 1% 10px;
   }
 
-  .team-module {
-    width: min(94vw, 360px);
-    max-height: min(82vh, calc(100dvh - 64px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+  .team-module,
+  .team-module.open {
+    inset: auto;
+    left: 50%;
+    right: auto;
+    top: max(120px, calc(env(safe-area-inset-top, 0px) + 96px));
+    bottom: auto;
+    margin: 0;
+    transform: translateX(-50%);
+    width: 94vw;
+    max-width: 94vw;
+    height: auto;
+    max-height: min(72vh, calc(100dvh - 120px - var(--nav-h, 64px) - env(safe-area-inset-bottom, 0px)));
+    overflow: hidden;
+    z-index: 40;
+    padding: 10px 10px 8px;
+    box-sizing: border-box;
+  }
+  .team-module { display: none; }
+  .team-module.open {
+    display: flex;
+    flex-direction: column;
+  }
+  .team-head {
+    flex: 0 0 auto;
+    margin-bottom: 8px;
+    justify-content: center;
+  }
+  .team-close {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    top: 6px;
+    right: 6px;
+    z-index: 3;
+  }
+  .team-title {
+    font-size: 0.82rem;
+    letter-spacing: 0.16em;
+    padding: 0 40px;
+    text-align: center;
+    max-width: 100%;
+  }
+  .team-title::before,
+  .team-title::after {
+    display: none;
+  }
+  .team-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  .team-slots { gap: 8px; }
+  .team-slot {
+    min-height: 74px;
+    max-height: 82px;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 12px;
+  }
+  .team-slot:hover,
+  .team-slot:focus-visible {
+    transform: none;
+  }
+  .team-slot .ts-art {
+    width: 50px;
+    height: 50px;
+    border-radius: 10px;
+    font-size: 1.35rem;
+  }
+  .team-slot .ts-art img { object-fit: contain; }
+  .team-slot.empty .ts-name,
+  .team-slot.empty .ts-add {
+    font-size: 0.94rem;
+    letter-spacing: 0.04em;
+  }
+  .ts-name { font-size: 0.78rem; }
+  .ts-rarity,
+  .ts-bonus,
+  .ts-add { font-size: 0.62rem; }
+  .team-bonus { margin-top: 10px; padding: 8px; }
+  .team-bonus-title { font-size: 0.68rem; }
+
+  /* Team picker cards — compact mobile grid */
+  .team-picker-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .tp-card {
+    min-height: 0;
+    padding: 0 0 4px;
+    gap: 2px;
+  }
+  .tp-card-art {
+    width: 58px;
+    height: 58px;
+    margin: 2px 0 0;
+    font-size: 1.5rem;
+  }
+  .tp-card-art img { object-fit: contain; }
+  .tp-card-name { font-size: 0.68rem; }
+  .tp-card-stars { font-size: 0.58rem; }
+  .tp-card-bonus { font-size: 0.5rem; }
+  .tp-actions > .tp-btn {
+    min-height: 36px;
+    padding: 6px 8px;
+    font-size: 0.72rem;
   }
 }
 
@@ -9509,6 +9861,25 @@ html {
 
   .world-zones-list {
     gap: 10px;
+  }
+
+  .team-module,
+  .team-module.open {
+    top: max(110px, calc(env(safe-area-inset-top, 0px) + 88px));
+    max-height: min(70vh, calc(100dvh - 110px - var(--nav-h, 56px) - env(safe-area-inset-bottom, 0px)));
+    padding: 8px 8px 6px;
+  }
+  .team-slot {
+    min-height: 70px;
+    max-height: 78px;
+    gap: 6px;
+    padding: 5px 6px;
+  }
+  .team-slot .ts-art { width: 46px; height: 46px; }
+  .team-slot.empty .ts-name,
+  .team-slot.empty .ts-add { font-size: 0.88rem; }
+  .team-picker-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

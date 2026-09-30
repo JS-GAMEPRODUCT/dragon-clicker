@@ -254,6 +254,17 @@ var SPECIAL_UPGRADE_DEFS = [
         description: "+5 % clic manuel et +5 % production passive.",
         effect: { type: "heritage", clickPct: 0.05, prodPct: 0.05 },
         unlock: { type: "producerOwned", producerId: "fortress", value: 1 }
+      },
+      {
+        id: "expeditionCamp",
+        name: "Camp d'expédition",
+        icon: "⛺",
+        zoneId: "sanctuary",
+        cost: 15000,
+        description: "Débloque définitivement le système d'expéditions.",
+        effect: { type: "unlockExpeditions" },
+        unlock: null,
+        hideFromShop: true
       }
     ];
 

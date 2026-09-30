@@ -60,7 +60,10 @@
     const MAX_DRAGON_STARS = 5;
     const TEAM_SIZE = 3;
     const DEFAULT_EXPEDITION_SLOTS = 1;
-    const EXPEDITION_UNLOCK_DRAGON_POWER = 2000;
+    const EXPEDITION_CAMP_COST = 15000;
+    const EXPEDITION_CAMP_ID = "expeditionCamp";
+    /** Legacy power gate (removed) — kept only to grandfather old saves once. */
+    const LEGACY_EXPEDITION_UNLOCK_POWER = 2000;
     /* Sélection libre : 1 à 3 dragons pour toute expédition */
     const EXPEDITION_PARTY_MIN = 1;
     const EXPEDITION_PARTY_MAX = 3;
@@ -1169,7 +1172,9 @@
 
     function getVisibleSpecialUpgrades() {
       const zone = getCurrentZone();
-      return SPECIAL_UPGRADE_DEFS.filter((u) => u.zoneId === zone.id && isSpecialUpgradeUnlocked(u));
+      return SPECIAL_UPGRADE_DEFS.filter((u) =>
+        u.zoneId === zone.id && !u.hideFromShop && isSpecialUpgradeUnlocked(u)
+      );
     }
 
     function buyLevelPassive(id) {
@@ -1205,12 +1210,17 @@
       buyingLock = true;
       try {
         gameState.specialUpgrades[id].bought = true;
+        if (def.effect && def.effect.type === "unlockExpeditions") {
+          ensureExpeditionState().systemUnlocked = true;
+          expeditionsDirty = true;
+        }
         calculateProduction();
         showNotification("✨ Spécial", def.name + " acquis");
         playSound("buy");
         upgradesDirty = true;
         uiDirty = true;
         zonesDirty = true;
+        saveGame(true);
       } finally {
         buyingLock = false;
       }
@@ -1232,7 +1242,7 @@
         total += 1;
         if (getLevelPassiveLevel(u.id, s) >= u.maxLevel) done += 1;
       });
-      SPECIAL_UPGRADE_DEFS.filter((u) => u.zoneId === "sanctuary").forEach((u) => {
+      SPECIAL_UPGRADE_DEFS.filter((u) => u.zoneId === "sanctuary" && !u.hideFromShop).forEach((u) => {
         total += 1;
         if (s.specialUpgrades?.[u.id]?.bought) done += 1;
       });
@@ -1432,7 +1442,8 @@
         team: [null, null, null],
         expeditions: {
           unlockedSlots: DEFAULT_EXPEDITION_SLOTS,
-          slots: [null]
+          slots: [null],
+          systemUnlocked: false
         },
         meta: {
           prestigeLevel: 0,
@@ -4790,7 +4801,8 @@
     function createEmptyExpeditionState() {
       return {
         unlockedSlots: DEFAULT_EXPEDITION_SLOTS,
-        slots: Array.from({ length: DEFAULT_EXPEDITION_SLOTS }, () => null)
+        slots: Array.from({ length: DEFAULT_EXPEDITION_SLOTS }, () => null),
+        systemUnlocked: false
       };
     }
 
@@ -4803,6 +4815,11 @@
       exp.unlockedSlots = Math.max(1, Math.floor(safeNumber(exp.unlockedSlots, DEFAULT_EXPEDITION_SLOTS)));
       if (!Array.isArray(exp.slots)) exp.slots = [];
       while (exp.slots.length < exp.unlockedSlots) exp.slots.push(null);
+      if (exp.systemUnlocked == null) exp.systemUnlocked = false;
+      /* Camp already bought → permanent unlock */
+      if (!exp.systemUnlocked && st.specialUpgrades?.[EXPEDITION_CAMP_ID]?.bought) {
+        exp.systemUnlocked = true;
+      }
       return exp;
     }
 
@@ -5037,7 +5054,40 @@
     }
 
     function areExpeditionsUnlocked(state) {
-      return getPlayerDragonPower(state) >= EXPEDITION_UNLOCK_DRAGON_POWER;
+      const st = state || gameState;
+      const exp = ensureExpeditionState(st);
+      return !!exp.systemUnlocked;
+    }
+
+    function buyExpeditionCamp() {
+      if (buyingLock) return false;
+      if (areExpeditionsUnlocked()) return true;
+      const cost = EXPEDITION_CAMP_COST;
+      if (safeNumber(gameState.dragonEssence, 0) < cost) {
+        showNotification("⛺ Camp d'expédition", "Il faut " + formatNumber(cost) + " Essence.");
+        playSound("error");
+        return false;
+      }
+      if (!spendEssence(cost, { zoneId: "sanctuary" })) return false;
+      buyingLock = true;
+      try {
+        if (!gameState.specialUpgrades[EXPEDITION_CAMP_ID]) {
+          gameState.specialUpgrades[EXPEDITION_CAMP_ID] = { bought: false };
+        }
+        gameState.specialUpgrades[EXPEDITION_CAMP_ID].bought = true;
+        ensureExpeditionState().systemUnlocked = true;
+        expeditionsDirty = true;
+        upgradesDirty = true;
+        uiDirty = true;
+        showNotification("⛺ Camp d'expédition", "Expéditions débloquées !");
+        playSound("buy");
+        saveGame(true);
+        renderExpeditions();
+        updateExpeditionButtonIndicator();
+        return true;
+      } finally {
+        buyingLock = false;
+      }
     }
 
     function getExpeditionHudState() {
@@ -5045,8 +5095,8 @@
       if (!areExpeditionsUnlocked()) {
         return {
           kind: "locked",
-          power: getPlayerDragonPower(),
-          required: EXPEDITION_UNLOCK_DRAGON_POWER
+          cost: EXPEDITION_CAMP_COST,
+          canAfford: safeNumber(gameState.dragonEssence, 0) >= EXPEDITION_CAMP_COST
         };
       }
       const busy = getBusyExpeditionRun();
@@ -5066,19 +5116,10 @@
       const btn = document.getElementById("btn-expeditions");
       const locked = state.kind === "locked";
 
-      if (locked && isExpeditionDrawerOpen()) {
-        const drawer = document.getElementById("expedition-drawer");
-        if (drawer) {
-          drawer.classList.remove("open");
-          drawer.setAttribute("aria-hidden", "true");
-        }
-        if (btn) btn.setAttribute("aria-expanded", "false");
-      }
-
       if (statusEl) {
         if (locked) {
           statusEl.hidden = false;
-          statusEl.textContent = formatNumber(state.required) + " 💪";
+          statusEl.textContent = formatNumber(state.cost) + " 💎";
         } else if (state.kind === "running") {
           statusEl.hidden = false;
           statusEl.textContent = formatCountdown(state.remaining);
@@ -5091,14 +5132,14 @@
         }
       }
       if (badge) badge.hidden = locked || state.kind !== "claim";
-      if (ico) ico.textContent = locked ? "🔒" : "🧭";
+      if (ico) ico.textContent = locked ? "⛺" : "🧭";
       if (btn) {
         btn.classList.toggle("is-locked", locked);
         btn.classList.toggle("has-claim", !locked && state.kind === "claim");
         btn.classList.toggle("is-running", !locked && state.kind === "running");
-        btn.setAttribute("aria-disabled", locked ? "true" : "false");
+        btn.setAttribute("aria-disabled", "false");
         btn.title = locked
-          ? "Verrouillé — " + formatNumber(state.required) + " puissance draconique requise (" + formatNumber(state.power) + ")"
+          ? "Camp d'expédition — " + formatNumber(state.cost) + " Essence pour débloquer"
           : "Expéditions";
       }
     }
@@ -5109,10 +5150,6 @@
     }
 
     function openExpeditionDrawer() {
-      if (!areExpeditionsUnlocked()) {
-        updateExpeditionButtonIndicator();
-        return;
-      }
       const drawer = document.getElementById("expedition-drawer");
       const btn = document.getElementById("btn-expeditions");
       if (!drawer) return;
@@ -5121,7 +5158,7 @@
       if (btn) btn.setAttribute("aria-expanded", "true");
       expeditionIntroAnimPending = true;
       expeditionsDirty = true;
-      preloadExpeditionImagesForCurrentZone();
+      if (areExpeditionsUnlocked()) preloadExpeditionImagesForCurrentZone();
       renderExpeditions();
       updateExpeditionButtonIndicator();
       playSound("button");
@@ -5138,10 +5175,6 @@
     }
 
     function toggleExpeditionDrawer() {
-      if (!areExpeditionsUnlocked()) {
-        updateExpeditionButtonIndicator();
-        return;
-      }
       if (isExpeditionDrawerOpen()) closeExpeditionDrawer();
       else openExpeditionDrawer();
     }
@@ -5369,6 +5402,12 @@
 
       root.innerHTML = "";
 
+      if (!areExpeditionsUnlocked()) {
+        root.appendChild(buildExpeditionUnlockGate());
+        expeditionsDirty = false;
+        return;
+      }
+
       if (expeditionUi.mode === "prepare" && expeditionUi.selectedExpeditionId) {
         root.appendChild(buildExpeditionPrepareView());
         expeditionsDirty = false;
@@ -5377,6 +5416,47 @@
 
       root.appendChild(buildExpeditionListView());
       expeditionsDirty = false;
+    }
+
+    function buildExpeditionUnlockGate() {
+      const wrap = document.createElement("div");
+      wrap.className = "expedition-unlock-gate";
+
+      const ico = document.createElement("div");
+      ico.className = "expedition-unlock-ico";
+      ico.textContent = "⛺";
+      wrap.appendChild(ico);
+
+      const title = document.createElement("h3");
+      title.className = "expedition-unlock-title";
+      title.textContent = "Camp d'expédition";
+      wrap.appendChild(title);
+
+      const desc = document.createElement("p");
+      desc.className = "expedition-unlock-desc";
+      desc.textContent =
+        "Débloquez les expéditions pour envoyer vos dragons explorer des terres lointaines.";
+      wrap.appendChild(desc);
+
+      const price = document.createElement("p");
+      price.className = "expedition-unlock-price";
+      price.textContent = "Prix : " + formatNumber(EXPEDITION_CAMP_COST) + " Essence";
+      wrap.appendChild(price);
+
+      const canBuy = safeNumber(gameState.dragonEssence, 0) >= EXPEDITION_CAMP_COST;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "expedition-unlock-btn" + (canBuy ? "" : " is-disabled");
+      btn.textContent = "DÉBLOQUER";
+      btn.disabled = !canBuy;
+      btn.addEventListener("click", () => {
+        if (buyExpeditionCamp()) {
+          openExpeditionDrawer();
+        }
+      });
+      wrap.appendChild(btn);
+
+      return wrap;
     }
 
     function buildExpeditionListView() {
@@ -8012,6 +8092,7 @@
           1,
           Math.floor(safeNumber(src.unlockedSlots, DEFAULT_EXPEDITION_SLOTS))
         );
+        if (src.systemUnlocked) fresh.expeditions.systemUnlocked = true;
         const slots = Array.isArray(src.slots) ? src.slots : [];
         fresh.expeditions.slots = [];
         for (let i = 0; i < fresh.expeditions.unlockedSlots; i++) {
@@ -8064,6 +8145,28 @@
             if (ti !== -1) fresh.team[ti] = null;
           });
         }
+      }
+
+      /* Camp already purchased */
+      if (fresh.specialUpgrades?.[EXPEDITION_CAMP_ID]?.bought) {
+        fresh.expeditions.systemUnlocked = true;
+      }
+      /* Active/past expedition run ⇒ was unlocked under any prior system */
+      if (!fresh.expeditions.systemUnlocked) {
+        const hasRun = (fresh.expeditions.slots || []).some((s) => s && s.expeditionId);
+        if (hasRun) fresh.expeditions.systemUnlocked = true;
+      }
+      /* Grandfather ONLY old saves that never stored systemUnlocked (ancien seuil 2K). */
+      if (
+        !fresh.expeditions.systemUnlocked &&
+        data.expeditions &&
+        data.expeditions.systemUnlocked === undefined
+      ) {
+        try {
+          if (getPlayerDragonPower(fresh) >= LEGACY_EXPEDITION_UNLOCK_POWER) {
+            fresh.expeditions.systemUnlocked = true;
+          }
+        } catch (e) { /* power calc optional during migrate */ }
       }
 
       gameState = fresh;
@@ -8985,8 +9088,7 @@
     function switchPanel(name) {
       if (name === "expeditions") {
         switchPanel("kingdom");
-        if (areExpeditionsUnlocked()) openExpeditionDrawer();
-        else updateExpeditionButtonIndicator();
+        openExpeditionDrawer();
         return;
       }
       /* Améliorations fusionnées dans le panneau Boutique */
