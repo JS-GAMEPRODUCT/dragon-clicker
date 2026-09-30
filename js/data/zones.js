@@ -24,11 +24,11 @@ var ZONE_DEFS = [
         description: "Collines fertiles où de nouveaux producteurs plus puissants apparaissent.",
         background: "valley",
         startUnlocked: false,
-        unlockCost: 300000,
+        unlockCost: 100000,
         unlockPortalName: "Portail vers la Vallée",
-        /* Ticket d'accès : 600K investis en Zone 1, puis 300K pour acheter. */
+        /* Ticket d'accès : 300K investis en Zone 1, puis 100K pour acheter. */
         unlockRequirements: [
-          { type: "zoneSpent", zoneId: "sanctuary", value: 600000 }
+          { type: "zoneSpent", zoneId: "sanctuary", value: 300000 }
         ],
         eggIds: ["plant", "cascade"],
         producerIds: ["valleyCub", "valleyNest", "valleySpire", "valleyKeep", "valleyCitadel"]
