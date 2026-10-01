@@ -11372,8 +11372,8 @@ html {
 
 @media (min-width: 769px) {
   /*
-   * DESKTOP Boutique ouverte :
-   * HUD complet au-dessus → panneau au milieu → nav en dessous.
+   * DESKTOP Boutique ouverte — aligné sur la capture de référence :
+   * HUD complet → grand cadre → nav. Contenu remplit la hauteur intérieure.
    * Mobile (max-width:768) inchangé.
    */
   #app:has(#panel-shop.active) {
@@ -11432,16 +11432,16 @@ html {
     pointer-events: none;
   }
 
-  /* Cadre Boutique : centré dans la bande, hauteur plafonnée (scroll interne) */
+  /* Cadre Boutique : large, centré, ratio PNG, occupe la bande utile */
   #app:has(#panel-shop.active) #panel-shop .shop-menu {
     position: absolute !important;
     left: 50% !important;
     top: 50% !important;
     transform: translate(-50%, -50%) !important;
-    width: min(92vw, 2200px) !important;
-    max-width: min(96%, calc((100% - 24px) * 1796 / 876)) !important;
+    width: min(94vw, 2200px) !important;
+    max-width: 96% !important;
     height: auto !important;
-    max-height: calc(100% - 24px) !important;
+    max-height: calc(100% - 12px) !important;
     aspect-ratio: 1796 / 876 !important;
     z-index: 1 !important;
     overflow: hidden !important;
@@ -11451,23 +11451,21 @@ html {
   #app:has(#panel-shop.active) #panel-shop .shop-menu-bg {
     max-height: 100% !important;
     width: 100% !important;
-    height: auto !important;
-    object-fit: contain !important;
+    height: 100% !important;
+    object-fit: fill !important;
   }
 
   /*
-   * Contenu interne adapté au cadre actuel (ne pas retoucher la taille du fond).
-   * IMPORTANT : top/bottom en % sur position absolute = % de la HAUTEUR du cadre
-   * (contrairement au padding-% qui se base sur la LARGEUR et débordait le doré).
+   * Safe-area intérieure (top/bottom % = hauteur du cadre).
+   * Contenu descend presque jusqu’au bas — pas de petite fenêtre de scroll.
    */
   #app:has(#panel-shop.active) #panel-shop .shop-menu-overlay {
     pointer-events: none;
     position: absolute !important;
-    /* Safe-area intérieure du PNG orné (% hauteur via top/bottom absolute) */
-    top: 6.5% !important;
-    right: 3.5% !important;
-    bottom: 10% !important;
-    left: 3.5% !important;
+    top: 5.5% !important;
+    right: 3% !important;
+    bottom: 6% !important;
+    left: 3% !important;
     width: auto !important;
     height: auto !important;
     padding: 0 !important;
@@ -11480,13 +11478,15 @@ html {
 
   #app:has(#panel-shop.active) #panel-shop .shop-dual-layout {
     flex: 1 1 auto !important;
+    min-width: 0 !important;
     min-height: 0 !important;
     height: 100% !important;
     max-height: 100% !important;
     width: 100% !important;
     display: grid !important;
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
     align-items: stretch !important;
+    gap: 0 !important;
     overflow: hidden !important;
     pointer-events: none;
   }
@@ -11494,28 +11494,40 @@ html {
   #app:has(#panel-shop.active) #panel-shop .shop-column {
     display: flex !important;
     flex-direction: column !important;
+    min-width: 0 !important;
     min-height: 0 !important;
     height: 100% !important;
     max-height: 100% !important;
     overflow: hidden !important;
+    box-sizing: border-box !important;
     pointer-events: auto;
+  }
+
+  #app:has(#panel-shop.active) #panel-shop .shop-column-boutique {
+    padding: 0 20px 0 10px !important;
+  }
+
+  #app:has(#panel-shop.active) #panel-shop .shop-column-upgrades {
+    padding: 0 10px 0 20px !important;
   }
 
   #app:has(#panel-shop.active) #panel-shop .shop-column-header {
     flex: 0 0 auto !important;
+    margin-bottom: 6px !important;
   }
 
+  /* Un seul scroll vertical par colonne — hauteur = tout l’espace sous le header */
   #app:has(#panel-shop.active) #panel-shop .shop-column-scroll {
     flex: 1 1 auto !important;
+    min-width: 0 !important;
     min-height: 0 !important;
     max-height: none !important;
+    height: auto !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
     overscroll-behavior: contain;
-    /* Marge bas : dernière carte entièrement visible en fin de scroll */
-    padding-bottom: 24px !important;
+    padding-bottom: 28px !important;
     pointer-events: auto;
-    scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: rgba(210, 165, 65, 0.65) rgba(0, 0, 0, 0.35);
   }
@@ -11536,17 +11548,40 @@ html {
   }
 
   #app:has(#panel-shop.active) #panel-shop .shop-column-scroll .card-list {
-    padding-bottom: 10px;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding-bottom: 8px;
   }
 
-  #app:has(#panel-shop.active) #panel-shop .shop-dual-divider {
-    top: 4px !important;
-    bottom: 4px !important;
+  #app:has(#panel-shop.active) #panel-shop .shop-grid,
+  #app:has(#panel-shop.active) #panel-shop .upgrades-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   #app:has(#panel-shop.active) #panel-shop .item-row,
+  #app:has(#panel-shop.active) #panel-shop .item-row.card {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    pointer-events: auto;
+  }
+
   #app:has(#panel-shop.active) #panel-shop .item-card-foot .btn {
     pointer-events: auto;
+  }
+
+  #app:has(#panel-shop.active) #panel-shop .shop-dual-divider {
+    top: 2px !important;
+    bottom: 2px !important;
   }
 
   #app:has(#panel-shop.active) .sheet-bar {

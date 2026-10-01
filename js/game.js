@@ -10080,6 +10080,10 @@
       renderUI();
       if (name === "shop") {
         requestAnimationFrame(() => {
+          /* Ouverture : colonnes en haut (PRODUCTION / ACTIVES), une seule fois */
+          document.querySelectorAll("#panel-shop .shop-column-scroll").forEach((el) => {
+            el.scrollTop = 0;
+          });
           syncShopDividerToKingdomNav();
           requestAnimationFrame(syncShopDividerToKingdomNav);
         });
