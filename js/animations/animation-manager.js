@@ -12,8 +12,13 @@
   };
 
   DCAnim.isMobileFx = function isMobileFx() {
-    return global.innerWidth <= 799 ||
-      !!(global.matchMedia && global.matchMedia("(max-width: 768px)").matches);
+    if (global.innerWidth <= 799) return true;
+    if (global.matchMedia) {
+      if (global.matchMedia("(max-width: 768px)").matches) return true;
+      /* Safari iOS / tactile : ne dépend pas uniquement de la largeur */
+      if (global.matchMedia("(hover: none) and (pointer: coarse)").matches) return true;
+    }
+    return !!(global.navigator && global.navigator.maxTouchPoints > 1 && global.innerWidth <= 1024);
   };
 
   /** 0 = almost none, 1 = full. Mobile + reduced motion lower the budget. */
