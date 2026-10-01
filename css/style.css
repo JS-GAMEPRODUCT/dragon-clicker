@@ -2868,46 +2868,50 @@
       display: none;
     }
 
+    /* Boutons nav bas — CSS fantasy (plus de PNG de cadre) */
     .nav-btn {
       position: relative;
       z-index: 1;
       flex: 1 1 0;
       max-width: 118px;
       min-width: 0;
-      min-height: 52px;
+      min-height: 54px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      padding: 8px 6px 11px;
+      gap: 3px;
+      padding: 8px 6px 12px;
       font-family: var(--font-display);
       font-size: 0.62rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: rgba(236, 224, 198, 0.9);
-      border-radius: 16px;
-      border: 1px solid rgba(212, 170, 78, 0.22);
+      color: #e8dcc0;
+      border-radius: 14px;
+      border: 1.5px solid rgba(212, 175, 90, 0.55);
       outline: none;
+      -webkit-tap-highlight-color: transparent;
       background:
-        linear-gradient(180deg, rgba(22, 36, 58, 0.94) 0%, rgba(10, 16, 28, 0.96) 100%);
+        linear-gradient(180deg, #1e3352 0%, #122038 48%, #0a1424 100%);
       box-shadow:
-        0 4px 12px rgba(0, 0, 0, 0.35),
-        inset 0 1px 0 rgba(255, 230, 170, 0.1);
+        0 4px 12px rgba(0, 0, 0, 0.42),
+        0 0 10px rgba(40, 90, 160, 0.12),
+        inset 0 1px 0 rgba(255, 230, 170, 0.14),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35);
       transition:
-        color 160ms ease,
-        background 160ms ease,
-        border-color 160ms ease,
-        box-shadow 160ms ease,
-        transform 160ms ease,
-        filter 160ms ease;
+        color 140ms ease,
+        background 140ms ease,
+        border-color 140ms ease,
+        box-shadow 140ms ease,
+        transform 140ms ease;
     }
 
     .nav-btn .nav-ico {
-      font-size: 1.3rem;
+      font-size: 1.28rem;
       line-height: 1;
-      filter: grayscale(0.12) brightness(0.95) saturate(0.92);
-      transition: filter 160ms ease, transform 160ms ease, text-shadow 160ms ease;
+      filter: none;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+      transition: transform 140ms ease, text-shadow 140ms ease;
     }
 
     .nav-btn .nav-label {
@@ -2915,11 +2919,13 @@
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 100%;
-      font-weight: 600;
+      font-weight: 700;
       font-size: 0.62rem;
-      letter-spacing: 0.08em;
-      opacity: 0.92;
-      transition: opacity 160ms ease, color 160ms ease, text-shadow 160ms ease;
+      letter-spacing: 0.1em;
+      color: #f0e2c0;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+      opacity: 0.95;
+      transition: opacity 140ms ease, color 140ms ease, text-shadow 140ms ease;
     }
 
     /* Active diamond indicator */
@@ -2935,48 +2941,48 @@
       transform: rotate(45deg) scale(0.4);
       opacity: 0;
       box-shadow: 0 0 8px rgba(255, 190, 80, 0.45);
-      transition: opacity 160ms ease, transform 160ms ease;
+      transition: opacity 140ms ease, transform 140ms ease;
       pointer-events: none;
     }
 
     .nav-btn:hover {
-      color: #f5e6c4;
+      color: #ffe9b0;
       transform: translateY(-2px);
-      border-color: rgba(230, 190, 100, 0.42);
+      border-color: rgba(235, 200, 110, 0.78);
       background:
-        linear-gradient(180deg, rgba(32, 50, 78, 0.97) 0%, rgba(14, 24, 40, 0.98) 100%);
+        linear-gradient(180deg, #274266 0%, #16304c 50%, #0e1c32 100%);
       box-shadow:
-        0 6px 14px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 230, 170, 0.16);
-      filter: brightness(1.04);
-    }
-
-    .nav-btn:hover .nav-ico {
-      filter: none;
+        0 6px 14px rgba(0, 0, 0, 0.45),
+        0 0 14px rgba(255, 190, 80, 0.14),
+        inset 0 1px 0 rgba(255, 230, 170, 0.2);
     }
 
     .nav-btn:hover .nav-label {
       opacity: 1;
+      color: #ffe9b0;
     }
 
     .nav-btn:active {
-      transform: translateY(0) scale(0.98);
+      transform: translateY(0) scale(0.97);
+      box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.4),
+        inset 0 2px 4px rgba(0, 0, 0, 0.35);
     }
 
     .nav-btn.active {
       color: #ffe9b0;
-      border-color: rgba(240, 208, 120, 0.55);
+      border-color: rgba(245, 215, 130, 0.85);
       background:
-        linear-gradient(180deg, rgba(90, 62, 22, 0.95) 0%, rgba(28, 18, 8, 0.97) 100%);
-      text-shadow: 0 0 10px rgba(255, 190, 80, 0.3);
+        linear-gradient(180deg, #3a5680 0%, #1c3458 45%, #101c30 100%);
+      text-shadow: 0 0 10px rgba(255, 190, 80, 0.28);
       box-shadow:
-        inset 0 1px 0 rgba(255, 230, 170, 0.22),
-        0 0 18px rgba(255, 170, 50, 0.18),
-        0 4px 12px rgba(0, 0, 0, 0.38);
+        inset 0 1px 0 rgba(255, 230, 170, 0.24),
+        0 0 16px rgba(255, 180, 70, 0.2),
+        0 4px 12px rgba(0, 0, 0, 0.4);
     }
 
     .nav-btn.active .nav-ico {
-      filter: drop-shadow(0 0 7px rgba(255, 200, 90, 0.45));
+      text-shadow: 0 0 8px rgba(255, 200, 90, 0.4);
       transform: none;
     }
 
@@ -2990,108 +2996,23 @@
       transform: rotate(45deg) scale(1);
     }
 
-    /* Nav image buttons â€” PNG frame + HTML label (Boutique / Dragons / Monde / SuccÃ¨s)
-       Dimensions dâ€™affichage communes ; --nav-label-y mesurÃ© par PNG. */
-    .nav-btn-image {
-      --nav-label-y: 67%;
-      --nav-image-max: 148px; /* ~+45 % vs taille dâ€™origine 102px */
-      max-width: var(--nav-image-max);
-      width: 100%;
-      height: auto;
-      min-height: 0;
-      aspect-ratio: 1619 / 971;
-      padding: 0;
-      gap: 0;
-      border: none;
-      border-radius: 0;
-      background: transparent;
-      box-shadow: none;
-      overflow: visible;
-      display: block;
-      color: #f2e6c8;
-    }
-    .nav-btn-image-frame {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      object-position: center center;
-      display: block;
-      pointer-events: none;
-      user-select: none;
-      -webkit-user-drag: none;
-      z-index: 0;
-    }
-    .nav-btn-image-label {
-      position: absolute;
-      left: 50%;
-      top: var(--nav-label-y);
-      transform: translate(-50%, -50%);
-      z-index: 1;
-      margin: 0;
-      padding: 0 6%;
-      box-sizing: border-box;
-      max-width: 86%;
-      font-family: var(--font-display);
-      font-size: clamp(0.58rem, 1.35vw, 0.74rem);
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: #f2e6c8;
-      text-shadow:
-        0 1px 2px rgba(0, 0, 0, 0.75),
-        0 0 8px rgba(255, 200, 90, 0.18);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1;
-      pointer-events: none;
-    }
-    .nav-btn-image::after {
-      display: none;
-    }
-    .nav-btn-image:hover {
-      color: #ffe9b0;
-      transform: scale(1.04);
-      border: none;
-      background: transparent;
-      box-shadow: none;
-      filter: brightness(1.06) drop-shadow(0 0 8px rgba(255, 190, 80, 0.32));
-    }
-    .nav-btn-image:active {
-      transform: scale(0.98);
-    }
-    .nav-btn-image.active {
-      color: #ffe9b0;
-      border: none;
-      background: transparent;
-      text-shadow: none;
-      box-shadow: none;
-      filter: brightness(1.08) drop-shadow(0 0 10px rgba(255, 200, 90, 0.38));
-    }
-    .nav-btn-image.active .nav-btn-image-label {
-      color: #ffe9b0;
-      text-shadow:
-        0 1px 2px rgba(0, 0, 0, 0.75),
-        0 0 10px rgba(255, 200, 90, 0.28);
-    }
-    /* Label Y mesurÃ©s (centre zone libre sous le logo / hauteur PNG). */
-    .nav-btn-image[data-nav="shop"] { --nav-label-y: 66.8%; }     /* boutique 1619Ã—971 */
-    .nav-btn-image[data-nav="dragons"] { --nav-label-y: 68.6%; }  /* dragon 1672Ã—941 */
-    .nav-btn-image[data-nav="world"] { --nav-label-y: 66.3%; }    /* monde 1619Ã—971 */
-    .nav-btn-image[data-nav="trophies"] { --nav-label-y: 66.4%; } /* succÃ¨s 1619Ã—971 */
-
-    /* Royaume â€” elegant raised center */
+    /* Royaume — plus grand, surélevé, même langage visuel */
     .nav-btn-main {
       justify-content: flex-end;
       padding-bottom: 10px;
-      max-width: 128px;
+      max-width: 132px;
+      min-height: 60px;
       z-index: 2;
-      border-radius: 18px;
-      border-color: rgba(230, 190, 100, 0.38);
+      border-radius: 16px;
+      border-width: 2px;
+      border-color: rgba(235, 200, 110, 0.72);
       background:
-        linear-gradient(180deg, rgba(28, 42, 68, 0.96) 0%, rgba(12, 18, 32, 0.98) 100%);
+        linear-gradient(180deg, #2a4570 0%, #162848 48%, #0c1830 100%);
+      box-shadow:
+        0 6px 16px rgba(0, 0, 0, 0.48),
+        0 0 16px rgba(255, 180, 60, 0.16),
+        inset 0 1px 0 rgba(255, 230, 170, 0.2),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35);
     }
 
     .nav-btn-main .nav-ico {
@@ -3103,7 +3024,7 @@
       place-items: center;
       border-radius: 14px;
       font-size: 1.45rem;
-      border: 1.5px solid rgba(240, 208, 120, 0.7);
+      border: 1.5px solid rgba(240, 208, 120, 0.75);
       background:
         radial-gradient(circle at 42% 32%, #6a3f18 0%, #3a220e 48%, #1a1008 100%);
       box-shadow:
@@ -3113,24 +3034,26 @@
         inset 0 1px 0 rgba(255, 230, 170, 0.22);
       filter: none;
       transform: translateY(0);
+      text-shadow: none;
     }
 
     .nav-btn-main .nav-label {
-      letter-spacing: 0.1em;
+      letter-spacing: 0.12em;
+      font-size: 0.66rem;
     }
 
     .nav-btn-main:hover {
-      border-color: rgba(240, 208, 120, 0.5);
+      border-color: rgba(245, 215, 130, 0.88);
       background:
-        linear-gradient(180deg, rgba(36, 54, 84, 0.98) 0%, rgba(16, 26, 44, 0.99) 100%);
+        linear-gradient(180deg, #355882 0%, #1c3860 50%, #102040 100%);
       box-shadow:
-        0 6px 14px rgba(0, 0, 0, 0.42),
-        inset 0 1px 0 rgba(255, 230, 170, 0.14);
-      filter: none;
+        0 8px 18px rgba(0, 0, 0, 0.48),
+        0 0 18px rgba(255, 190, 80, 0.22),
+        inset 0 1px 0 rgba(255, 230, 170, 0.24);
     }
 
     .nav-btn-main:hover .nav-ico {
-      border-color: rgba(255, 220, 140, 0.88);
+      border-color: rgba(255, 220, 140, 0.9);
       box-shadow:
         0 0 0 1px rgba(8, 12, 22, 0.65),
         0 0 18px rgba(255, 190, 80, 0.42),
@@ -3140,14 +3063,14 @@
     }
 
     .nav-btn-main.active {
-      border-color: rgba(255, 220, 140, 0.62);
+      border-color: rgba(255, 224, 150, 0.92);
       background:
-        linear-gradient(180deg, rgba(100, 70, 24, 0.96) 0%, rgba(30, 18, 8, 0.98) 100%);
+        linear-gradient(180deg, #4a6a98 0%, #244068 45%, #142438 100%);
       box-shadow:
-        inset 0 1px 0 rgba(255, 230, 170, 0.22),
-        0 0 20px rgba(255, 170, 50, 0.22),
-        0 4px 12px rgba(0, 0, 0, 0.4);
-      text-shadow: 0 0 12px rgba(255, 190, 80, 0.35);
+        inset 0 1px 0 rgba(255, 230, 170, 0.26),
+        0 0 22px rgba(255, 180, 60, 0.26),
+        0 6px 14px rgba(0, 0, 0, 0.42);
+      text-shadow: 0 0 12px rgba(255, 190, 80, 0.32);
     }
 
     .nav-btn-main.active .nav-ico {
@@ -3359,7 +3282,6 @@
         --hud-scale: 1.08;
         padding-bottom: calc(6px + (var(--hud-scale) - 1) * 52px);
       }
-      .nav-btn-image { --nav-image-max: 136px; }
       .scene-bg-layer { background-position: center 45%; }
       .game-header-inner { gap: 8px 10px; }
       .game-logo { width: clamp(130px, 18vw, 170px); max-height: 50px; }
@@ -9235,7 +9157,6 @@
       .nav-btn .nav-label { font-size: 0.55rem; letter-spacing: 0.04em; }
       .nav-btn .nav-ico { font-size: 1.18rem; }
       .nav-btn-main .nav-ico { width: 42px; height: 42px; margin-top: -16px; font-size: 1.28rem; }
-      .nav-btn-image { --nav-image-max: 116px; }
       .nav { gap: 1px; padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0)); min-height: 58px; }
       .card { grid-template-columns: 46px 1fr auto; padding: 9px 10px; gap: 10px; }
       .card-icon { width: 46px; height: 46px; font-size: 1.5rem; }
@@ -9431,8 +9352,8 @@ html {
   }
 
   .nav-btn .nav-label {
-    font-size: clamp(0.48rem, 2.4vw, 0.58rem);
-    letter-spacing: 0.04em;
+    font-size: clamp(0.55rem, 2.8vw, 0.64rem);
+    letter-spacing: 0.05em;
   }
 
   .nav-btn .nav-ico {
@@ -9448,20 +9369,6 @@ html {
     height: clamp(36px, 10vw, 44px);
     margin-top: -12px;
     font-size: 1.2rem;
-  }
-
-  .nav-btn-image {
-    --nav-image-max: min(108px, 22vw);
-  }
-
-  .nav-btn-image-label {
-    font-size: clamp(0.52rem, 2.6vw, 0.62rem) !important;
-    letter-spacing: 0.04em !important;
-    max-width: 96% !important;
-    padding: 0 2% !important;
-    white-space: nowrap;
-    overflow: visible;
-    text-overflow: clip;
   }
 
   /* Royaume / Å“uf */
@@ -10037,17 +9944,7 @@ html {
   }
 
   .nav-btn .nav-label {
-    font-size: 0.5rem;
-  }
-
-  .nav-btn-image {
-    --nav-image-max: min(96px, 20vw);
-  }
-
-  .nav-btn-image-label {
-    font-size: 0.5rem !important;
-    letter-spacing: 0.02em !important;
-    max-width: 98% !important;
+    font-size: 0.55rem;
   }
 
   .nav-btn-main .nav-ico {
