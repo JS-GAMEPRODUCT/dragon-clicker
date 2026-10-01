@@ -11249,8 +11249,185 @@ html {
 }
 
 /* =========================================================
-   COFFRES V1 — accès scène + panneau + ouverture
+   DESKTOP — mini-équipe (même composant que mobile)
+   Remplace le gros panneau permanent ; menu complet via >
    ========================================================= */
+@media (min-width: 769px) {
+  /* Gros panneau permanent → drawer modal (ouvert via ›) */
+  .team-module {
+    display: none !important;
+    position: fixed !important;
+    left: 50% !important;
+    right: auto !important;
+    top: 50% !important;
+    bottom: auto !important;
+    width: min(420px, 92vw) !important;
+    max-width: 420px !important;
+    height: auto !important;
+    max-height: min(78vh, 720px) !important;
+    margin: 0 !important;
+    transform: translate(-50%, -50%) !important;
+    animation: none !important;
+    z-index: 80 !important;
+    overflow: hidden !important;
+    padding: 16px 16px 14px !important;
+    box-sizing: border-box !important;
+  }
+  .team-module.open {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .team-module .team-close {
+    display: grid !important;
+    place-items: center;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 34px;
+    height: 34px;
+    z-index: 5;
+  }
+  .team-module .team-head {
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  .team-module .team-title {
+    padding: 0 40px;
+    letter-spacing: 0.2em;
+  }
+  .team-module .team-title::before,
+  .team-module .team-title::after {
+    display: none;
+  }
+  .team-module .team-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  /* Bouton Équipe tablet / scene-actions : remplacé par › */
+  .team-toggle-tablet,
+  #desktop-scene-actions {
+    display: none !important;
+  }
+
+  /* Mini-équipe desktop — même HTML/JS que mobile */
+  .mobile-team-rail,
+  .team-quick-rail {
+    display: flex !important;
+    position: absolute;
+    left: max(12px, 1.2vw);
+    top: clamp(34%, calc(var(--altar-y, 64%) - 10%), 46%);
+    transform: translateY(-50%);
+    z-index: 22;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    pointer-events: auto;
+    padding: 0;
+  }
+
+  .mobile-team-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-team-slot {
+    width: clamp(70px, 5.2vw, 88px);
+    height: clamp(70px, 5.2vw, 88px);
+    padding: 0;
+    border-radius: 13px;
+    border: 1px solid rgba(212, 168, 75, 0.55);
+    background: rgba(8, 14, 24, 0.55);
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.35),
+      0 4px 12px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 220, 150, 0.12);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    cursor: pointer;
+    color: rgba(232, 220, 196, 0.85);
+  }
+
+  .mobile-team-slot:hover {
+    border-color: rgba(240, 208, 120, 0.75);
+    transform: translateY(-1px);
+  }
+
+  .mobile-team-slot .mts-plus {
+    font-size: 1.55rem;
+    font-weight: 700;
+    line-height: 1;
+    color: rgba(212, 168, 75, 0.9);
+  }
+
+  .mobile-team-slot .mts-art {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+  }
+
+  .mobile-team-slot .mts-art img {
+    width: 90%;
+    height: 90%;
+    object-fit: contain;
+    pointer-events: none;
+  }
+
+  .mobile-team-slot .mts-art .dc-emoji {
+    font-size: 1.7rem;
+    line-height: 1;
+  }
+
+  .mobile-team-slot.filled {
+    border-color: rgba(212, 168, 75, 0.72);
+    background: rgba(10, 16, 28, 0.62);
+  }
+
+  .mobile-team-open {
+    width: 30px;
+    height: clamp(70px, 5.2vw, 88px);
+    padding: 0;
+    border-radius: 10px;
+    border: 1px solid rgba(212, 168, 75, 0.55);
+    background: rgba(8, 14, 24, 0.62);
+    color: rgba(232, 210, 150, 0.95);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+  }
+
+  .mobile-team-open:hover {
+    border-color: rgba(240, 208, 120, 0.75);
+    color: #f0d078;
+  }
+
+  /* Derrière menus / masquée si menu Équipe ouvert */
+  #app:has(.overlay-panel.active) .mobile-team-rail {
+    z-index: 15;
+  }
+  #app:has(#team-module.open) .mobile-team-rail {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  /* Coffres reste à droite : pas de chevauchement avec mini-équipe gauche */
+  .scene-chests-btn {
+    right: max(18px, 2vw);
+    left: auto;
+    bottom: max(24px, 5vh);
+    top: auto;
+  }
+}
 
 /* Accès discret sur la scène (pas dans la nav basse) — image + libellé, sans cadre */
 .scene-chests-btn {
