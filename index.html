@@ -230,6 +230,15 @@
           <button type="button" class="mobile-team-open" id="btn-mobile-team-open" aria-label="Ouvrir l'équipe" title="Équipe">›</button>
         </div>
 
+        <!-- Accès Coffres — scène (pas dans la nav basse) -->
+        <button type="button" class="scene-chests-btn" id="btn-open-chests" aria-label="Coffres" title="Coffres">
+          <span class="scene-chests-art">
+            <img src="assets/coffre/coffre%20de%20base%20ferm%C3%A9.png" alt="" draggable="false" decoding="async" />
+          </span>
+          <span class="scene-chests-label">Coffres</span>
+          <span class="scene-chests-count" id="chests-btn-badge">x0</span>
+        </button>
+
         <div class="scene-actions" id="desktop-scene-actions">
           <button type="button" class="scene-btn team-toggle-btn team-toggle-tablet" id="btn-team-tablet">🛡️ Équipe</button>
         </div>
@@ -545,6 +554,35 @@
     </div>
   </div>
 
+  <!-- Coffres V1 : inventaire -->
+  <div class="modal-overlay hidden" id="chest-modal">
+    <div class="modal chest-modal" role="dialog" aria-modal="true" aria-labelledby="chest-modal-title">
+      <button type="button" class="chest-close" id="btn-close-chests" aria-label="Fermer">✕</button>
+      <header class="chest-modal-head">
+        <h2 id="chest-modal-title" class="chest-modal-title">Trésor Draconique</h2>
+        <p class="chest-modal-sub">Vos trésors récupérés lors de vos aventures.</p>
+      </header>
+      <div class="chest-inventory" id="chest-inventory"></div>
+    </div>
+  </div>
+
+  <!-- Coffres V1 : ouverture / récompenses -->
+  <div class="modal-overlay hidden" id="chest-reveal-modal">
+    <div class="modal chest-reveal" role="dialog" aria-modal="true" aria-labelledby="chest-reveal-title">
+      <div class="chest-reveal-flash" id="chest-reveal-flash" aria-hidden="true"></div>
+      <h2 id="chest-reveal-title" class="chest-reveal-title">Coffre</h2>
+      <p class="chest-reveal-zone" id="chest-reveal-zone"></p>
+      <div class="chest-reveal-art" id="chest-reveal-art">
+        <img id="chest-reveal-img" alt="" draggable="false" />
+      </div>
+      <ul class="chest-reveal-rewards" id="chest-reveal-rewards" hidden></ul>
+      <div class="chest-reveal-actions" id="chest-reveal-actions" hidden>
+        <button type="button" class="btn btn-secondary chest-reveal-again" id="btn-chest-open-again" hidden>Ouvrir encore</button>
+        <button type="button" class="btn chest-reveal-ok" id="btn-chest-reveal-ok">Continuer</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay hidden" id="dragon-detail-modal">
     <div class="modal dragon-sheet" id="dragon-detail-sheet" role="dialog" aria-label="Fiche du dragon">
       <button type="button" class="sheet-close ds-close" id="btn-close-dragon-detail" aria-label="Fermer">✕</button>
@@ -636,6 +674,7 @@
   <script src="js/data/dragons.js"></script>
   <script src="js/data/upgrades.js"></script>
   <script src="js/data/expeditions.js"></script>
+  <script src="js/data/chests.js"></script>
   <script src="js/animations/animation-manager.js"></script>
   <script src="js/animations/particles.js"></script>
   <script src="js/animations/egg-animations.js"></script>

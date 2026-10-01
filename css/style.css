@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Dragon Clicker
  * Styles globaux du jeu.
  */
@@ -548,7 +548,8 @@
     #panel-kingdom.dimmed .egg-stage,
     #panel-kingdom.dimmed .team-module,
     #panel-kingdom.dimmed .scene-actions,
-    #panel-kingdom.dimmed .mobile-team-rail {
+    #panel-kingdom.dimmed .mobile-team-rail,
+    #panel-kingdom.dimmed .scene-chests-btn {
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
@@ -11233,5 +11234,567 @@ html {
 @media (min-width: 769px) {
   #app:has(#panel-shop.active) {
     --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + 72px);
+  }
+}
+
+/* =========================================================
+   COFFRES V1 — accès scène + panneau + ouverture
+   ========================================================= */
+
+/* Accès discret sur la scène (pas dans la nav basse) */
+.scene-chests-btn {
+  position: absolute;
+  right: max(18px, 2vw);
+  bottom: max(18px, 4vh);
+  z-index: 22;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 72px;
+  padding: 8px 6px 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 170, 78, 0.42);
+  background:
+    linear-gradient(165deg, rgba(22, 30, 44, 0.92) 0%, rgba(8, 12, 20, 0.94) 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 230, 170, 0.1),
+    0 8px 20px rgba(0, 0, 0, 0.35);
+  color: #f2e6c8;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: border-color 0.2s ease, box-shadow 0.25s ease, transform 0.15s ease;
+}
+.scene-chests-btn:hover {
+  border-color: rgba(240, 208, 120, 0.7);
+  transform: translateY(-1px);
+}
+.scene-chests-btn:active { transform: translateY(0) scale(0.97); }
+.scene-chests-art {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+}
+.scene-chests-art img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+  pointer-events: none;
+}
+.scene-chests-label {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.9;
+  line-height: 1;
+}
+.scene-chests-count {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--gold-bright, #f0d078);
+  line-height: 1;
+  min-height: 1em;
+}
+.scene-chests-btn.has-chests {
+  border-color: rgba(240, 208, 120, 0.62);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 230, 170, 0.14),
+    0 8px 20px rgba(0, 0, 0, 0.35),
+    0 0 14px rgba(212, 170, 78, 0.22);
+}
+.scene-chests-btn.has-chests .scene-chests-art img {
+  animation: chestBtnPulse 3.6s ease-in-out infinite;
+}
+@keyframes chestBtnPulse {
+  0%, 88%, 100% { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45)); transform: scale(1); }
+  92% { filter: drop-shadow(0 0 8px rgba(240, 208, 120, 0.45)); transform: scale(1.04); }
+}
+
+#chest-modal { z-index: 2050; }
+.chest-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(620px, 94vw);
+  max-height: min(78vh, 720px);
+  overflow: hidden;
+  padding: 20px 18px 16px;
+  text-align: center;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(60, 80, 120, 0.22), transparent 55%),
+    linear-gradient(180deg, #141c2a 0%, #0a1018 100%);
+  border: 1px solid rgba(212, 170, 78, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 18px 48px rgba(0, 0, 0, 0.55),
+    0 0 40px rgba(212, 170, 78, 0.08);
+}
+.chest-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(212, 170, 78, 0.5);
+  background: rgba(8, 14, 24, 0.85);
+  color: var(--gold-bright, #f0d078);
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.chest-modal-head {
+  flex: 0 0 auto;
+  padding: 0 28px 10px 8px;
+  border-bottom: 1px solid rgba(212, 170, 78, 0.18);
+  margin-bottom: 10px;
+}
+.chest-modal-title {
+  margin: 0 0 4px;
+  color: var(--gold-bright, #f0d078);
+  font-family: var(--font-display);
+  letter-spacing: 0.06em;
+}
+.chest-modal-sub {
+  margin: 0;
+  font-size: 0.84rem;
+  opacity: 0.72;
+}
+.chest-inventory {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 2px 6px;
+  text-align: left;
+}
+.chest-zone { margin-top: 12px; }
+.chest-zone:first-child { margin-top: 0; }
+.chest-zone-title {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  color: #e9d7a8;
+}
+.chest-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.chest-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 12px 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 170, 78, 0.38);
+  background: radial-gradient(circle at 50% 18%, rgba(46, 62, 96, 0.5), rgba(8, 12, 22, 0.9));
+  box-shadow: inset 0 1px 0 rgba(255, 230, 170, 0.06);
+}
+.chest-card.chest-draconic {
+  border-color: rgba(212, 170, 78, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 230, 170, 0.06), 0 0 10px rgba(212, 170, 78, 0.06);
+}
+.chest-card.chest-rare {
+  border-color: rgba(100, 170, 255, 0.55);
+  box-shadow: inset 0 1px 0 rgba(160, 200, 255, 0.1), 0 0 14px rgba(80, 140, 255, 0.14);
+}
+.chest-card.chest-epic {
+  border-color: rgba(200, 130, 255, 0.62);
+  box-shadow: inset 0 1px 0 rgba(230, 180, 255, 0.12), 0 0 18px rgba(160, 90, 255, 0.2);
+}
+.chest-card.is-empty {
+  opacity: 0.55;
+  filter: saturate(0.7);
+}
+.chest-card.is-empty .chest-card-art img {
+  filter: grayscale(0.65) brightness(0.62);
+}
+.chest-card-new {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #2a1606;
+  background: linear-gradient(180deg, #ffcf5a, #d4881e);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+.chest-card-art {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 110px;
+  display: grid;
+  place-items: center;
+}
+.chest-card-art img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.chest-card-rarity {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.chest-card.chest-rare .chest-card-rarity { color: #9ec8ff; opacity: 0.95; }
+.chest-card.chest-epic .chest-card-rarity { color: #d6a8ff; opacity: 0.95; }
+.chest-card-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+}
+.chest-card-zone {
+  font-size: 0.68rem;
+  opacity: 0.65;
+  text-align: center;
+}
+.chest-card-count {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--gold-bright, #f0d078);
+  margin: 2px 0 4px;
+}
+.chest-card-open {
+  width: 100%;
+  min-width: 0 !important;
+  min-height: 36px;
+  padding: 7px 8px;
+  font-size: 0.8rem;
+}
+.chest-card-open:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.chest-empty { opacity: 0.7; margin: 18px 0 4px; text-align: center; }
+
+#chest-reveal-modal { z-index: 2100; }
+.chest-reveal {
+  position: relative;
+  width: min(400px, 92vw);
+  padding: 22px 20px 18px;
+  text-align: center;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 10%, rgba(70, 90, 130, 0.28), transparent 55%),
+    linear-gradient(180deg, #151d2c 0%, #0a1018 100%);
+  border: 1px solid rgba(212, 170, 78, 0.48);
+}
+.chest-reveal-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 42%, rgba(255, 240, 200, 0.55), transparent 55%);
+  transition: opacity 0.12s ease;
+  z-index: 1;
+}
+.chest-reveal-flash.is-on { opacity: 1; }
+.chest-reveal-title {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  color: var(--gold-bright, #f0d078);
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+}
+.chest-reveal-zone {
+  position: relative;
+  z-index: 2;
+  margin: 2px 0 10px;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+.chest-reveal-art {
+  position: relative;
+  z-index: 2;
+  width: min(210px, 58vw);
+  aspect-ratio: 1 / 1;
+  margin: 0 auto 12px;
+  display: grid;
+  place-items: center;
+}
+.chest-reveal-art img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transform: scale(1);
+  transition: filter 0.25s ease;
+}
+.chest-reveal-art.is-shaking img {
+  animation: chestShake 0.9s ease-in-out;
+}
+.chest-reveal-art.is-open img { animation: chestPop 0.35s ease-out; }
+.chest-reveal-art.chest-draconic.is-shaking img,
+.chest-reveal-art.chest-draconic.is-open img {
+  filter: drop-shadow(0 0 12px rgba(255, 190, 80, 0.4));
+}
+.chest-reveal-art.chest-rare.is-shaking img,
+.chest-reveal-art.chest-rare.is-open img {
+  filter: drop-shadow(0 0 16px rgba(90, 160, 255, 0.55));
+}
+.chest-reveal-art.chest-epic.is-shaking img,
+.chest-reveal-art.chest-epic.is-open img {
+  filter: drop-shadow(0 0 20px rgba(190, 110, 255, 0.65));
+}
+.chest-reveal-rewards {
+  position: relative;
+  z-index: 2;
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+.chest-reveal-rewards[hidden],
+.chest-reveal-actions[hidden],
+.chest-reveal-ok[hidden],
+.chest-reveal-again[hidden] { display: none !important; }
+.chest-reveal-rewards li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 170, 78, 0.22);
+  background: rgba(8, 12, 20, 0.55);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.chest-reveal-rewards li.is-pending {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.chest-reveal-rewards .is-essence {
+  color: var(--gold-bright, #f0d078);
+  justify-content: space-between;
+  font-weight: 700;
+}
+.chest-reward-label {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+.chest-reveal-rewards .is-fragment { color: #cfe0ff; }
+.chest-frag-art {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(20, 28, 42, 0.85);
+  border: 1px solid rgba(212, 170, 78, 0.25);
+}
+.chest-frag-art img,
+.chest-frag-art .dc-emoji {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.chest-frag-art .dc-emoji { font-size: 1.2rem; }
+.chest-frag-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.chest-frag-meta strong { font-size: 0.9rem; }
+.chest-frag-meta span { font-size: 0.78rem; opacity: 0.75; }
+.chest-reveal-rewards .is-muted {
+  font-weight: 500;
+  font-size: 0.78rem;
+  opacity: 0.7;
+  justify-content: center;
+  text-align: center;
+}
+.chest-reveal-actions {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.chest-reveal-ok,
+.chest-reveal-again {
+  min-width: 120px;
+  min-height: 40px;
+}
+
+.expedition-chest-drop,
+.expedition-reward-chest {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 170, 78, 0.4);
+  background: rgba(10, 14, 22, 0.72);
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--gold-bright, #f0d078);
+}
+.expedition-chest-drop img,
+.expedition-reward-chest img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+.expedition-chest-drop.chest-rare,
+.expedition-reward-chest.chest-rare { border-color: rgba(100, 170, 255, 0.5); color: #b9d8ff; }
+.expedition-chest-drop.chest-epic,
+.expedition-reward-chest.chest-epic { border-color: rgba(190, 110, 255, 0.55); color: #d6a8ff; }
+
+@keyframes chestShake {
+  0% { transform: rotate(0) scale(1); }
+  12% { transform: rotate(-5deg) scale(1.03); }
+  24% { transform: rotate(5deg) scale(1.05); }
+  36% { transform: rotate(-6deg) scale(1.07); }
+  50% { transform: rotate(6deg) scale(1.09); }
+  65% { transform: rotate(-3deg) scale(1.1); }
+  80% { transform: rotate(3deg) scale(1.11); }
+  100% { transform: rotate(0) scale(1.12); }
+}
+@keyframes chestPop {
+  0% { transform: scale(0.9); opacity: 0.85; }
+  55% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene-chests-btn.has-chests .scene-chests-art img,
+  .chest-reveal-art.is-shaking img,
+  .chest-reveal-art.is-open img { animation: none; }
+  .chest-reveal-rewards li.is-pending {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .scene-chests-btn {
+    right: 10px;
+    bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+    width: 64px;
+    padding: 6px 4px 5px;
+    z-index: 24;
+  }
+  .scene-chests-art { width: 36px; height: 36px; }
+  .scene-chests-label { font-size: 0.56rem; }
+  .scene-chests-count { font-size: 0.72rem; }
+
+  #chest-modal {
+    align-items: flex-end;
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  }
+  .chest-modal {
+    width: min(95vw, 520px);
+    max-height: min(82vh, calc(100dvh - 88px - env(safe-area-inset-bottom, 0px) - 16px));
+    padding: 16px 12px 12px;
+    margin-bottom: 4px;
+  }
+  .chest-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .chest-card {
+    display: grid;
+    grid-template-columns: 78px 1fr auto;
+    grid-template-rows: auto auto auto;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 2px;
+    padding: 8px 10px;
+    text-align: left;
+  }
+  .chest-card-art {
+    grid-row: 1 / span 3;
+    grid-column: 1;
+    width: 78px;
+    max-width: 78px;
+    aspect-ratio: 1 / 1;
+  }
+  .chest-card-rarity {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: start;
+  }
+  .chest-card-name {
+    grid-column: 2;
+    grid-row: 2;
+    text-align: left;
+    font-size: 0.82rem;
+  }
+  .chest-card-zone {
+    grid-column: 2;
+    grid-row: 3;
+    text-align: left;
+    font-size: 0.68rem;
+  }
+  .chest-card-count {
+    grid-column: 3;
+    grid-row: 1;
+    margin: 0;
+    font-size: 0.85rem;
+    justify-self: end;
+  }
+  .chest-card-open {
+    grid-column: 3;
+    grid-row: 2 / span 2;
+    width: auto;
+    min-width: 78px;
+    min-height: 38px;
+    height: 38px;
+    padding: 0 12px;
+    font-size: 0.78rem;
+    align-self: center;
+  }
+  .chest-card-new {
+    top: 4px;
+    left: 4px;
+  }
+  .chest-reveal {
+    width: min(94vw, 420px);
+    max-height: min(85vh, 720px);
+    padding: 18px 14px 14px;
+  }
+  .chest-reveal-art {
+    width: min(160px, 42vw);
+  }
+  .chest-reveal-ok,
+  .chest-reveal-again {
+    min-height: 40px;
+    flex: 1 1 120px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+  .scene-chests-btn {
+    right: max(16px, 1.5vw);
+    bottom: max(24px, 6vh);
+  }
+  .chest-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

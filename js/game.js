@@ -1495,6 +1495,7 @@
         zoneSpent: {},
         team: [null, null, null],
         redeemedCodes: [],
+        chests: createEmptyChestInventory(),
         expeditions: {
           unlockedSlots: DEFAULT_EXPEDITION_SLOTS,
           slots: [null],
@@ -5172,6 +5173,7 @@
       const rng = makeSeededRng(run.seed);
       const success = rng() < safeNumber(run.successChance, 0.4);
       run.result = calculateExpeditionRewards(def, run.dragonIds || [], success, rng);
+      run.result.chest = rollExpeditionChest(def.zoneId, rng);
       run.resolved = true;
       run.status = "ready";
       if (!run.notifiedComplete) {
@@ -5427,6 +5429,15 @@
       (result.fragments || []).forEach((f) => {
         grantDragonFragments(f.dragonId, Math.max(0, Math.floor(f.amount)));
       });
+      const chestDrop = sanitizeExpeditionChest(result.chest);
+      if (chestDrop) {
+        addChest(chestDrop.zoneId, chestDrop.type, 1);
+        const chestDef = CHEST_TYPES[chestDrop.type];
+        showNotification(
+          "+1 " + (chestDef ? chestDef.name.toUpperCase() : "COFFRE"),
+          getChestZoneLabel(chestDrop.zoneId)
+        );
+      }
 
       run.claimed = true;
       run.status = "claimed";
@@ -5449,6 +5460,466 @@
       return { ok: true, result };
     }
 
+    /* -------------------------------------------------------
+       COFFRES V1 — stockage
+       ------------------------------------------------------- */
+    function getChestZoneIds() {
+      return Object.keys(typeof CHEST_ZONE_REWARDS === "object" ? CHEST_ZONE_REWARDS : {});
+    }
+
+    function getChestTypeOrder() {
+      return Array.isArray(CHEST_TYPE_ORDER) ? CHEST_TYPE_ORDER : ["draconic", "rare", "epic"];
+    }
+
+    function createEmptyChestInventory() {
+      const inv = {};
+      getChestZoneIds().forEach((zoneId) => {
+        inv[zoneId] = {};
+        getChestTypeOrder().forEach((type) => { inv[zoneId][type] = 0; });
+      });
+      return inv;
+    }
+
+    function sanitizeChestInventory(raw) {
+      const inv = createEmptyChestInventory();
+      if (!raw || typeof raw !== "object") return inv;
+      Object.keys(inv).forEach((zoneId) => {
+        const src = raw[zoneId];
+        if (!src || typeof src !== "object") return;
+        getChestTypeOrder().forEach((type) => {
+          inv[zoneId][type] = Math.max(0, Math.floor(safeNumber(src[type], 0)));
+        });
+      });
+      return inv;
+    }
+
+    function ensureChestInventory() {
+      if (!gameState.chests || typeof gameState.chests !== "object") {
+        gameState.chests = createEmptyChestInventory();
+      }
+      getChestZoneIds().forEach((zoneId) => {
+        if (!gameState.chests[zoneId]) gameState.chests[zoneId] = {};
+        getChestTypeOrder().forEach((type) => {
+          gameState.chests[zoneId][type] = Math.max(0, Math.floor(safeNumber(gameState.chests[zoneId][type], 0)));
+        });
+      });
+      return gameState.chests;
+    }
+
+    function isValidChest(zoneId, chestType) {
+      return !!(CHEST_ZONE_REWARDS[zoneId] && CHEST_ZONE_REWARDS[zoneId][chestType] && CHEST_TYPES[chestType]);
+    }
+
+    function sanitizeExpeditionChest(raw) {
+      if (!raw || typeof raw !== "object") return null;
+      return isValidChest(raw.zoneId, raw.type) ? { zoneId: raw.zoneId, type: raw.type } : null;
+    }
+
+    function getChestCount(zoneId, chestType) {
+      const inv = ensureChestInventory();
+      return (inv[zoneId] && inv[zoneId][chestType]) || 0;
+    }
+
+    function getTotalChestCount() {
+      const inv = ensureChestInventory();
+      let n = 0;
+      Object.keys(inv).forEach((zoneId) => {
+        getChestTypeOrder().forEach((type) => { n += inv[zoneId][type] || 0; });
+      });
+      return n;
+    }
+
+    function getChestZoneLabel(zoneId) {
+      const zone = getZoneDef(zoneId);
+      const idx = ZONE_DEFS.findIndex((z) => z.id === zoneId);
+      return (idx >= 0 ? "Zone " + (idx + 1) : "Zone") + (zone ? " · " + zone.name : "");
+    }
+
+    function addChest(zoneId, chestType, amount) {
+      if (!isValidChest(zoneId, chestType)) return false;
+      const n = Math.max(1, Math.floor(safeNumber(amount, 1)));
+      const inv = ensureChestInventory();
+      inv[zoneId][chestType] += n;
+      markChestNew(zoneId, chestType);
+      updateChestButtonBadge();
+      if (isChestModalOpen()) renderChestInventory();
+      return true;
+    }
+
+    /* -------------------------------------------------------
+       COFFRES V1 — tirages
+       ------------------------------------------------------- */
+    function pickWeighted(weights, rng) {
+      const r = typeof rng === "function" ? rng : Math.random;
+      const keys = Object.keys(weights).filter((k) => safeNumber(weights[k], 0) > 0);
+      const total = keys.reduce((sum, k) => sum + safeNumber(weights[k], 0), 0);
+      if (!keys.length || total <= 0) return null;
+      let roll = r() * total;
+      for (let i = 0; i < keys.length; i++) {
+        roll -= safeNumber(weights[keys[i]], 0);
+        if (roll < 0) return keys[i];
+      }
+      return keys[keys.length - 1];
+    }
+
+    /** 0 ou 1 coffre en fin d'expédition (zone de l'expédition). */
+    function rollExpeditionChest(zoneId, rng) {
+      const cfg = typeof CHEST_EXPEDITION_DROPS === "object" ? CHEST_EXPEDITION_DROPS[zoneId] : null;
+      if (!cfg) return null;
+      const r = typeof rng === "function" ? rng : Math.random;
+      if (r() >= safeNumber(cfg.chance, 0)) return null;
+      const type = pickWeighted(cfg.weights || {}, r);
+      return isValidChest(zoneId, type) ? { zoneId, type } : null;
+    }
+
+    /** Dragons découverts de la zone, hors mythiques (poids 0) et secrets. */
+    function getEligibleChestDragons(zoneId) {
+      return DRAGON_DEFS.filter((def) => {
+        if (def.secret || (def.zoneId || "sanctuary") !== zoneId) return false;
+        if (safeNumber(CHEST_FRAGMENT_RARITY_WEIGHTS[def.rarity], 0) <= 0) return false;
+        return isDragonDiscovered(gameState.dragons[def.id], def.id, gameState);
+      });
+    }
+
+    function pickChestFragmentDragon(eligible) {
+      const weights = {};
+      eligible.forEach((def) => {
+        weights[def.id] = safeNumber(CHEST_FRAGMENT_RARITY_WEIGHTS[def.rarity], 0);
+      });
+      return pickWeighted(weights, Math.random);
+    }
+
+    function rollChestReward(zoneId, chestType) {
+      if (!isValidChest(zoneId, chestType)) return null;
+      const cfg = CHEST_ZONE_REWARDS[zoneId][chestType];
+      const baseEssence = randomIntInclusive(Math.random, cfg.essenceMin, cfg.essenceMax);
+      let fragmentCount = Math.max(0, Math.floor(safeNumber(cfg.fragmentsGuaranteed, 0)));
+      if (Math.random() < safeNumber(cfg.fragmentBonusChance, 0)) fragmentCount += 1;
+
+      const eligible = getEligibleChestDragons(zoneId);
+      const fragments = {};
+      let missing = 0;
+      for (let i = 0; i < fragmentCount; i++) {
+        const id = eligible.length ? pickChestFragmentDragon(eligible) : null;
+        if (id) fragments[id] = (fragments[id] || 0) + 1;
+        else missing += 1;
+      }
+      const bonusEssence = Math.floor(baseEssence * CHEST_MISSING_FRAGMENT_ESSENCE_PCT * missing);
+
+      return {
+        zoneId,
+        chestType,
+        essence: baseEssence + bonusEssence,
+        bonusEssence,
+        fragments: Object.keys(fragments).map((dragonId) => ({ dragonId, amount: fragments[dragonId] }))
+      };
+    }
+
+    /** Crédite Essence (hors Essence investie de zone) + fragments. */
+    function grantChestRewards(reward) {
+      if (!reward) return null;
+      /* addEssence ne touche pas zoneSpent : seule spendEssence({ zoneId }) alimente le déblocage. */
+      addEssence(reward.essence, "chest");
+      const granted = [];
+      (reward.fragments || []).forEach((f) => {
+        /* Pas de yield d'équipe : les coffres restent un bonus secondaire. */
+        const res = grantDragonFragments(f.dragonId, f.amount, { applyYield: false });
+        if (res.total > 0) granted.push({ dragonId: f.dragonId, amount: res.total });
+      });
+      dragonsDirty = true;
+      uiDirty = true;
+      return { essence: reward.essence, bonusEssence: reward.bonusEssence, fragments: granted };
+    }
+
+    function openChest(zoneId, chestType) {
+      if (!isValidChest(zoneId, chestType)) return null;
+      const inv = ensureChestInventory();
+      if (inv[zoneId][chestType] <= 0) return null;
+      inv[zoneId][chestType] -= 1;
+      const reward = rollChestReward(zoneId, chestType);
+      const granted = grantChestRewards(reward);
+      calculateProduction();
+      saveGame(true);
+      updateChestButtonBadge();
+      return granted ? Object.assign({ zoneId, chestType }, granted) : null;
+    }
+
+    /* -------------------------------------------------------
+       COFFRES V1 — affichage
+       ------------------------------------------------------- */
+    let chestRevealTimer = null;
+    let chestRevealTimers = [];
+    let lastChestOpen = null;
+    const chestNewFlags = Object.create(null);
+
+    function chestKey(zoneId, chestType) {
+      return String(zoneId) + "|" + String(chestType);
+    }
+
+    function markChestNew(zoneId, chestType) {
+      chestNewFlags[chestKey(zoneId, chestType)] = true;
+    }
+
+    function clearChestNew(zoneId, chestType) {
+      delete chestNewFlags[chestKey(zoneId, chestType)];
+    }
+
+    function isChestNew(zoneId, chestType) {
+      return !!chestNewFlags[chestKey(zoneId, chestType)];
+    }
+
+    function clearChestRevealTimers() {
+      clearTimeout(chestRevealTimer);
+      chestRevealTimer = null;
+      chestRevealTimers.forEach((id) => clearTimeout(id));
+      chestRevealTimers = [];
+    }
+
+    function isChestModalOpen() {
+      const m = document.getElementById("chest-modal");
+      return !!(m && !m.classList.contains("hidden"));
+    }
+
+    function updateChestButtonBadge() {
+      const badge = document.getElementById("chests-btn-badge");
+      const btn = document.getElementById("btn-open-chests");
+      const n = getTotalChestCount();
+      if (badge) {
+        badge.hidden = false;
+        badge.textContent = "x" + (n > 99 ? "99+" : String(n));
+      }
+      if (btn) {
+        btn.classList.toggle("has-chests", n > 0);
+        btn.setAttribute("aria-label", n > 0 ? ("Coffres · " + n) : "Coffres");
+      }
+    }
+
+    function renderChestInventory() {
+      const host = document.getElementById("chest-inventory");
+      if (!host) return;
+      const inv = ensureChestInventory();
+      host.innerHTML = "";
+      const zones = getChestZoneIds().filter((zoneId) =>
+        isZoneUnlocked(gameState, zoneId) ||
+        getChestTypeOrder().some((type) => inv[zoneId][type] > 0)
+      );
+      zones.forEach((zoneId) => {
+        const section = document.createElement("section");
+        section.className = "chest-zone";
+        const title = document.createElement("h3");
+        title.className = "chest-zone-title";
+        title.textContent = getChestZoneLabel(zoneId);
+        section.appendChild(title);
+
+        const grid = document.createElement("div");
+        grid.className = "chest-grid";
+        getChestTypeOrder().forEach((type) => {
+          const def = CHEST_TYPES[type];
+          const count = inv[zoneId][type] || 0;
+          const card = document.createElement("div");
+          card.className = "chest-card " + def.css + (count > 0 ? "" : " is-empty");
+          const isNew = count > 0 && isChestNew(zoneId, type);
+          card.innerHTML =
+            (isNew ? '<span class="chest-card-new">Nouveau</span>' : "") +
+            '<div class="chest-card-art"><img alt="" draggable="false" decoding="async" /></div>' +
+            '<div class="chest-card-rarity"></div>' +
+            '<div class="chest-card-name"></div>' +
+            '<div class="chest-card-zone"></div>' +
+            '<div class="chest-card-count"></div>' +
+            '<button type="button" class="btn chest-card-open">Ouvrir</button>';
+          card.querySelector("img").src = def.imageClosed;
+          card.querySelector(".chest-card-rarity").textContent = def.rarityLabel || "";
+          card.querySelector(".chest-card-name").textContent = def.name;
+          card.querySelector(".chest-card-zone").textContent = getChestZoneLabel(zoneId);
+          card.querySelector(".chest-card-count").textContent = "Possédés : x" + count;
+          const btn = card.querySelector(".chest-card-open");
+          btn.disabled = count <= 0;
+          btn.addEventListener("click", () => startChestOpening(zoneId, type));
+          grid.appendChild(card);
+        });
+        section.appendChild(grid);
+        host.appendChild(section);
+      });
+      if (!zones.length) {
+        const p = document.createElement("p");
+        p.className = "chest-empty";
+        p.textContent = "Aucun coffre pour le moment.";
+        host.appendChild(p);
+      }
+    }
+
+    function openChestModal() {
+      const modal = document.getElementById("chest-modal");
+      if (!modal) return;
+      renderChestInventory();
+      modal.classList.remove("hidden");
+    }
+
+    function closeChestModal() {
+      const modal = document.getElementById("chest-modal");
+      if (modal) modal.classList.add("hidden");
+    }
+
+    function closeChestReveal() {
+      const modal = document.getElementById("chest-reveal-modal");
+      if (!modal) return;
+      clearChestRevealTimers();
+      const flash = document.getElementById("chest-reveal-flash");
+      if (flash) flash.classList.remove("is-on");
+      modal.classList.add("hidden");
+      lastChestOpen = null;
+      if (isChestModalOpen()) renderChestInventory();
+      else openChestModal();
+    }
+
+    function renderChestRewardList(result, opts) {
+      opts = opts || {};
+      const list = document.getElementById("chest-reveal-rewards");
+      if (!list || !result) return;
+      list.innerHTML = "";
+      list.hidden = false;
+
+      const essenceLi = document.createElement("li");
+      essenceLi.className = "is-essence" + (opts.stagger ? " is-pending" : "");
+      essenceLi.innerHTML = '<span class="chest-reward-label">Essence</span><strong>+' + formatNumber(result.essence) + "</strong>";
+      list.appendChild(essenceLi);
+
+      (result.fragments || []).forEach((f) => {
+        const d = getDragonDef(f.dragonId);
+        const li = document.createElement("li");
+        li.className = "is-fragment" + (opts.stagger ? " is-pending" : "");
+        li.innerHTML =
+          '<span class="chest-frag-art"><img alt="" draggable="false" hidden /><span class="dc-emoji"></span></span>' +
+          '<span class="chest-frag-meta"><strong>+' + f.amount + " fragment" + (f.amount > 1 ? "s" : "") + "</strong>" +
+          "<span>" + (d ? d.name : f.dragonId) + "</span></span>";
+        const emoji = li.querySelector(".dc-emoji");
+        emoji.textContent = (d && d.icon) || "◆";
+        if (d && d.image) loadAssetImage(li.querySelector("img"), emoji, d.image, { silhouette: false });
+        list.appendChild(li);
+      });
+
+      if (result.bonusEssence > 0) {
+        const li = document.createElement("li");
+        li.className = "is-muted" + (opts.stagger ? " is-pending" : "");
+        li.textContent = "dont +" + formatNumber(result.bonusEssence) + " Essence (fragments indisponibles)";
+        list.appendChild(li);
+      }
+    }
+
+    function revealChestRewardsProgressive(result) {
+      const list = document.getElementById("chest-reveal-rewards");
+      const actions = document.getElementById("chest-reveal-actions");
+      const ok = document.getElementById("btn-chest-reveal-ok");
+      const again = document.getElementById("btn-chest-open-again");
+      renderChestRewardList(result, { stagger: !prefersReducedMotion() });
+      if (!list) return;
+
+      const items = Array.prototype.slice.call(list.querySelectorAll("li"));
+      if (prefersReducedMotion()) {
+        items.forEach((li) => li.classList.remove("is-pending"));
+      } else {
+        items.forEach((li, i) => {
+          const delay = i === 0 ? 0 : 200 + Math.max(0, i - 1) * 120;
+          const tid = setTimeout(() => li.classList.remove("is-pending"), delay);
+          chestRevealTimers.push(tid);
+        });
+      }
+
+      if (actions) actions.hidden = false;
+      if (ok) ok.hidden = false;
+      if (again) {
+        const canAgain = !!(lastChestOpen && getChestCount(lastChestOpen.zoneId, lastChestOpen.chestType) > 0);
+        again.hidden = !canAgain;
+      }
+    }
+
+    function updateChestRevealAgainButton() {
+      const again = document.getElementById("btn-chest-open-again");
+      if (!again || !lastChestOpen) {
+        if (again) again.hidden = true;
+        return;
+      }
+      again.hidden = getChestCount(lastChestOpen.zoneId, lastChestOpen.chestType) <= 0;
+    }
+
+    function startChestOpening(zoneId, chestType) {
+      const modal = document.getElementById("chest-reveal-modal");
+      const def = CHEST_TYPES[chestType];
+      if (!modal || !def || getChestCount(zoneId, chestType) <= 0) return;
+
+      /* Un seul roll — récompense créditée tout de suite, affichée après l'anim. */
+      const result = openChest(zoneId, chestType);
+      if (!result) return;
+      clearChestNew(zoneId, chestType);
+      lastChestOpen = { zoneId: zoneId, chestType: chestType };
+      updateChestButtonBadge();
+      if (isChestModalOpen()) renderChestInventory();
+
+      const art = document.getElementById("chest-reveal-art");
+      const img = document.getElementById("chest-reveal-img");
+      const list = document.getElementById("chest-reveal-rewards");
+      const actions = document.getElementById("chest-reveal-actions");
+      const ok = document.getElementById("btn-chest-reveal-ok");
+      const again = document.getElementById("btn-chest-open-again");
+      const flash = document.getElementById("chest-reveal-flash");
+      document.getElementById("chest-reveal-title").textContent = def.name;
+      document.getElementById("chest-reveal-zone").textContent = getChestZoneLabel(zoneId);
+      art.className = "chest-reveal-art " + def.css + " is-shaking";
+      img.src = def.imageClosed;
+      if (list) {
+        list.innerHTML = "";
+        list.hidden = true;
+      }
+      if (actions) actions.hidden = true;
+      if (ok) ok.hidden = true;
+      if (again) again.hidden = true;
+      if (flash) flash.classList.remove("is-on");
+      modal.classList.remove("hidden");
+      playSound("upgrade");
+
+      clearChestRevealTimers();
+      const reduced = prefersReducedMotion();
+      const tFlash = reduced ? 0 : 750;
+      const tOpen = reduced ? 0 : 900;
+      const tRewards = reduced ? 0 : 1050;
+
+      chestRevealTimers.push(setTimeout(() => {
+        if (flash) {
+          flash.classList.add("is-on");
+          setTimeout(() => flash.classList.remove("is-on"), reduced ? 0 : 220);
+        }
+      }, tFlash));
+
+      chestRevealTimers.push(setTimeout(() => {
+        art.classList.remove("is-shaking");
+        art.classList.add("is-open");
+        img.src = def.imageOpen;
+        const titleEl = document.getElementById("chest-reveal-title");
+        if (titleEl) titleEl.textContent = def.name + " ouvert";
+        playSound("star");
+        pulseHudEssence();
+        if (!reduced && window.DCAnim && DCAnim.burst) {
+          const r = art.getBoundingClientRect();
+          const count = chestType === "epic" ? 10 : chestType === "rare" ? 6 : 0;
+          if (count > 0) {
+            DCAnim.burst(r.left + r.width / 2, r.top + r.height / 2, {
+              count: count,
+              palette: chestType === "epic"
+                ? ["#c98cff", "#f0d078", "#9b6dff"]
+                : ["#7eb6ff", "#f0d078", "#a8d4ff"],
+              life: 520,
+              size: 2.8,
+              speed: 2.2
+            });
+          }
+        }
+      }, tOpen));
+
+      chestRevealTimers.push(setTimeout(() => {
+        revealChestRewardsProgressive(result);
+      }, tRewards));
+    }
+
     function describeExpeditionRewardLines(result) {
       const lines = [];
       if (!result) return lines;
@@ -5458,6 +5929,8 @@
         const d = getDragonDef(f.dragonId);
         lines.push("+" + f.amount + " fragments " + (d ? d.name : f.dragonId));
       });
+      const chestDrop = sanitizeExpeditionChest(result.chest);
+      if (chestDrop && CHEST_TYPES[chestDrop.type]) lines.push("+1 " + CHEST_TYPES[chestDrop.type].name);
       if (!lines.length) lines.push("Quelques ressources modestes");
       return lines;
     }
@@ -5778,6 +6251,18 @@
           ? "Mission réussie — récupérez vos butins."
           : "Mission terminée — récupérez ce que vos dragons ont rapporté.";
         body.appendChild(msg);
+
+        const chestDrop = sanitizeExpeditionChest(result.chest);
+        if (chestDrop && CHEST_TYPES[chestDrop.type]) {
+          const chestDef = CHEST_TYPES[chestDrop.type];
+          const chestLine = document.createElement("div");
+          chestLine.className = "expedition-chest-drop " + chestDef.css;
+          chestLine.innerHTML =
+            '<img alt="" draggable="false" decoding="async" />' +
+            "<span>+1 " + chestDef.name + "</span>";
+          chestLine.querySelector("img").src = chestDef.imageClosed;
+          body.appendChild(chestLine);
+        }
       }
 
       const actions = document.createElement("div");
@@ -6065,7 +6550,21 @@
       const ul = wrap.querySelector(".expedition-reward-list");
       describeExpeditionRewardLines(result).forEach((line) => {
         const li = document.createElement("li");
-        li.textContent = line;
+        const chestDrop = sanitizeExpeditionChest(result.chest);
+        if (
+          chestDrop &&
+          CHEST_TYPES[chestDrop.type] &&
+          line.indexOf(CHEST_TYPES[chestDrop.type].name) !== -1
+        ) {
+          const chestDef = CHEST_TYPES[chestDrop.type];
+          li.className = "expedition-reward-chest " + chestDef.css;
+          li.innerHTML =
+            '<img alt="" draggable="false" decoding="async" />' +
+            "<span>" + line + "</span>";
+          li.querySelector("img").src = chestDef.imageClosed;
+        } else {
+          li.textContent = line;
+        }
         ul.appendChild(li);
       });
 
@@ -7834,6 +8333,7 @@
         zoneSpent: ensureZoneSpent(gameState),
         team: gameState.team,
         redeemedCodes: Array.isArray(gameState.redeemedCodes) ? gameState.redeemedCodes.slice() : [],
+        chests: sanitizeChestInventory(gameState.chests),
         fragmentBonusAccumulator: safeNumber(gameState.fragmentBonusAccumulator, 0),
         eggProgressAccumulator: safeNumber(gameState.eggProgressAccumulator, 0),
         expeditions: gameState.expeditions,
@@ -8269,6 +8769,8 @@
         });
       }
 
+      fresh.chests = sanitizeChestInventory(data.chests);
+
       fresh.fragmentBonusAccumulator = Math.max(0, safeNumber(data.fragmentBonusAccumulator, 0));
       fresh.eggProgressAccumulator = Math.max(0, safeNumber(data.eggProgressAccumulator, 0));
 
@@ -8333,7 +8835,8 @@
                     dragonId: f.dragonId,
                     amount: Math.max(0, Math.floor(safeNumber(f.amount, 0)))
                   })).filter((f) => getDragonDef(f.dragonId))
-                : []
+                : [],
+              chest: sanitizeExpeditionChest(run.result.chest)
             } : null
           };
           /* Clear team conflicts with expedition dragons */
@@ -9200,6 +9703,7 @@
       renderZones();
       renderExpeditions();
       renderHeader();
+      updateChestButtonBadge();
     }
 
     /* -------------------------------------------------------
@@ -9492,6 +9996,14 @@
           toggleTeamDrawer(false);
           return;
         }
+        if (!document.getElementById("chest-reveal-modal").classList.contains("hidden")) {
+          closeChestReveal();
+          return;
+        }
+        if (isChestModalOpen()) {
+          closeChestModal();
+          return;
+        }
         if (document.querySelector(".modal-overlay:not(.hidden)")) return;
         if (getActiveOverlayPanelId() !== "kingdom") switchPanel("kingdom");
       });
@@ -9613,6 +10125,30 @@
       });
 
       document.getElementById("btn-save").addEventListener("click", () => saveGame(false));
+      const chestsBtn = document.getElementById("btn-open-chests");
+      if (chestsBtn) chestsBtn.addEventListener("click", openChestModal);
+      const chestsClose = document.getElementById("btn-close-chests");
+      if (chestsClose) chestsClose.addEventListener("click", closeChestModal);
+      document.getElementById("chest-modal").addEventListener("click", (e) => {
+        if (e.target.id === "chest-modal") closeChestModal();
+      });
+      const chestOk = document.getElementById("btn-chest-reveal-ok");
+      if (chestOk) chestOk.addEventListener("click", closeChestReveal);
+      const chestAgain = document.getElementById("btn-chest-open-again");
+      if (chestAgain) {
+        chestAgain.addEventListener("click", () => {
+          if (!lastChestOpen) return;
+          startChestOpening(lastChestOpen.zoneId, lastChestOpen.chestType);
+        });
+      }
+      const chestReveal = document.getElementById("chest-reveal-modal");
+      if (chestReveal) {
+        chestReveal.addEventListener("click", (e) => {
+          if (e.target.id !== "chest-reveal-modal") return;
+          const ok = document.getElementById("btn-chest-reveal-ok");
+          if (ok && !ok.hidden) closeChestReveal();
+        });
+      }
       const bonusInput = document.getElementById("bonus-code-input");
       const bonusBtn = document.getElementById("btn-redeem-bonus-code");
       if (bonusBtn) {
