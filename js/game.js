@@ -7982,7 +7982,9 @@
        *   rare      → popup dragon.mp3
        *   legendary → popup dragon4.mp3
        *   mythic    → popup dragon3.mp3  (le plus long / impressionnant)
-       * epic → rare ; divine → mythic ; inconnu → common
+       * epic → rare (TEMPORAIRE) : aucun fichier Epic dédié dans assets/sound/
+       *   (seulement 4 popup dragon*.mp3 pour 5 raretés). Ne pas inventer de chemin.
+       * divine → mythic ; inconnu → common
        */
       dragonRevealSoundSrc: {
         common: "assets/sound/popup%20dragon2.mp3",
@@ -8025,7 +8027,8 @@
         return el;
       },
 
-      /** Map game rarity → sound key (common / rare / legendary / mythic). */
+      /** Map game rarity → sound key (common / rare / legendary / mythic).
+       *  epic : pas d'asset dédié → rare tant qu'un popup epic n'est pas ajouté. */
       resolveDragonRevealSoundKey(rarity) {
         const r = rarity || "common";
         if (r === "mythic" || r === "divine") return "mythic";
