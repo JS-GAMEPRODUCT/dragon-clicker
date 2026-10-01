@@ -5797,6 +5797,7 @@
     let lastChestOpen = null;
     let selectedChestZoneId = "sanctuary";
     let selectedChestType = "draconic";
+    let isOpeningChest = false;
     const chestNewFlags = Object.create(null);
 
     function chestKey(zoneId, chestType) {
@@ -5898,7 +5899,7 @@
       const nameEl = document.getElementById("chest-action-name");
       const openBtn = document.getElementById("btn-chest-open");
       if (nameEl) nameEl.textContent = def ? def.name : "Coffre";
-      if (openBtn) openBtn.disabled = count <= 0;
+      if (openBtn) openBtn.disabled = count <= 0 || isOpeningChest;
     }
 
     let chestUiDelegatesBound = false;
@@ -5984,12 +5985,6 @@
       updateChestActionPanel();
     }
 
-    function openSelectedChest() {
-      ensureChestSelection();
-      if (getChestCount(selectedChestZoneId, selectedChestType) <= 0) return;
-      startChestOpening(selectedChestZoneId, selectedChestType);
-    }
-
     function openChestModal() {
       const modal = document.getElementById("chest-modal");
       if (!modal) return;
@@ -6010,12 +6005,44 @@
       const modal = document.getElementById("chest-reveal-modal");
       if (!modal) return;
       clearChestRevealTimers();
+      isOpeningChest = false;
       const flash = document.getElementById("chest-reveal-flash");
       if (flash) flash.classList.remove("is-on");
+      const art = document.getElementById("chest-reveal-art");
+      if (art) {
+        art.className = "chest-reveal-art";
+        art.style.transform = "";
+      }
+      const halo = document.getElementById("chest-reveal-halo");
+      if (halo) halo.className = "chest-reveal-halo";
       modal.classList.add("hidden");
       lastChestOpen = null;
-      if (isChestModalOpen()) renderChestInventory();
+      if (isChestModalOpen()) refreshChestInventoryCounts();
       else openChestModal();
+    }
+
+    function refreshChestInventoryCounts() {
+      const tiles = document.getElementById("chest-tiles");
+      if (!tiles) {
+        updateChestButtonBadge();
+        updateChestActionPanel();
+        return;
+      }
+      const zoneId = selectedChestZoneId;
+      tiles.querySelectorAll(".chest-tile").forEach((tile) => {
+        const type = tile.dataset.chestType;
+        if (!type) return;
+        const def = CHEST_TYPES[type];
+        const count = getChestCount(zoneId, type);
+        const countEl = tile.querySelector(".chest-tile-count");
+        if (countEl) countEl.textContent = "x" + count;
+        tile.classList.toggle("is-empty", count <= 0);
+        if (def) tile.setAttribute("aria-label", def.name + ", x" + count);
+        const neu = tile.querySelector(".chest-tile-new");
+        if (neu && (count <= 0 || !isChestNew(zoneId, type))) neu.remove();
+      });
+      updateChestActionPanel();
+      updateChestButtonBadge();
     }
 
     function renderChestRewardList(result, opts) {
@@ -6025,18 +6052,24 @@
       list.innerHTML = "";
       list.hidden = false;
 
-      const essenceLi = document.createElement("li");
-      essenceLi.className = "is-essence" + (opts.stagger ? " is-pending" : "");
-      essenceLi.innerHTML = '<span class="chest-reward-label">Essence</span><strong>+' + formatNumber(result.essence) + "</strong>";
-      list.appendChild(essenceLi);
+      const essenceAmt = Math.max(0, Math.floor(safeNumber(result.essence, 0)));
+      if (essenceAmt > 0) {
+        const essenceLi = document.createElement("li");
+        essenceLi.className = "is-essence" + (opts.stagger ? " is-pending" : "");
+        essenceLi.innerHTML =
+          '<span class="chest-reward-label">✨ ESSENCE</span><strong>+ ' + formatNumber(essenceAmt) + "</strong>";
+        list.appendChild(essenceLi);
+      }
 
       (result.fragments || []).forEach((f) => {
+        const amount = Math.max(0, Math.floor(safeNumber(f.amount, 0)));
+        if (amount <= 0) return;
         const d = getDragonDef(f.dragonId);
         const li = document.createElement("li");
         li.className = "is-fragment" + (opts.stagger ? " is-pending" : "");
         li.innerHTML =
-          '<span class="chest-frag-art"><img alt="" draggable="false" hidden /><span class="dc-emoji"></span></span>' +
-          '<span class="chest-frag-meta"><strong>+' + f.amount + " fragment" + (f.amount > 1 ? "s" : "") + "</strong>" +
+          '<span class="chest-frag-art"><img alt="" draggable="false" decoding="async" hidden /><span class="dc-emoji"></span></span>' +
+          '<span class="chest-frag-meta"><strong>+' + amount + " fragment" + (amount > 1 ? "s" : "") + "</strong>" +
           "<span>" + (d ? d.name : f.dragonId) + "</span></span>";
         const emoji = li.querySelector(".dc-emoji");
         emoji.textContent = (d && d.icon) || "◆";
@@ -6044,10 +6077,11 @@
         list.appendChild(li);
       });
 
-      if (result.bonusEssence > 0) {
+      const bonusAmt = Math.max(0, Math.floor(safeNumber(result.bonusEssence, 0)));
+      if (bonusAmt > 0) {
         const li = document.createElement("li");
         li.className = "is-muted" + (opts.stagger ? " is-pending" : "");
-        li.textContent = "dont +" + formatNumber(result.bonusEssence) + " Essence (fragments indisponibles)";
+        li.textContent = "dont +" + formatNumber(bonusAmt) + " Essence (fragments indisponibles)";
         list.appendChild(li);
       }
     }
@@ -6065,7 +6099,7 @@
         items.forEach((li) => li.classList.remove("is-pending"));
       } else {
         items.forEach((li, i) => {
-          const delay = i === 0 ? 0 : 200 + Math.max(0, i - 1) * 120;
+          const delay = i === 0 ? 40 : 150 + Math.max(0, i - 1) * 140;
           const tid = setTimeout(() => li.classList.remove("is-pending"), delay);
           chestRevealTimers.push(tid);
         });
@@ -6077,6 +6111,8 @@
         const canAgain = !!(lastChestOpen && getChestCount(lastChestOpen.zoneId, lastChestOpen.chestType) > 0);
         again.hidden = !canAgain;
       }
+      isOpeningChest = false;
+      updateChestActionPanel();
     }
 
     function updateChestRevealAgainButton() {
@@ -6088,31 +6124,98 @@
       again.hidden = getChestCount(lastChestOpen.zoneId, lastChestOpen.chestType) <= 0;
     }
 
+    function playChestOpenSound(chestType) {
+      if (!window.AudioManager) return;
+      AudioManager.unlock();
+      const rarity =
+        chestType === "epic" ? "legendary" :
+        chestType === "rare" ? "rare" :
+        "common";
+      const rate =
+        chestType === "epic" ? 1.06 :
+        chestType === "rare" ? 1.03 :
+        1;
+      const level = typeof AudioManager.sfx === "function" ? AudioManager.sfx() : 1;
+      if (level <= 0) return;
+      if (typeof AudioManager.canPlay === "function" && !AudioManager.canPlay("dragonPopup", 160)) return;
+      const key = AudioManager.resolveDragonRevealSoundKey
+        ? AudioManager.resolveDragonRevealSoundKey(rarity)
+        : "common";
+      const el = AudioManager.ensureDragonRevealSound
+        ? AudioManager.ensureDragonRevealSound(key)
+        : null;
+      if (!el) {
+        playDragonRevealSound(rarity);
+        return;
+      }
+      el.volume = Math.max(0, Math.min(1, (AudioManager.dragonPopupBaseVolume || 0.6) * level));
+      try { el.playbackRate = rate; } catch (e) { /* optional */ }
+      try { el.currentTime = 0; } catch (e) { /* ignore */ }
+      const p = el.play();
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    }
+
+    function getChestOpenParticleCount(chestType) {
+      const desktop = chestType === "epic" ? 22 : chestType === "rare" ? 15 : 8;
+      if (prefersReducedMotion()) return Math.max(0, Math.round(desktop * 0.25));
+      if (isMobileFx()) return Math.max(0, Math.round(desktop * 0.55));
+      return desktop;
+    }
+
+    function getChestBurstPalette(chestType) {
+      if (chestType === "epic") return ["#c98cff", "#f0d078", "#9b6dff", "#e8c36a"];
+      if (chestType === "rare") return ["#7eb6ff", "#f0d078", "#a8d4ff", "#d4e8ff"];
+      return ["#f0d078", "#e8c36a", "#ffe7a0", "#c9a227"];
+    }
+
+    function openSelectedChest() {
+      if (isOpeningChest) return;
+      ensureChestSelection();
+      if (getChestCount(selectedChestZoneId, selectedChestType) <= 0) return;
+      startChestOpening(selectedChestZoneId, selectedChestType);
+    }
+
     function startChestOpening(zoneId, chestType) {
+      if (isOpeningChest) return;
       const modal = document.getElementById("chest-reveal-modal");
       const def = CHEST_TYPES[chestType];
       if (!modal || !def || getChestCount(zoneId, chestType) <= 0) return;
 
+      isOpeningChest = true;
+      const menuOpenBtn = document.getElementById("btn-chest-open");
+      if (menuOpenBtn) menuOpenBtn.disabled = true;
+      const againBtn = document.getElementById("btn-chest-open-again");
+      if (againBtn) againBtn.disabled = true;
+
       /* Un seul roll — récompense créditée tout de suite, affichée après l'anim. */
       const result = openChest(zoneId, chestType);
-      if (!result) return;
+      if (!result) {
+        isOpeningChest = false;
+        if (againBtn) againBtn.disabled = false;
+        updateChestActionPanel();
+        return;
+      }
       clearChestNew(zoneId, chestType);
       lastChestOpen = { zoneId: zoneId, chestType: chestType };
       selectedChestZoneId = zoneId;
       selectedChestType = chestType;
       updateChestButtonBadge();
-      if (isChestModalOpen()) renderChestInventory();
+      if (isChestModalOpen()) refreshChestInventoryCounts();
 
       const art = document.getElementById("chest-reveal-art");
       const img = document.getElementById("chest-reveal-img");
+      const halo = document.getElementById("chest-reveal-halo");
       const list = document.getElementById("chest-reveal-rewards");
       const actions = document.getElementById("chest-reveal-actions");
       const ok = document.getElementById("btn-chest-reveal-ok");
       const again = document.getElementById("btn-chest-open-again");
       const flash = document.getElementById("chest-reveal-flash");
-      document.getElementById("chest-reveal-title").textContent = def.name;
+      const titleEl = document.getElementById("chest-reveal-title");
+      if (titleEl) titleEl.textContent = def.name;
       document.getElementById("chest-reveal-zone").textContent = getChestZoneLabel(zoneId);
-      art.className = "chest-reveal-art " + def.css + " is-shaking";
+      art.className = "chest-reveal-art " + def.css;
+      art.style.transform = "";
+      if (halo) halo.className = "chest-reveal-halo " + def.css;
       img.src = def.imageClosed;
       if (list) {
         list.innerHTML = "";
@@ -6120,51 +6223,71 @@
       }
       if (actions) actions.hidden = true;
       if (ok) ok.hidden = true;
-      if (again) again.hidden = true;
+      if (again) {
+        again.hidden = true;
+        again.disabled = true;
+      }
       if (flash) flash.classList.remove("is-on");
       modal.classList.remove("hidden");
-      playSound("upgrade");
+      playSound("button");
 
       clearChestRevealTimers();
       const reduced = prefersReducedMotion();
-      const tFlash = reduced ? 0 : 750;
-      const tOpen = reduced ? 0 : 900;
-      const tRewards = reduced ? 0 : 1050;
+
+      /* Timing ~1.2–1.6s — reduced-motion : fade + reveal raccourcis */
+      const tZoom = reduced ? 0 : 0;
+      const tShake = reduced ? 0 : 250;
+      const tHalo = reduced ? 0 : 520;
+      const tFlash = reduced ? 0 : 820;
+      const tOpen = reduced ? 80 : 960;
+      const tRewards = reduced ? 160 : 1120;
+
+      chestRevealTimers.push(setTimeout(() => {
+        art.classList.add(reduced ? "is-open-soft" : "is-zoom");
+      }, tZoom));
+
+      if (!reduced) {
+        chestRevealTimers.push(setTimeout(() => {
+          art.classList.add("is-shaking");
+        }, tShake));
+
+        chestRevealTimers.push(setTimeout(() => {
+          if (halo) halo.classList.add("is-on");
+        }, tHalo));
+      }
 
       chestRevealTimers.push(setTimeout(() => {
         if (flash) {
           flash.classList.add("is-on");
-          setTimeout(() => flash.classList.remove("is-on"), reduced ? 0 : 220);
+          const flashOff = setTimeout(() => flash.classList.remove("is-on"), reduced ? 40 : 120);
+          chestRevealTimers.push(flashOff);
         }
       }, tFlash));
 
       chestRevealTimers.push(setTimeout(() => {
-        art.classList.remove("is-shaking");
+        art.classList.remove("is-zoom", "is-shaking", "is-open-soft");
         art.classList.add("is-open");
         img.src = def.imageOpen;
-        const titleEl = document.getElementById("chest-reveal-title");
         if (titleEl) titleEl.textContent = def.name + " ouvert";
-        playSound("star");
+        playChestOpenSound(chestType);
         pulseHudEssence();
         if (!reduced && window.DCAnim && DCAnim.burst) {
           const r = art.getBoundingClientRect();
-          let count = chestType === "epic" ? 10 : chestType === "rare" ? 6 : 0;
-          if (isMobileFx()) count = Math.max(0, Math.round(count * 0.55));
+          const count = getChestOpenParticleCount(chestType);
           if (count > 0) {
             DCAnim.burst(r.left + r.width / 2, r.top + r.height / 2, {
               count: count,
-              palette: chestType === "epic"
-                ? ["#c98cff", "#f0d078", "#9b6dff"]
-                : ["#7eb6ff", "#f0d078", "#a8d4ff"],
-              life: 520,
-              size: 2.8,
-              speed: 2.2
+              palette: getChestBurstPalette(chestType),
+              life: chestType === "epic" ? 560 : 480,
+              size: chestType === "epic" ? 3.0 : 2.6,
+              speed: 2.15
             });
           }
         }
       }, tOpen));
 
       chestRevealTimers.push(setTimeout(() => {
+        if (again) again.disabled = false;
         revealChestRewardsProgressive(result);
       }, tRewards));
     }
@@ -10535,7 +10658,7 @@
       const chestAgain = document.getElementById("btn-chest-open-again");
       if (chestAgain) {
         chestAgain.addEventListener("click", () => {
-          if (!lastChestOpen) return;
+          if (isOpeningChest || !lastChestOpen) return;
           startChestOpening(lastChestOpen.zoneId, lastChestOpen.chestType);
         });
       }
