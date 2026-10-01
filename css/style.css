@@ -11428,7 +11428,8 @@ html {
     height: auto !important;
     width: auto !important;
     z-index: 90 !important;
-    overflow: hidden !important;
+    /* visible : laisse le PNG dépasser légèrement le boîte contenu */
+    overflow: visible !important;
     pointer-events: none;
   }
 
@@ -11436,7 +11437,8 @@ html {
   #app:has(#panel-shop.active) #panel-shop .shop-menu {
     position: absolute !important;
     left: 50% !important;
-    top: 50% !important;
+    /* Remonte de 10px : marge basse pour que le PNG puisse s’étendre sans toucher la nav */
+    top: calc(50% - 10px) !important;
     transform: translate(-50%, -50%) !important;
     width: min(94vw, 2200px) !important;
     max-width: 96% !important;
@@ -11444,15 +11446,29 @@ html {
     max-height: calc(100% - 4px) !important;
     aspect-ratio: 1796 / 876 !important;
     z-index: 1 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     pointer-events: none;
   }
 
+  /*
+   * PNG décoratif = <img class="shop-menu-bg">
+   * Extension visuelle ~12–14px haut/bas. Contenu (overlay) inchangé relatif au menu.
+   * aspect-ratio:auto débloque le ratio base qui empêchait l’agrandissement réel du PNG.
+   */
   #app:has(#panel-shop.active) #panel-shop .shop-menu-bg {
-    max-height: 100% !important;
+    position: absolute !important;
+    left: 0 !important;
     width: 100% !important;
-    height: 100% !important;
+    top: -10px !important;
+    bottom: auto !important;
+    height: calc(100% + 22px) !important; /* +10px haut + +12px bas */
+    max-height: none !important;
+    aspect-ratio: auto !important;
     object-fit: fill !important;
+    object-position: center center !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+    transform: none !important;
   }
 
   /*
@@ -11474,6 +11490,7 @@ html {
     min-height: 0 !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
+    z-index: 1 !important;
   }
 
   #app:has(#panel-shop.active) #panel-shop .shop-dual-layout {
