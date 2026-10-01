@@ -5645,11 +5645,13 @@
     }
 
     /* -------------------------------------------------------
-       COFFRES V1 — affichage
+       COFFRES V1 — affichage (tuiles + sélection)
        ------------------------------------------------------- */
     let chestRevealTimer = null;
     let chestRevealTimers = [];
     let lastChestOpen = null;
+    let selectedChestZoneId = "sanctuary";
+    let selectedChestType = "draconic";
     const chestNewFlags = Object.create(null);
 
     function chestKey(zoneId, chestType) {
@@ -5694,63 +5696,134 @@
       }
     }
 
-    function renderChestInventory() {
-      const host = document.getElementById("chest-inventory");
-      if (!host) return;
+    function getChestMenuZones() {
       const inv = ensureChestInventory();
-      host.innerHTML = "";
-      const zones = getChestZoneIds().filter((zoneId) =>
+      return getChestZoneIds().filter((zoneId) =>
         isZoneUnlocked(gameState, zoneId) ||
-        getChestTypeOrder().some((type) => inv[zoneId][type] > 0)
+        getChestTypeOrder().some((type) => (inv[zoneId] && inv[zoneId][type] > 0))
       );
-      zones.forEach((zoneId) => {
-        const section = document.createElement("section");
-        section.className = "chest-zone";
-        const title = document.createElement("h3");
-        title.className = "chest-zone-title";
-        title.textContent = getChestZoneLabel(zoneId);
-        section.appendChild(title);
+    }
 
-        const grid = document.createElement("div");
-        grid.className = "chest-grid";
-        getChestTypeOrder().forEach((type) => {
-          const def = CHEST_TYPES[type];
-          const count = inv[zoneId][type] || 0;
-          const card = document.createElement("div");
-          card.className = "chest-card " + def.css + (count > 0 ? "" : " is-empty");
-          const isNew = count > 0 && isChestNew(zoneId, type);
-          card.innerHTML =
-            (isNew ? '<span class="chest-card-new">Nouveau</span>' : "") +
-            '<div class="chest-card-art"><img alt="" draggable="false" decoding="async" /></div>' +
-            '<div class="chest-card-rarity"></div>' +
-            '<div class="chest-card-name"></div>' +
-            '<div class="chest-card-zone"></div>' +
-            '<div class="chest-card-count"></div>' +
-            '<button type="button" class="btn chest-card-open">Ouvrir</button>';
-          card.querySelector("img").src = def.imageClosed;
-          card.querySelector(".chest-card-rarity").textContent = def.rarityLabel || "";
-          card.querySelector(".chest-card-name").textContent = def.name;
-          card.querySelector(".chest-card-zone").textContent = getChestZoneLabel(zoneId);
-          card.querySelector(".chest-card-count").textContent = "Possédés : x" + count;
-          const btn = card.querySelector(".chest-card-open");
-          btn.disabled = count <= 0;
-          btn.addEventListener("click", () => startChestOpening(zoneId, type));
-          grid.appendChild(card);
-        });
-        section.appendChild(grid);
-        host.appendChild(section);
-      });
-      if (!zones.length) {
-        const p = document.createElement("p");
-        p.className = "chest-empty";
-        p.textContent = "Aucun coffre pour le moment.";
-        host.appendChild(p);
+    function pickDefaultChestSelection(zoneId) {
+      const types = getChestTypeOrder();
+      for (let i = 0; i < types.length; i++) {
+        if (getChestCount(zoneId, types[i]) > 0) return types[i];
       }
+      return "draconic";
+    }
+
+    function ensureChestSelection() {
+      const zones = getChestMenuZones();
+      if (!zones.length) {
+        selectedChestZoneId = "sanctuary";
+        selectedChestType = "draconic";
+        return;
+      }
+      if (zones.indexOf(selectedChestZoneId) < 0) {
+        selectedChestZoneId = zones[0];
+      }
+      if (getChestTypeOrder().indexOf(selectedChestType) < 0) {
+        selectedChestType = "draconic";
+      }
+      if (getChestCount(selectedChestZoneId, selectedChestType) <= 0) {
+        selectedChestType = pickDefaultChestSelection(selectedChestZoneId);
+      }
+    }
+
+    function selectChestTile(zoneId, chestType) {
+      if (!isValidChest(zoneId, chestType)) return;
+      selectedChestZoneId = zoneId;
+      selectedChestType = chestType;
+      renderChestInventory();
+    }
+
+    function updateChestActionPanel() {
+      const def = CHEST_TYPES[selectedChestType];
+      const count = getChestCount(selectedChestZoneId, selectedChestType);
+      const nameEl = document.getElementById("chest-action-name");
+      const countEl = document.getElementById("chest-action-count");
+      const descEl = document.getElementById("chest-action-desc");
+      const openBtn = document.getElementById("btn-chest-open");
+      if (nameEl) nameEl.textContent = def ? def.name : "Coffre";
+      if (countEl) countEl.textContent = "x" + count;
+      if (descEl) {
+        descEl.textContent = (def && def.blurb) || "Essence et fragments selon la rareté.";
+      }
+      if (openBtn) openBtn.disabled = count <= 0;
+    }
+
+    function renderChestInventory() {
+      const tiles = document.getElementById("chest-tiles");
+      const switchHost = document.getElementById("chest-zone-switch");
+      if (!tiles) return;
+
+      ensureChestSelection();
+      const zones = getChestMenuZones();
+      const zoneId = selectedChestZoneId;
+
+      if (switchHost) {
+        switchHost.innerHTML = "";
+        if (zones.length > 1) {
+          switchHost.hidden = false;
+          zones.forEach((zId) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "chest-zone-pill" + (zId === zoneId ? " is-active" : "");
+            btn.textContent = getChestZoneLabel(zId);
+            btn.addEventListener("click", () => {
+              selectedChestZoneId = zId;
+              selectedChestType = pickDefaultChestSelection(zId);
+              renderChestInventory();
+            });
+            switchHost.appendChild(btn);
+          });
+        } else {
+          switchHost.hidden = true;
+        }
+      }
+
+      tiles.innerHTML = "";
+      getChestTypeOrder().forEach((type) => {
+        const def = CHEST_TYPES[type];
+        if (!def) return;
+        const count = getChestCount(zoneId, type);
+        const tile = document.createElement("button");
+        tile.type = "button";
+        tile.className =
+          "chest-tile " + def.css +
+          (type === selectedChestType ? " is-selected" : "") +
+          (count <= 0 ? " is-empty" : "");
+        tile.setAttribute("role", "option");
+        tile.setAttribute("aria-selected", type === selectedChestType ? "true" : "false");
+        tile.setAttribute("aria-label", def.name + ", x" + count);
+        tile.innerHTML =
+          (count > 0 && isChestNew(zoneId, type) ? '<span class="chest-tile-new">Nouveau</span>' : "") +
+          '<span class="chest-tile-art"><img alt="" draggable="false" decoding="async" /></span>' +
+          '<span class="chest-tile-name"></span>' +
+          '<span class="chest-tile-count"></span>';
+        tile.querySelector("img").src = def.imageClosed;
+        tile.querySelector(".chest-tile-name").textContent = def.name;
+        tile.querySelector(".chest-tile-count").textContent = "x" + count;
+        tile.addEventListener("click", () => selectChestTile(zoneId, type));
+        tiles.appendChild(tile);
+      });
+
+      updateChestActionPanel();
+    }
+
+    function openSelectedChest() {
+      ensureChestSelection();
+      if (getChestCount(selectedChestZoneId, selectedChestType) <= 0) return;
+      startChestOpening(selectedChestZoneId, selectedChestType);
     }
 
     function openChestModal() {
       const modal = document.getElementById("chest-modal");
       if (!modal) return;
+      ensureChestSelection();
+      if (getChestCount(selectedChestZoneId, selectedChestType) <= 0) {
+        selectedChestType = pickDefaultChestSelection(selectedChestZoneId);
+      }
       renderChestInventory();
       modal.classList.remove("hidden");
     }
@@ -5852,6 +5925,8 @@
       if (!result) return;
       clearChestNew(zoneId, chestType);
       lastChestOpen = { zoneId: zoneId, chestType: chestType };
+      selectedChestZoneId = zoneId;
+      selectedChestType = chestType;
       updateChestButtonBadge();
       if (isChestModalOpen()) renderChestInventory();
 
@@ -10132,6 +10207,8 @@
       document.getElementById("chest-modal").addEventListener("click", (e) => {
         if (e.target.id === "chest-modal") closeChestModal();
       });
+      const chestOpenBtn = document.getElementById("btn-chest-open");
+      if (chestOpenBtn) chestOpenBtn.addEventListener("click", openSelectedChest);
       const chestOk = document.getElementById("btn-chest-reveal-ok");
       if (chestOk) chestOk.addEventListener("click", closeChestReveal);
       const chestAgain = document.getElementById("btn-chest-open-again");

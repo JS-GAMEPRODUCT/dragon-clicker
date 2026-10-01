@@ -13,6 +13,7 @@ var CHEST_TYPES = {
     name: "Coffre Draconique",
     rarityLabel: "Draconique",
     css: "chest-draconic",
+    blurb: "Essence, fragments communs, petites récompenses.",
     imageClosed: "assets/coffre/coffre%20de%20base%20ferm%C3%A9.png",
     imageOpen: "assets/coffre/coffre%20de%20base%20ouvert.png"
   },
@@ -20,6 +21,7 @@ var CHEST_TYPES = {
     name: "Coffre Rare",
     rarityLabel: "Rare",
     css: "chest-rare",
+    blurb: "Essence, fragments rares, meilleures récompenses.",
     imageClosed: "assets/coffre/coffre%20de%20rareferm%C3%A9.png",
     imageOpen: "assets/coffre/coffre%20de%20rare%20ouvert.png"
   },
@@ -27,6 +29,7 @@ var CHEST_TYPES = {
     name: "Coffre Épique",
     rarityLabel: "Épique",
     css: "chest-epic",
+    blurb: "Essence, fragments épiques, grosses récompenses.",
     imageClosed: "assets/coffre/coffre%20de%20epic%20ferm%C3%A9.png",
     imageOpen: "assets/coffre/coffre%20de%20epic%20ouvert.png"
   }

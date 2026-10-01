@@ -554,15 +554,22 @@
     </div>
   </div>
 
-  <!-- Coffres V1 : inventaire -->
+  <!-- Coffres V1 : inventaire (tuiles + sélection) -->
   <div class="modal-overlay hidden" id="chest-modal">
     <div class="modal chest-modal" role="dialog" aria-modal="true" aria-labelledby="chest-modal-title">
       <button type="button" class="chest-close" id="btn-close-chests" aria-label="Fermer">✕</button>
       <header class="chest-modal-head">
         <h2 id="chest-modal-title" class="chest-modal-title">Trésor Draconique</h2>
-        <p class="chest-modal-sub">Vos trésors récupérés lors de vos aventures.</p>
+        <p class="chest-modal-sub">Choisissez un coffre à ouvrir</p>
       </header>
-      <div class="chest-inventory" id="chest-inventory"></div>
+      <div class="chest-zone-switch" id="chest-zone-switch" hidden></div>
+      <div class="chest-tiles" id="chest-tiles" role="listbox" aria-label="Types de coffres"></div>
+      <div class="chest-action" id="chest-action">
+        <div class="chest-action-name" id="chest-action-name">Coffre Draconique</div>
+        <div class="chest-action-count" id="chest-action-count">x0</div>
+        <p class="chest-action-desc" id="chest-action-desc"></p>
+        <button type="button" class="btn chest-open-btn" id="btn-chest-open" disabled>Ouvrir</button>
+      </div>
     </div>
   </div>
 
