@@ -10776,10 +10776,11 @@ html {
   /*
    * Cause réelle : le HUD est une ligne de grille AU-DESSUS de .main,
    * et le fond Boutique est un PNG à zones transparentes + z-index 500 desktop.
-   * Sur mobile : HUD masqué pendant les grands menus (reste devinable via le décor).
+   * Sur mobile : HUD masqué pendant les grands menus — SAUF Boutique
+   * (Essence / Logo / Essence-sec restent visibles via règles shop-open).
    */
-  #app:has(.overlay-panel.active) .header,
-  #app:has(.overlay-panel.active) .game-header {
+  #app:has(.overlay-panel.active):not(:has(#panel-shop.active)) .header,
+  #app:has(.overlay-panel.active):not(:has(#panel-shop.active)) .game-header {
     z-index: 20 !important;
     opacity: 0 !important;
     visibility: hidden !important;
@@ -11134,5 +11135,103 @@ html {
   .bonus-codes-row .btn {
     width: 100%;
     min-width: 0;
+  }
+}
+
+/* =========================================================
+   BOUTIQUE OPEN — Logo + Essence + Essence/sec au-dessus
+   (réutilise les vrais éléments HUD, pas de double source)
+   Desktop + mobile. Autres menus inchangés.
+   ========================================================= */
+
+#app:has(#panel-shop.active) {
+  --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + 56px);
+}
+
+#app:has(#panel-shop.active) .header,
+#app:has(#panel-shop.active) .game-header {
+  position: relative;
+  z-index: 125 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+}
+
+#app:has(#panel-shop.active) .hud-resource-card.hud-power-card,
+#app:has(#panel-shop.active) .hud-resource-card.hud-cps-card,
+#app:has(#panel-shop.active) .stat-pill.hud-badge-click,
+#app:has(#panel-shop.active) .header-gear {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+#app:has(#panel-shop.active) .hud-resource-card.essence-stat,
+#app:has(#panel-shop.active) .header-logo-wrap,
+#app:has(#panel-shop.active) .stat-pill.hud-badge-prod {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: none !important;
+  position: relative;
+  z-index: 126;
+}
+
+#app:has(#panel-shop.active) #panel-shop.shop-panel.overlay-panel.active {
+  top: var(--shop-hud-strip) !important;
+  z-index: 80 !important;
+}
+
+#app:has(#panel-shop.active) .sheet-bar {
+  top: var(--shop-hud-strip) !important;
+  z-index: 130 !important;
+}
+
+@media (max-width: 768px) {
+  #app:has(#panel-shop.active) {
+    --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + 58px);
+  }
+
+  #app:has(#panel-shop.active) .header,
+  #app:has(#panel-shop.active) .game-header {
+    min-height: var(--shop-hud-strip) !important;
+  }
+
+  #app:has(#panel-shop.active) .game-header-inner {
+    grid-template-rows: auto !important;
+    padding-bottom: 4px !important;
+  }
+
+  #app:has(#panel-shop.active) .header-logo-wrap {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+
+  #app:has(#panel-shop.active) .hud-resource-card.essence-stat {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+
+  #app:has(#panel-shop.active) .stat-pill.hud-badge-prod {
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+  }
+
+  #app:has(#panel-shop.active) .hud-resource-card.hud-power-card,
+  #app:has(#panel-shop.active) .hud-resource-card.hud-cps-card,
+  #app:has(#panel-shop.active) .stat-pill.hud-badge-click,
+  #app:has(#panel-shop.active) .header-gear {
+    display: none !important;
+  }
+
+  #app:has(#panel-shop.active) #panel-shop .shop-menu {
+    height: min(72vh, calc(100dvh - var(--shop-hud-strip) - 88px - env(safe-area-inset-bottom, 0px) - 16px)) !important;
+    max-height: min(72vh, calc(100dvh - var(--shop-hud-strip) - 88px - env(safe-area-inset-bottom, 0px) - 16px)) !important;
+    top: 48% !important;
+  }
+}
+
+@media (min-width: 769px) {
+  #app:has(#panel-shop.active) {
+    --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + 72px);
   }
 }

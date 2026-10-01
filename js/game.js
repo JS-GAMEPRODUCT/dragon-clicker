@@ -9585,7 +9585,11 @@
         mobileTeamSlots.addEventListener("click", (ev) => {
           const btn = ev.target.closest(".mobile-team-slot");
           if (!btn) return;
-          toggleTeamDrawer(true);
+          const slot = Number(btn.dataset.slot);
+          if (!Number.isFinite(slot)) return;
+          /* "+" / portrait → FORMATION directe (pas le menu Équipe) */
+          toggleTeamDrawer(false);
+          openTeamPicker(slot);
         });
       }
       const expBtn = document.getElementById("btn-expeditions");
