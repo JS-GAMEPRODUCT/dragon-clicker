@@ -5513,46 +5513,57 @@
       ensureExpeditionState();
       const exp = gameState.expeditions;
       const run = exp.slots[slotIndex];
-      if (!run || run.claimed) return { ok: false, reason: "none" };
+      if (!run || run.claimed || run._claiming) return { ok: false, reason: "none" };
       resolveExpeditionIfDue(run);
       if (!run.resolved || !run.result) return { ok: false, reason: "not_ready" };
 
-      const result = run.result;
-      if (result.power > 0) addPower(result.power, "expedition");
-      if (result.rarePower > 0) addPower(result.rarePower, "expedition");
-      (result.fragments || []).forEach((f) => {
-        grantDragonFragments(f.dragonId, Math.max(0, Math.floor(f.amount)));
-      });
-      const chestDrop = sanitizeExpeditionChest(result.chest);
-      if (chestDrop) {
-        addChest(chestDrop.zoneId, chestDrop.type, 1);
-        const chestDef = CHEST_TYPES[chestDrop.type];
-        showNotification(
-          "+1 " + (chestDef ? chestDef.name.toUpperCase() : "COFFRE"),
-          getChestZoneLabel(chestDrop.zoneId)
-        );
-      }
-
+      /* Anti double-claim (double clic / re-entrant) */
+      run._claiming = true;
       run.claimed = true;
       run.status = "claimed";
-      exp.slots[slotIndex] = null;
 
-      expeditionsDirty = true;
-      dragonsDirty = true;
-      uiDirty = true;
-      saveGame(true);
+      const result = run.result;
+      try {
+        if (result.power > 0) addPower(result.power, "expedition");
+        if (result.rarePower > 0) addPower(result.rarePower, "expedition");
+        (result.fragments || []).forEach((f) => {
+          grantDragonFragments(f.dragonId, Math.max(0, Math.floor(f.amount)));
+        });
+        const chestDrop = sanitizeExpeditionChest(result.chest);
+        if (chestDrop) {
+          addChest(chestDrop.zoneId, chestDrop.type, 1);
+          const chestDef = CHEST_TYPES[chestDrop.type];
+          showNotification(
+            "+1 " + (chestDef ? chestDef.name.toUpperCase() : "COFFRE"),
+            getChestZoneLabel(chestDrop.zoneId)
+          );
+        }
 
-      const def = getExpeditionDef(run.expeditionId);
-      const claimBits = describeExpeditionRewardLines(result).slice(0, 3);
-      showNotification(
-        "🧭 Expédition terminée",
-        (def ? def.name + " — " : "") + (claimBits.length ? claimBits.join(" · ") : "Récompenses récupérées")
-      );
-      const claimHost = document.getElementById("expeditions-root");
-      if (claimHost && window.DCAnim && DCAnim.expeditionClaimFx) {
-        DCAnim.expeditionClaimFx(claimHost);
+        exp.slots[slotIndex] = null;
+
+        expeditionsDirty = true;
+        dragonsDirty = true;
+        uiDirty = true;
+        saveGame(true);
+
+        const def = getExpeditionDef(run.expeditionId);
+        const claimBits = describeExpeditionRewardLines(result).slice(0, 3);
+        showNotification(
+          "🧭 EXPÉDITION TERMINÉE",
+          (def ? def.name + " — " : "") + (claimBits.length ? claimBits.join(" · ") : "Récompenses récupérées")
+        );
+        const claimHost = document.getElementById("expeditions-root");
+        if (claimHost && window.DCAnim && DCAnim.expeditionClaimFx) {
+          DCAnim.expeditionClaimFx(claimHost);
+        }
+        return { ok: true, result };
+      } catch (err) {
+        /* En cas d'échec inattendu, ne pas laisser un slot fantôme claimable deux fois */
+        console.error("[Expedition] claim failed", err);
+        return { ok: false, reason: "error" };
+      } finally {
+        if (run) run._claiming = false;
       }
-      return { ok: true, result };
     }
 
     /* -------------------------------------------------------
@@ -6497,10 +6508,15 @@
         const claimBtn = document.createElement("button");
         claimBtn.type = "button";
         claimBtn.className = "expedition-btn-claim";
+        claimBtn.dataset.action = "claim-expedition";
+        claimBtn.dataset.slotIndex = String(busy.slotIndex);
         claimBtn.textContent = "RÉCUPÉRER";
-        claimBtn.addEventListener("click", () => {
-          claimExpedition(busy.slotIndex);
-          renderExpeditions();
+        claimBtn.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const idx = safeNumber(claimBtn.dataset.slotIndex, busy.slotIndex);
+          const res = claimExpedition(idx);
+          if (res && res.ok) renderExpeditions();
         });
         actions.appendChild(claimBtn);
       } else if (status === "running") {
@@ -6790,10 +6806,14 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "btn expedition-launch";
+      btn.dataset.action = "claim-expedition";
+      btn.dataset.slotIndex = String(slotIndex);
       btn.textContent = "Récupérer";
-      btn.addEventListener("click", () => {
-        claimExpedition(slotIndex);
-        renderExpeditions();
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const res = claimExpedition(slotIndex);
+        if (res && res.ok) renderExpeditions();
       });
       wrap.appendChild(btn);
       return wrap;
@@ -9899,12 +9919,10 @@
         renderExpeditions();
         lastExpeditionUiRefresh = t;
       } else if (isExpeditionDrawerOpen()) {
+        /* Met à jour timers / résolution ; le re-render complet vient via expeditionsDirty
+           (ex. passage running → ready). Ne PAS re-render en boucle pendant "RÉCUPÉRER"
+           sinon le bouton est détruit chaque frame et le clic ne marche jamais. */
         tickExpeditions();
-        const busy = getBusyExpeditionRun();
-        if (busy && busy.run.resolved && !busy.run.claimed) {
-          renderExpeditions();
-          lastExpeditionUiRefresh = t;
-        }
       }
 
       if (panelId === "stats") {
@@ -10334,6 +10352,20 @@
       const expClose = document.getElementById("expedition-drawer-close");
       if (expBtn) expBtn.addEventListener("click", () => toggleExpeditionDrawer());
       if (expClose) expClose.addEventListener("click", () => closeExpeditionDrawer());
+      const expRoot = document.getElementById("expeditions-root");
+      if (expRoot && !expRoot.dataset.claimDelegate) {
+        expRoot.dataset.claimDelegate = "1";
+        expRoot.addEventListener("click", (ev) => {
+          const btn = ev.target.closest('[data-action="claim-expedition"]');
+          if (!btn || !expRoot.contains(btn)) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          const idx = safeNumber(btn.dataset.slotIndex, NaN);
+          if (!Number.isFinite(idx)) return;
+          const res = claimExpedition(idx);
+          if (res && res.ok) renderExpeditions();
+        });
+      }
       updateExpeditionButtonIndicator();
       document.getElementById("team-close").addEventListener("click", () => toggleTeamDrawer(false));
       document.getElementById("dragon-detail-modal").addEventListener("click", (e) => {
