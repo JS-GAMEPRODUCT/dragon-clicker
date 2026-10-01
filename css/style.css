@@ -11377,9 +11377,9 @@ html {
    * Mobile (max-width:768) inchangé.
    */
   #app:has(#panel-shop.active) {
-    /* Bande un peu plus haute : cadre étendu légèrement haut + bas (HUD/nav restent libres) */
-    --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + 120px);
-    --shop-nav-reserve: calc(104px + env(safe-area-inset-bottom, 0px));
+    /* Cadre +~14px haut / +~6px bas (nav 768p limite l’extension basse) */
+    --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + 106px);
+    --shop-nav-reserve: calc(98px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Stacking clair : scène < panneau < HUD/nav (pas de z-index géants) */
