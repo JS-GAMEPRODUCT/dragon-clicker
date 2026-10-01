@@ -7663,12 +7663,11 @@
           (teamPickerState.selectedId === def.id ? " selected" : "");
         card.setAttribute("aria-pressed", teamPickerState.selectedId === def.id ? "true" : "false");
         card.setAttribute("aria-label", def.name + " — " + rarity.label + " — " + stars + " étoiles");
+        /* Carte épurée : rareté + gros art + étoiles (+ badge équipé). Détails = footer au clic. */
         card.innerHTML =
           '<span class="tp-card-band"></span>' +
-          '<span class="tp-card-art"><img alt="" draggable="false" decoding="async" width="96" height="96" hidden /><span class="dc-emoji"></span></span>' +
-          '<span class="tp-card-stars"></span>' +
-          '<span class="tp-card-name"></span>' +
-          '<span class="tp-card-bonus"></span>';
+          '<span class="tp-card-art"><img alt="" draggable="false" decoding="async" width="160" height="160" hidden /><span class="dc-emoji"></span></span>' +
+          '<span class="tp-card-stars"></span>';
 
         card.querySelector(".tp-card-band").textContent = rarity.label;
         const emoji = card.querySelector(".dc-emoji");
@@ -7677,16 +7676,6 @@
         if (index >= 6) imgEl.loading = "lazy";
         loadAssetImage(imgEl, emoji, def.image, { silhouette: false });
         card.querySelector(".tp-card-stars").innerHTML = renderTeamStarsHtml(stars);
-        card.querySelector(".tp-card-name").textContent = def.name;
-        const bonusText = describeDragonBonusShort(def, stars, { compact: true });
-        const bonusEl = card.querySelector(".tp-card-bonus");
-        if (bonusText) {
-          const firstBonus = getDragonBonusDefs(def)[0];
-          const icon = TEAM_BONUS_ICON[normalizeDragonBonusType(firstBonus && firstBonus.type)] || "";
-          bonusEl.textContent = (icon ? icon + " " : "") + bonusText;
-        } else {
-          bonusEl.hidden = true;
-        }
 
         if (onExpedition) {
           const lock = document.createElement("span");
@@ -7839,6 +7828,7 @@
           '<span class="tp-preview-title"><span class="tp-preview-name"></span><span class="rarity-label"></span></span>' +
           '<span class="tp-preview-stars"></span>' +
           '<span class="tp-preview-bonus"><span class="tp-bonus-name"></span><span class="tp-bonus-value"></span></span>' +
+          '<span class="tp-preview-meta"></span>' +
           '<span class="tp-preview-note"></span>' +
         "</span>";
       const art = preview.querySelector(".tp-preview-art");
@@ -7853,6 +7843,18 @@
       preview.querySelector(".tp-preview-stars").innerHTML = renderTeamStarsHtml(stars);
       preview.querySelector(".tp-bonus-name").textContent = active && active.name ? active.name : "";
       preview.querySelector(".tp-bonus-value").textContent = describeDragonBonusShort(def, stars);
+      const meta = preview.querySelector(".tp-preview-meta");
+      const frags = Math.max(0, safeNumber(entry.fragments, 0));
+      const next = getFragmentsForNextStar(def, entry);
+      if (next) {
+        meta.textContent = "Fragments " + formatNumber(frags) + " / " + formatNumber(next.cost) +
+          " → ★" + next.toStar;
+      } else if (stars >= MAX_DRAGON_STARS) {
+        meta.textContent = "Fragments " + formatNumber(frags) + " · Max ★";
+      } else {
+        meta.textContent = frags > 0 ? ("Fragments " + formatNumber(frags)) : "";
+      }
+      if (!meta.textContent) meta.hidden = true;
 
       const note = preview.querySelector(".tp-preview-note");
       let label = currentId ? "Remplacer" : "Équiper";
