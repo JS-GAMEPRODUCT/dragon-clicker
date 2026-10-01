@@ -6482,7 +6482,7 @@
         radial-gradient(ellipse 80% 55% at 50% 32%, color-mix(in srgb, var(--rarity-color) 34%, transparent), transparent 75%),
         linear-gradient(180deg, #1c2330 0%, #0e131b 100%);
       box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-      transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, filter 0.16s ease;
+      transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
       animation: tpCardIn 0.28s ease-out both;
       animation-delay: calc(var(--i, 0) * 35ms);
     }
@@ -6769,6 +6769,11 @@
         padding: 0;
         align-items: flex-end;
         padding-bottom: env(safe-area-inset-bottom, 0px);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        background:
+          radial-gradient(ellipse 70% 50% at 50% 100%, rgba(180, 90, 20, 0.14), transparent 55%),
+          rgba(0, 0, 0, 0.88);
       }
       .team-picker {
         width: min(94vw, 100%);
@@ -6807,14 +6812,35 @@
         gap: 6px;
         padding: 4px 8px 14px;
         padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        overflow-x: hidden;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
+        touch-action: pan-y;
+        overscroll-behavior: contain;
       }
       .tp-card {
         padding: 0 0 6px;
         border-radius: 12px;
         gap: 2px;
+        animation: none;
+        content-visibility: auto;
+        contain-intrinsic-size: auto 140px;
+        contain: layout style;
+        transition: transform 0.12s ease, border-color 0.12s ease;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
       }
+      .tp-card:hover {
+        transform: none;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+      }
+      .tp-card.selected {
+        box-shadow:
+          0 0 0 2px rgba(255, 220, 130, 0.4),
+          0 4px 12px rgba(0, 0, 0, 0.45);
+      }
+      .tp-card.rarity-legendary,
+      .tp-card.rarity-mythic,
+      .tp-card.rarity-divine { animation: none; }
       .tp-card-art { width: 64px; height: 64px; margin: 2px 0 0; font-size: 1.7rem; }
       .tp-card-art img { object-fit: contain; }
       .tp-card-lock { height: 68px; }
@@ -6865,6 +6891,13 @@
         overflow: hidden;
         z-index: 80;
         box-sizing: border-box;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        background-color: rgba(10, 14, 18, 0.96);
+        box-shadow:
+          0 0 0 1px rgba(0, 0, 0, 0.5),
+          inset 0 1px 0 rgba(255, 230, 170, 0.12),
+          0 12px 28px rgba(0, 0, 0, 0.5);
       }
       .team-module.open {
         display: flex;
@@ -10389,6 +10422,9 @@ html {
     overflow: hidden !important;
     z-index: 80 !important;
     display: none;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: rgba(10, 14, 18, 0.96) !important;
   }
   #team-module.team-module.open {
     display: flex !important;
@@ -10426,6 +10462,7 @@ html {
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     overscroll-behavior: contain;
     padding-bottom: 12px;
   }
@@ -12350,12 +12387,23 @@ html {
     align-items: center;
     justify-content: center;
     padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(0, 0, 0, 0.88);
+  }
+  #chest-reveal-modal {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(0, 0, 0, 0.88);
   }
   .chest-modal {
     width: min(94vw, 440px);
     max-height: min(82vh, calc(100dvh - 72px - env(safe-area-inset-bottom, 0px)));
     padding: 14px 10px 12px;
     margin: 0;
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      0 14px 32px rgba(0, 0, 0, 0.55);
   }
   .chest-modal-head {
     padding-bottom: 6px;
@@ -12373,7 +12421,27 @@ html {
     padding: 6px 4px 6px;
     border-radius: 12px;
   }
-  .chest-tile.is-selected { transform: scale(1.015); }
+  .chest-tile.is-empty {
+    filter: none;
+  }
+  .chest-tile.is-empty .chest-tile-art img {
+    filter: grayscale(0.45) brightness(0.72);
+  }
+  .chest-tile.is-selected {
+    transform: scale(1.015);
+    box-shadow:
+      0 0 0 1px rgba(240, 208, 120, 0.45),
+      0 0 10px rgba(212, 170, 78, 0.22);
+  }
+  .chest-tile.chest-rare.is-selected,
+  .chest-tile.chest-epic.is-selected {
+    box-shadow:
+      0 0 0 1px rgba(240, 208, 120, 0.4),
+      0 0 10px rgba(212, 170, 78, 0.2);
+  }
+  .chest-tile-art img {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  }
   .chest-tile-name { font-size: 0.58rem; }
   .chest-tile-count { font-size: 0.64rem; top: 4px; right: 4px; }
   .chest-action {
@@ -12392,6 +12460,17 @@ html {
   }
   .chest-reveal-art {
     width: min(160px, 42vw);
+  }
+  .chest-reveal-art img {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .chest-reveal-art.chest-draconic.is-shaking img,
+  .chest-reveal-art.chest-draconic.is-open img,
+  .chest-reveal-art.chest-rare.is-shaking img,
+  .chest-reveal-art.chest-rare.is-open img,
+  .chest-reveal-art.chest-epic.is-shaking img,
+  .chest-reveal-art.chest-epic.is-open img {
+    filter: drop-shadow(0 0 8px rgba(212, 170, 78, 0.35));
   }
   .chest-reveal-ok,
   .chest-reveal-again {
@@ -12428,5 +12507,43 @@ html {
     grid-column: 1 / -1;
     max-width: 56%;
     justify-self: center;
+  }
+}
+
+/* Mobile performance class (JS: html.mobile-performance) — blur/glow only */
+html.mobile-performance #team-picker-modal,
+html.mobile-performance #chest-modal,
+html.mobile-performance #chest-reveal-modal {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(0, 0, 0, 0.88);
+}
+html.mobile-performance .team-module,
+html.mobile-performance #team-module.team-module,
+html.mobile-performance #team-module.team-module.open {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background-color: rgba(10, 14, 18, 0.96) !important;
+}
+html.mobile-performance .tp-card {
+  animation: none;
+}
+html.mobile-performance .team-picker-grid {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overflow-x: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-card,
+  .tp-card.rarity-legendary,
+  .tp-card.rarity-mythic,
+  .tp-card.rarity-divine,
+  .team-picker {
+    animation: none !important;
+  }
+  .tp-card:hover,
+  .tp-card.selected {
+    transform: none;
   }
 }

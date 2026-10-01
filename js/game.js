@@ -5881,7 +5881,15 @@
       if (!isValidChest(zoneId, chestType)) return;
       selectedChestZoneId = zoneId;
       selectedChestType = chestType;
-      renderChestInventory();
+      const tiles = document.getElementById("chest-tiles");
+      if (tiles) {
+        tiles.querySelectorAll(".chest-tile").forEach((tile) => {
+          const on = tile.dataset.chestType === chestType;
+          tile.classList.toggle("is-selected", on);
+          tile.setAttribute("aria-selected", on ? "true" : "false");
+        });
+      }
+      updateChestActionPanel();
     }
 
     function updateChestActionPanel() {
@@ -5891,6 +5899,34 @@
       const openBtn = document.getElementById("btn-chest-open");
       if (nameEl) nameEl.textContent = def ? def.name : "Coffre";
       if (openBtn) openBtn.disabled = count <= 0;
+    }
+
+    let chestUiDelegatesBound = false;
+    function bindChestUiDelegates() {
+      if (chestUiDelegatesBound) return;
+      chestUiDelegatesBound = true;
+      const tiles = document.getElementById("chest-tiles");
+      if (tiles) {
+        tiles.addEventListener("click", (e) => {
+          const tile = e.target.closest(".chest-tile");
+          if (!tile || !tiles.contains(tile)) return;
+          const type = tile.dataset.chestType;
+          if (!type) return;
+          selectChestTile(selectedChestZoneId, type);
+        });
+      }
+      const switchHost = document.getElementById("chest-zone-switch");
+      if (switchHost) {
+        switchHost.addEventListener("click", (e) => {
+          const btn = e.target.closest(".chest-zone-pill");
+          if (!btn || !switchHost.contains(btn)) return;
+          const zId = btn.dataset.zoneId;
+          if (!zId || zId === selectedChestZoneId) return;
+          selectedChestZoneId = zId;
+          selectedChestType = pickDefaultChestSelection(zId);
+          renderChestInventory();
+        });
+      }
     }
 
     function renderChestInventory() {
@@ -5909,13 +5945,9 @@
           zones.forEach((zId) => {
             const btn = document.createElement("button");
             btn.type = "button";
+            btn.dataset.zoneId = zId;
             btn.className = "chest-zone-pill" + (zId === zoneId ? " is-active" : "");
             btn.textContent = getChestZoneTabLabel(zId);
-            btn.addEventListener("click", () => {
-              selectedChestZoneId = zId;
-              selectedChestType = pickDefaultChestSelection(zId);
-              renderChestInventory();
-            });
             switchHost.appendChild(btn);
           });
         } else {
@@ -5930,6 +5962,7 @@
         const count = getChestCount(zoneId, type);
         const tile = document.createElement("button");
         tile.type = "button";
+        tile.dataset.chestType = type;
         tile.className =
           "chest-tile " + def.css +
           (type === selectedChestType ? " is-selected" : "") +
@@ -5940,12 +5973,11 @@
         tile.innerHTML =
           '<span class="chest-tile-count"></span>' +
           (count > 0 && isChestNew(zoneId, type) ? '<span class="chest-tile-new">Nouveau</span>' : "") +
-          '<span class="chest-tile-art"><img alt="" draggable="false" decoding="async" /></span>' +
+          '<span class="chest-tile-art"><img alt="" draggable="false" decoding="async" width="96" height="96" /></span>' +
           '<span class="chest-tile-name"></span>';
         tile.querySelector("img").src = def.imageClosed;
         tile.querySelector(".chest-tile-name").textContent = def.name;
         tile.querySelector(".chest-tile-count").textContent = "x" + count;
-        tile.addEventListener("click", () => selectChestTile(zoneId, type));
         tiles.appendChild(tile);
       });
 
@@ -6116,7 +6148,8 @@
         pulseHudEssence();
         if (!reduced && window.DCAnim && DCAnim.burst) {
           const r = art.getBoundingClientRect();
-          const count = chestType === "epic" ? 10 : chestType === "rare" ? 6 : 0;
+          let count = chestType === "epic" ? 10 : chestType === "rare" ? 6 : 0;
+          if (isMobileFx()) count = Math.max(0, Math.round(count * 0.55));
           if (count > 0) {
             DCAnim.burst(r.left + r.width / 2, r.top + r.height / 2, {
               count: count,
@@ -6833,7 +6866,7 @@
           slot.classList.add("filled", rarity.css);
           slot.setAttribute("aria-label", "Emplacement " + (i + 1) + " : " + d.def.name);
           slot.innerHTML =
-            '<span class="mts-art"><img alt="" draggable="false" hidden /><span class="dc-emoji"></span></span>';
+            '<span class="mts-art"><img alt="" draggable="false" decoding="async" hidden /><span class="dc-emoji"></span></span>';
           const emoji = slot.querySelector(".dc-emoji");
           emoji.textContent = d.def.icon || "🐲";
           loadAssetImage(slot.querySelector("img"), emoji, d.def.image, { silhouette: false });
@@ -6846,9 +6879,16 @@
     }
 
     function renderTeamModule() {
+      renderMobileTeamRail();
+
       const slots = document.getElementById("team-slots");
       const list = document.getElementById("team-bonus-list");
       if (!slots || !list) return;
+
+      const teamMod = document.getElementById("team-module");
+      const teamOpen = !!(teamMod && teamMod.classList.contains("open"));
+      /* Skip heavy drawer rebuild while closed (rail already updated). */
+      if (!teamOpen && slots.childElementCount > 0) return;
 
       slots.innerHTML = "";
       for (let i = 0; i < TEAM_SIZE; i++) {
@@ -6861,7 +6901,7 @@
           slot.className = "team-slot filled " + rarity.css;
           slot.setAttribute("aria-label", "Emplacement " + (i + 1) + " : " + d.def.name);
           slot.innerHTML =
-            '<span class="ts-art"><img alt="" draggable="false" hidden /><span class="dc-emoji"></span></span>' +
+            '<span class="ts-art"><img alt="" draggable="false" decoding="async" hidden /><span class="dc-emoji"></span></span>' +
             '<span class="ts-info">' +
               '<span class="ts-name"></span>' +
               '<span class="ts-stars"></span>' +
@@ -6880,11 +6920,8 @@
             '<span class="ts-art ts-plus" aria-hidden="true"><span class="ts-silhouette">🐉</span></span>' +
             '<span class="ts-info"><span class="ts-name ts-add">+ Ajouter</span></span>';
         }
-        slot.addEventListener("click", () => openTeamPicker(i));
         slots.appendChild(slot);
       }
-
-      renderMobileTeamRail();
 
       list.innerHTML = "";
       const totals = getTeamBonusTotals();
@@ -6923,6 +6960,7 @@
 
     const TEAM_PICKER_RARITY_ORDER = ["divine", "mythic", "legendary", "epic", "rare", "common"];
     const teamPickerState = { slot: 0, selectedId: null, filter: "all" };
+    let teamUiDelegatesBound = false;
 
     function getOwnedTeamCandidates() {
       return DRAGON_DEFS
@@ -6973,6 +7011,53 @@
       renderTeamPickerFooter();
     }
 
+    function switchTeamPickerSlot(i) {
+      if (teamPickerState.slot === i) return;
+      teamPickerState.slot = i;
+      teamPickerState.selectedId = getTeam()[i] || null;
+      const modal = document.getElementById("team-picker-modal");
+      if (modal) modal.dataset.slot = String(i);
+      const title = document.getElementById("team-picker-title");
+      if (title) title.textContent = "Emplacement " + (i + 1);
+      const wrap = document.getElementById("team-picker-slots");
+      if (wrap) {
+        wrap.querySelectorAll(".tp-slot").forEach((btn, idx) => {
+          const on = idx === i;
+          btn.classList.toggle("active", on);
+          btn.setAttribute("aria-selected", on ? "true" : "false");
+        });
+      }
+      refreshTeamPickerGridState();
+      renderTeamPickerFooter();
+    }
+
+    function refreshTeamPickerGridState() {
+      const grid = document.getElementById("team-picker-grid");
+      if (!grid) return;
+      const team = getTeam();
+      const slotIndex = teamPickerState.slot;
+      grid.querySelectorAll(".tp-card").forEach((card) => {
+        const id = card.dataset.dragonId;
+        const inSlot = team.indexOf(id);
+        card.classList.toggle("in-this-slot", inSlot === slotIndex);
+        const selected = teamPickerState.selectedId === id;
+        card.classList.toggle("selected", selected);
+        card.setAttribute("aria-pressed", selected ? "true" : "false");
+        if (card.classList.contains("locked")) return;
+        let tag = card.querySelector(".tp-card-tag");
+        if (inSlot !== -1) {
+          if (!tag) {
+            tag = document.createElement("span");
+            tag.className = "tp-card-tag";
+            card.appendChild(tag);
+          }
+          tag.textContent = inSlot === slotIndex ? "Équipé" : "Empl. " + (inSlot + 1);
+        } else if (tag) {
+          tag.remove();
+        }
+      });
+    }
+
     function renderTeamPickerSlots() {
       const wrap = document.getElementById("team-picker-slots");
       if (!wrap) return;
@@ -6981,6 +7066,7 @@
         const d = getTeamDragon(i);
         const btn = document.createElement("button");
         btn.type = "button";
+        btn.dataset.slot = String(i);
         btn.setAttribute("role", "tab");
         btn.setAttribute("aria-selected", i === teamPickerState.slot ? "true" : "false");
         btn.className = "tp-slot" + (i === teamPickerState.slot ? " active" : "") + (d ? "" : " empty");
@@ -6993,7 +7079,7 @@
         btn.querySelector(".tp-slot-num").textContent = "Emplacement " + (i + 1);
         if (d) {
           art.classList.add((RARITIES[d.def.rarity] || RARITIES.common).css);
-          art.innerHTML = '<img alt="" draggable="false" hidden /><span class="dc-emoji"></span>';
+          art.innerHTML = '<img alt="" draggable="false" decoding="async" hidden /><span class="dc-emoji"></span>';
           const emoji = art.querySelector(".dc-emoji");
           emoji.textContent = d.def.icon || "🐲";
           loadAssetImage(art.querySelector("img"), emoji, d.def.image, { silhouette: false });
@@ -7002,12 +7088,6 @@
           art.textContent = "+";
           btn.querySelector(".tp-slot-name").textContent = "Vide";
         }
-        btn.addEventListener("click", () => {
-          if (teamPickerState.slot === i) return;
-          teamPickerState.slot = i;
-          teamPickerState.selectedId = getTeam()[i] || null;
-          renderTeamPicker();
-        });
         wrap.appendChild(btn);
       }
     }
@@ -7035,11 +7115,6 @@
           chip.innerHTML = '<span></span><span class="tp-chip-count"></span>';
           chip.firstChild.textContent = f.label;
           chip.lastChild.textContent = String(f.count);
-          chip.addEventListener("click", () => {
-            teamPickerState.filter = f.id;
-            renderTeamPickerFilters();
-            renderTeamPickerGrid();
-          });
           wrap.appendChild(chip);
         });
     }
@@ -7084,7 +7159,7 @@
         card.setAttribute("aria-label", def.name + " — " + rarity.label + " — " + stars + " étoiles");
         card.innerHTML =
           '<span class="tp-card-band"></span>' +
-          '<span class="tp-card-art"><img alt="" draggable="false" hidden /><span class="dc-emoji"></span></span>' +
+          '<span class="tp-card-art"><img alt="" draggable="false" decoding="async" width="96" height="96" hidden /><span class="dc-emoji"></span></span>' +
           '<span class="tp-card-stars"></span>' +
           '<span class="tp-card-name"></span>' +
           '<span class="tp-card-bonus"></span>';
@@ -7092,7 +7167,9 @@
         card.querySelector(".tp-card-band").textContent = rarity.label;
         const emoji = card.querySelector(".dc-emoji");
         emoji.textContent = def.icon || "🐲";
-        loadAssetImage(card.querySelector("img"), emoji, def.image, { silhouette: false });
+        const imgEl = card.querySelector("img");
+        if (index >= 6) imgEl.loading = "lazy";
+        loadAssetImage(imgEl, emoji, def.image, { silhouette: false });
         card.querySelector(".tp-card-stars").innerHTML = renderTeamStarsHtml(stars);
         card.querySelector(".tp-card-name").textContent = def.name;
         const bonusText = describeDragonBonusShort(def, stars, { compact: true });
@@ -7119,20 +7196,71 @@
           card.appendChild(tag);
         }
 
-        card.addEventListener("click", () => {
-          teamPickerState.selectedId = def.id;
+        grid.appendChild(card);
+      });
+    }
+
+    function bindTeamUiDelegates() {
+      if (teamUiDelegatesBound) return;
+      teamUiDelegatesBound = true;
+
+      const slots = document.getElementById("team-slots");
+      if (slots) {
+        slots.addEventListener("click", (e) => {
+          const slot = e.target.closest(".team-slot");
+          if (!slot || !slots.contains(slot)) return;
+          openTeamPicker(Number(slot.dataset.slot));
+        });
+      }
+
+      const tpSlots = document.getElementById("team-picker-slots");
+      if (tpSlots) {
+        tpSlots.addEventListener("click", (e) => {
+          const btn = e.target.closest(".tp-slot");
+          if (!btn || !tpSlots.contains(btn)) return;
+          const i = Number(btn.dataset.slot);
+          if (!Number.isFinite(i)) return;
+          switchTeamPickerSlot(i);
+        });
+      }
+
+      const filters = document.getElementById("team-picker-filters");
+      if (filters) {
+        filters.addEventListener("click", (e) => {
+          const chip = e.target.closest(".tp-chip");
+          if (!chip || !filters.contains(chip)) return;
+          const id = chip.dataset.rarity;
+          if (!id || teamPickerState.filter === id) return;
+          teamPickerState.filter = id;
+          renderTeamPickerFilters();
+          renderTeamPickerGrid();
+        });
+      }
+
+      const grid = document.getElementById("team-picker-grid");
+      if (grid) {
+        grid.addEventListener("click", (e) => {
+          const card = e.target.closest(".tp-card");
+          if (!card || !grid.contains(card)) return;
+          const id = card.dataset.dragonId;
+          if (!id) return;
+          teamPickerState.selectedId = id;
           grid.querySelectorAll(".tp-card").forEach((c) => {
-            const on = c.dataset.dragonId === def.id;
+            const on = c.dataset.dragonId === id;
             c.classList.toggle("selected", on);
             c.setAttribute("aria-pressed", on ? "true" : "false");
           });
           renderTeamPickerFooter();
         });
-        card.addEventListener("dblclick", () => {
-          if (!onExpedition && team[slotIndex] !== def.id) confirmTeamPickerSelection();
+        grid.addEventListener("dblclick", (e) => {
+          const card = e.target.closest(".tp-card");
+          if (!card || !grid.contains(card) || card.classList.contains("locked")) return;
+          const id = card.dataset.dragonId;
+          if (!id) return;
+          teamPickerState.selectedId = id;
+          if (getTeam()[teamPickerState.slot] !== id) confirmTeamPickerSelection();
         });
-        grid.appendChild(card);
-      });
+      }
     }
 
     function renderTeamPickerFooter() {
@@ -7262,6 +7390,7 @@
       if (!mod) return;
       const open = typeof force === "boolean" ? force : !mod.classList.contains("open");
       mod.classList.toggle("open", open);
+      if (open) renderTeamModule();
     }
 
     function getZoneMapIndex(zoneId) {
@@ -8450,7 +8579,12 @@
       if (window.DCAnim && typeof DCAnim.isMobileFx === "function") {
         return DCAnim.isMobileFx();
       }
-      return window.innerWidth <= 799;
+      return window.innerWidth <= 799 ||
+        !!(window.matchMedia && window.matchMedia("(max-width: 768px)").matches);
+    }
+
+    function syncMobilePerformanceClass() {
+      document.documentElement.classList.toggle("mobile-performance", isMobileFx());
     }
 
     function updateChargedAuraVisual() {
@@ -10210,6 +10344,7 @@
       if (worldMenuClose) worldMenuClose.addEventListener("click", () => switchPanel("kingdom"));
       window.addEventListener("resize", () => {
         syncShopDividerToKingdomNav();
+        syncMobilePerformanceClass();
         if (gameCenterAxisResizeTimer) clearTimeout(gameCenterAxisResizeTimer);
         gameCenterAxisResizeTimer = setTimeout(() => {
           gameCenterAxisResizeTimer = 0;
@@ -10332,6 +10467,9 @@
       document.getElementById("btn-team-confirm").addEventListener("click", confirmTeamPickerSelection);
       document.getElementById("btn-team-mobile").addEventListener("click", () => toggleTeamDrawer());
       document.getElementById("btn-team-tablet").addEventListener("click", () => toggleTeamDrawer());
+      bindTeamUiDelegates();
+      bindChestUiDelegates();
+      syncMobilePerformanceClass();
       const mobileTeamOpen = document.getElementById("btn-mobile-team-open");
       if (mobileTeamOpen) {
         mobileTeamOpen.addEventListener("click", () => toggleTeamDrawer(true));
