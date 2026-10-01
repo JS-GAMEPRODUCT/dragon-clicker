@@ -11377,9 +11377,9 @@ html {
    * Mobile (max-width:768) inchangé.
    */
   #app:has(#panel-shop.active) {
-    /* HUD desktop (scale + /clic) ≈ 120px ; marge sous le bandeau */
-    --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + 134px);
-    --shop-nav-reserve: calc(118px + env(safe-area-inset-bottom, 0px));
+    /* Bande un peu plus haute : cadre étendu légèrement haut + bas (HUD/nav restent libres) */
+    --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + 120px);
+    --shop-nav-reserve: calc(104px + env(safe-area-inset-bottom, 0px));
   }
 
   /* Stacking clair : scène < panneau < HUD/nav (pas de z-index géants) */
@@ -11441,7 +11441,7 @@ html {
     width: min(94vw, 2200px) !important;
     max-width: 96% !important;
     height: auto !important;
-    max-height: calc(100% - 12px) !important;
+    max-height: calc(100% - 4px) !important;
     aspect-ratio: 1796 / 876 !important;
     z-index: 1 !important;
     overflow: hidden !important;
