@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="Dragon Clicker — Idle clicker fantasy autour des dragons" />
+  <title>Dragon Clicker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+
+</head>
+<body>
+  <div class="bg-layer" aria-hidden="true"></div>
+  <div class="bg-mist" aria-hidden="true"></div>
+  <div class="bg-sparks" id="bg-sparks" aria-hidden="true"></div>
+
+  <!-- Immersive sanctuary backdrop -->
+  <div class="scene-backdrop" id="scene-backdrop" aria-hidden="true">
+    <div class="scene-bg-layer" id="scene-bg"></div>
+    <div class="scene-bg-layer" id="scene-bg-fader"></div>
+    <div class="scene-vignette"></div>
+  </div>
+
+  <div id="app">
+    <header class="header game-header">
+      <div class="game-header-inner">
+        <div class="header-stats header-stats-left stats-bar" role="group" aria-label="Ressources">
+          <div class="hud-resource-card essence-stat" aria-label="Essence">
+            <img
+              class="hud-resource-frame"
+              src="assets/contenant/essence%20fond.png"
+              alt=""
+              draggable="false"
+              decoding="async"
+            />
+            <div class="hud-resource-icon-slot">
+              <img
+                class="hud-resource-icon"
+                src="assets/contenant/essence%20logo.png"
+                alt=""
+                draggable="false"
+                decoding="async"
+              />
+            </div>
+            <div class="hud-resource-info">
+              <span class="hud-resource-label">Essence</span>
+              <strong id="ui-essence" class="hud-resource-value">0</strong>
+            </div>
+          </div>
+          <div class="stat-pill hud-badge-prod">
+            <span class="label">⚡ Essence/sec</span>
+            <span class="stat-value-row">
+              <strong id="ui-prod">0</strong>
+              <span class="stat-unit">/sec</span>
+            </span>
+          </div>
+          <div class="stat-pill hud-badge-click">
+            <span class="label">👆 /clic</span>
+            <strong id="ui-click">1</strong>
+          </div>
+        </div>
+
+        <div class="header-logo-wrap">
+          <img
+            class="game-logo"
+            src="assets/backgrounds/logo.png"
+            alt="Dragon Clicker"
+            width="200"
+            height="67"
+            draggable="false"
+          />
+        </div>
+
+        <div class="header-right-cluster">
+          <div class="header-stats header-stats-right" role="group" aria-label="Puissance">
+            <div class="hud-resource-card hud-power-card" aria-label="Puissance">
+              <img
+                class="hud-resource-frame"
+                src="assets/contenant/essence%20fond.png"
+                alt=""
+                draggable="false"
+                decoding="async"
+              />
+              <div class="hud-resource-icon-slot">
+                <img
+                  class="hud-resource-icon"
+                  src="assets/contenant/puissance%20draconique%20logo.png"
+                  alt=""
+                  draggable="false"
+                  decoding="async"
+                />
+              </div>
+              <div class="hud-resource-info">
+                <span class="hud-resource-label">Puissance</span>
+                <strong id="ui-dragon-power" class="hud-resource-value">0</strong>
+              </div>
+            </div>
+            <div class="hud-resource-card hud-cps-card" aria-label="CPS">
+              <img
+                class="hud-resource-frame"
+                src="assets/contenant/essence%20fond.png"
+                alt=""
+                draggable="false"
+                decoding="async"
+              />
+              <div class="hud-resource-icon-slot">
+                <img
+                  class="hud-resource-icon"
+                  src="assets/contenant/clic%20par%20seconde.png"
+                  alt=""
+                  draggable="false"
+                  decoding="async"
+                />
+              </div>
+              <div class="hud-resource-info">
+                <span class="hud-resource-label">CPS</span>
+                <strong id="ui-cps" class="hud-resource-value">0</strong>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="header-gear" id="btn-open-settings" aria-label="Réglages" title="Réglages">⚙️</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- Royaume — immersive scene -->
+      <section id="panel-kingdom" class="panel active" data-panel="kingdom">
+        <div class="egg-stage" id="egg-stage">
+          <div class="egg-title-block">
+            <div class="egg-title-ornament" aria-hidden="true">
+              <span class="orn-line"></span>
+              <span class="orn-gem">◆</span>
+              <span class="orn-line"></span>
+            </div>
+            <h2 class="egg-stage-label" id="egg-stage-label">ŒUF DRACONIQUE</h2>
+            <div class="egg-title-ornament" aria-hidden="true" style="margin-top:10px;margin-bottom:0">
+              <span class="orn-line"></span>
+              <span class="orn-gem">✦</span>
+              <span class="orn-line"></span>
+            </div>
+            <p class="egg-scene-desc" id="ki-desc">Un ancien œuf dont l'origine remonte aux premiers dragons.</p>
+            <div class="egg-collection">Collection : <strong id="ki-pool-count">0 / 5</strong></div>
+          </div>
+
+          <div class="egg-hero">
+            <div class="egg-aura" aria-hidden="true"></div>
+            <div class="egg-aura-ring" aria-hidden="true"></div>
+            <div class="egg-motes" aria-hidden="true">
+              <span class="egg-mote"></span>
+              <span class="egg-mote"></span>
+              <span class="egg-mote"></span>
+              <span class="egg-mote"></span>
+              <span class="egg-mote"></span>
+              <span class="egg-mote"></span>
+            </div>
+            <div class="click-zone" id="click-zone" role="button" tabindex="0" aria-label="Cliquer sur l'œuf">
+              <div class="altar-light" aria-hidden="true"></div>
+              <div class="egg-ground-shadow" aria-hidden="true"></div>
+              <div class="egg-carousel-root" id="egg-carousel-root">
+                <div class="egg-carousel-item is-active-slot" id="egg-carousel-active-slot">
+                  <div class="entity-wrap egg-stage-normal" id="entity-wrap">
+                    <div class="egg-glow"></div>
+                    <div class="egg-position-wrapper" id="egg-position-wrapper">
+                      <div class="egg-hatch-wrapper" id="egg-hatch-wrapper">
+                        <div class="egg-click-wrapper" id="egg-click-wrapper">
+                          <div class="egg-visual fallback-active" id="egg-visual">
+                            <div class="egg-visual-inner" id="egg-visual-inner">
+                              <img id="egg-img" alt="Œuf de dragon" draggable="false" hidden />
+                              <div class="css-fallback">
+                                <div class="egg stage-1" id="egg"></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="dragon-entity" id="dragon-entity">
+                      <div class="dragon-body">
+                        <div class="dragon-silhouette"></div>
+                        <img id="hatch-dragon-img" class="dragon-reveal-img" alt="" draggable="false" hidden />
+                        <span class="dragon-emoji" id="hatch-dragon-emoji" aria-hidden="true">🐲</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <button type="button" class="egg-carousel-item is-prev is-hidden" id="egg-carousel-peer-prev" hidden aria-hidden="true" aria-label="Œuf précédent">
+                  <img id="egg-carousel-peer-prev-img" class="egg-carousel-item-img" alt="" draggable="false" />
+                </button>
+                <button type="button" class="egg-carousel-item is-next is-hidden" id="egg-carousel-peer" hidden aria-hidden="true" aria-label="Sélectionner un autre œuf">
+                  <img id="egg-carousel-peer-img" class="egg-carousel-item-img" alt="" draggable="false" />
+                </button>
+              </div>
+            </div>
+            <div class="egg-carousel-dots" id="egg-carousel-dots" hidden aria-hidden="true"></div>
+          </div>
+
+          <div class="egg-progress-block" id="egg-progress-block">
+            <div class="hatch-progress-label" id="hatch-progress-label">Progression d'éclosion</div>
+            <div class="hatch-bar-nums" id="hatch-bar-nums">0 / 300</div>
+            <div class="egg-progress-row">
+              <div class="hatch-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="hatch-bar">
+                <div class="hatch-bar-fill" id="hatch-bar-fill"></div>
+              </div>
+              <div class="hatch-bar-pct" id="hatch-bar-pct">0 %</div>
+            </div>
+            <div class="egg-eta" id="ki-eta">Commencez à cliquer pour estimer le temps.</div>
+          </div>
+
+          <div class="mobile-scene-actions" id="mobile-scene-actions">
+            <button type="button" class="scene-btn team-toggle-btn" id="btn-team-mobile">🛡️ Équipe</button>
+          </div>
+        </div>
+
+        <!-- Mini équipe (mobile + desktop) — miroir de l'équipe active -->
+        <div class="mobile-team-rail team-quick-rail" id="mobile-team-rail" aria-label="Équipe active">
+          <div class="mobile-team-slots" id="mobile-team-slots" role="list">
+            <button type="button" class="mobile-team-slot empty" data-slot="0" aria-label="Emplacement 1 vide" role="listitem">
+              <span class="mts-plus" aria-hidden="true">+</span>
+            </button>
+            <button type="button" class="mobile-team-slot empty" data-slot="1" aria-label="Emplacement 2 vide" role="listitem">
+              <span class="mts-plus" aria-hidden="true">+</span>
+            </button>
+            <button type="button" class="mobile-team-slot empty" data-slot="2" aria-label="Emplacement 3 vide" role="listitem">
+              <span class="mts-plus" aria-hidden="true">+</span>
+            </button>
+          </div>
+          <button type="button" class="mobile-team-open" id="btn-mobile-team-open" aria-label="Ouvrir l'équipe" title="Équipe">›</button>
+        </div>
+
+        <!-- Accès Coffres — scène (pas dans la nav basse) -->
+        <button type="button" class="scene-chests-btn" id="btn-open-chests" aria-label="Coffres" title="Coffres">
+          <span class="scene-chests-art">
+            <img src="assets/coffre/coffre%20de%20base%20ferm%C3%A9.png" alt="" draggable="false" decoding="async" />
+          </span>
+          <span class="scene-chests-label">Coffres</span>
+          <span class="scene-chests-count" id="chests-btn-badge">x0</span>
+        </button>
+
+        <div class="scene-actions" id="desktop-scene-actions">
+          <button type="button" class="scene-btn team-toggle-btn team-toggle-tablet" id="btn-team-tablet">🛡️ Équipe</button>
+        </div>
+
+        <aside class="team-module" id="team-module" aria-label="Équipe de dragons">
+          <div class="team-head">
+            <span class="team-title">Équipe</span>
+            <button type="button" class="team-close" id="team-close" aria-label="Fermer">✕</button>
+          </div>
+          <div class="team-scroll">
+            <div class="team-slots" id="team-slots"></div>
+            <div class="team-bonus">
+              <div class="team-bonus-title">Bonus actifs</div>
+              <ul class="team-bonus-list" id="team-bonus-list"></ul>
+            </div>
+          </div>
+        </aside>
+
+        <aside class="expedition-drawer" id="expedition-drawer" aria-hidden="true" aria-label="Expéditions">
+          <button type="button" class="expedition-edge-tab is-locked" id="btn-expeditions" aria-expanded="false" aria-controls="expedition-drawer" aria-disabled="false" title="Camp d'expédition — 15 000 Essence pour débloquer">
+            <span class="exp-btn-badge" id="expedition-btn-badge" hidden>!</span>
+            <span class="exp-tab-ico" id="expedition-btn-ico" aria-hidden="true">⛺</span>
+            <span class="exp-tab-label">Expéditions</span>
+            <span class="exp-btn-status" id="expedition-btn-status">15K 💎</span>
+          </button>
+          <div class="expedition-frame-shell">
+            <img
+              class="expedition-frame"
+              src="assets/expedition/background%20expedition.png"
+              alt=""
+              draggable="false"
+              decoding="async"
+            />
+            <div class="expedition-overlay-content">
+              <header class="expedition-drawer-head">
+                <h2 class="expedition-drawer-title">Expéditions</h2>
+                <p class="expedition-drawer-sub">Envoyez vos dragons explorer des terres anciennes.</p>
+                <button type="button" class="expedition-drawer-close" id="expedition-drawer-close" aria-label="Fermer">✕</button>
+              </header>
+            </div>
+            <div class="expedition-inner-frame">
+              <div id="expeditions-root" class="expeditions-root expedition-scroll-viewport"></div>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <div class="sheet-bar" id="sheet-bar" hidden>
+        <div class="sheet-tabs" id="sheet-tabs" role="tablist"></div>
+        <button type="button" class="sheet-close" id="sheet-close" aria-label="Fermer">✕</button>
+      </div>
+
+      <!-- Sélection des œufs -->
+      <section id="panel-eggs" class="panel overlay-panel" data-panel="eggs">
+        <h2 class="panel-title">🥚 Œufs</h2>
+        <p id="eggs-zone-note" style="text-align:center;color:var(--text-dim);font-size:0.85rem;margin-bottom:14px">Zone actuelle : Sanctuaire ancien</p>
+        <div class="egg-picker" id="egg-picker">
+          <div class="egg-picker-row" id="egg-picker-row"></div>
+        </div>
+      </section>
+
+      <!-- Monde — nouveau panneau (fond assets/menu/menu monde.png) -->
+      <section id="panel-zones" class="panel overlay-panel world-panel menu-open-animation" data-panel="zones">
+        <h2 class="panel-title">Monde</h2>
+        <div class="world-menu" id="world-menu">
+          <img
+            class="world-menu-background"
+            src="assets/menu/menu%20monde.png"
+            alt=""
+            width="1796"
+            height="876"
+            decoding="async"
+            draggable="false"
+          >
+          <div class="world-menu-overlay">
+            <div class="world-menu-title-slot">
+              <h2 class="world-menu-title">WORLDS</h2>
+            </div>
+            <div class="world-zones-viewport" id="world-zones-viewport">
+              <div class="world-zones-scroll" id="world-zones-scroll">
+                <div class="world-zones-list" id="world-zones-list" role="list"></div>
+              </div>
+            </div>
+            <button type="button" class="world-menu-close" id="world-menu-close" aria-label="Fermer"></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dragons collection -->
+      <section id="panel-dragons" class="panel overlay-panel game-large-panel-overlay menu-open-animation" data-panel="dragons">
+        <div class="game-large-panel">
+          <span class="game-large-panel-corner game-large-panel-corner-tl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-tr" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-bl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-br" aria-hidden="true"></span>
+          <h2 class="game-large-panel-title dragons-menu-title">Dragons</h2>
+          <div class="dragons-collection-bar" id="dragons-count" aria-live="polite">
+            <div class="dragons-collection-row">
+              <span class="dragons-collection-label">Collection de dragons</span>
+              <strong class="dragons-collection-value">0 / 0</strong>
+            </div>
+            <div class="dragons-collection-track"><div class="dragons-collection-fill" id="dragons-collection-fill"></div></div>
+          </div>
+          <div class="dragons-body">
+            <aside class="dragons-filters" id="dragons-filters" aria-label="Filtres de zone"></aside>
+            <div class="dragons-collection-scroll">
+              <div class="dragon-grid" id="dragons-grid"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Expéditions déplacées dans le drawer Royaume (expeditions-root) -->
+
+      <!-- Boutique + Améliorations (dual layout, sans onglets) -->
+      <section id="panel-shop" class="panel overlay-panel shop-panel menu-open-animation" data-panel="shop">
+        <h2 class="panel-title" id="shop-panel-title">Boutique</h2>
+        <div class="shop-menu" id="shop-menu">
+          <img
+            class="shop-menu-bg"
+            src="assets/menu/boutique/fond%20menu.png"
+            alt=""
+            width="1796"
+            height="876"
+            decoding="async"
+            draggable="false"
+          >
+          <div class="shop-menu-overlay">
+            <div class="shop-dual-layout" id="shop-dual-layout">
+              <div class="shop-column shop-column-boutique">
+                <div class="shop-column-header">
+                  <h3 class="shop-column-title">Boutique</h3>
+                  <p class="shop-column-zone" id="shop-zone-sub"></p>
+                </div>
+                <div class="shop-column-scroll">
+                  <div class="card-list" id="shop-list"></div>
+                </div>
+              </div>
+              <div class="shop-column shop-column-upgrades">
+                <div class="shop-column-header">
+                  <h3 class="shop-column-title">Améliorations</h3>
+                  <p class="shop-column-zone" id="upgrades-zone-sub"></p>
+                </div>
+                <div class="shop-column-scroll">
+                  <div class="card-list upgrades-card-list" id="upgrades-list"></div>
+                </div>
+              </div>
+              <div class="shop-dual-divider" id="shop-dual-divider" aria-hidden="true">
+                <span class="shop-dual-divider-gem"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Ancien panneau Améliorations : redirigé vers #panel-shop (conservé pour compat ids/nav) -->
+      <section id="panel-upgrades" class="panel overlay-panel" data-panel="upgrades" hidden aria-hidden="true"></section>
+
+      <!-- Succès -->
+      <section id="panel-achievements" class="panel overlay-panel game-large-panel-overlay" data-panel="achievements">
+        <div class="game-large-panel">
+          <span class="game-large-panel-corner game-large-panel-corner-tl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-tr" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-bl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-br" aria-hidden="true"></span>
+          <h2 class="game-large-panel-title">Succès</h2>
+          <div class="game-large-panel-scroll">
+            <div class="card-list" id="achievements-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Statistiques -->
+      <section id="panel-stats" class="panel overlay-panel" data-panel="stats">
+        <h2 class="panel-title">📊 Statistiques</h2>
+        <div class="stats-grid" id="stats-grid"></div>
+      </section>
+
+      <!-- Paramètres -->
+      <section id="panel-settings" class="panel overlay-panel" data-panel="settings">
+        <h2 class="panel-title">⚙️ Paramètres</h2>
+
+        <div class="settings-block">
+          <h3>Audio</h3>
+          <div class="toggle-row">
+            <span>🔊 Sons</span>
+            <button type="button" class="toggle" id="toggle-sfx" aria-pressed="true" title="Sons"></button>
+          </div>
+          <div class="toggle-row">
+            <span>🎵 Musique</span>
+            <button type="button" class="toggle" id="toggle-music" aria-pressed="true" title="Musique"></button>
+          </div>
+          <div class="settings-volume-row">
+            <label for="vol-master">Volume général</label>
+            <span class="settings-volume-val" id="vol-master-val">100</span>
+            <input type="range" id="vol-master" min="0" max="100" value="100" />
+          </div>
+          <div class="settings-volume-row">
+            <label for="vol-sfx">Effets</label>
+            <span class="settings-volume-val" id="vol-sfx-val">100</span>
+            <input type="range" id="vol-sfx" min="0" max="100" value="100" />
+          </div>
+          <div class="settings-volume-row">
+            <label for="vol-music">Musique</label>
+            <span class="settings-volume-val" id="vol-music-val">18</span>
+            <input type="range" id="vol-music" min="0" max="100" value="18" />
+          </div>
+        </div>
+
+        <div class="settings-block">
+          <h3>Codes bonus</h3>
+          <div class="bonus-codes-row">
+            <input
+              type="text"
+              id="bonus-code-input"
+              class="bonus-code-input"
+              placeholder="Entrez un code…"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="32"
+              aria-label="Code bonus"
+            />
+            <button type="button" class="btn gold-action-btn" id="btn-redeem-bonus-code">Valider</button>
+          </div>
+          <p class="bonus-code-feedback" id="bonus-code-feedback" hidden></p>
+        </div>
+
+        <div class="settings-block">
+          <h3>Sauvegarde</h3>
+          <div class="settings-actions">
+            <button type="button" class="btn" id="btn-save">💾 Sauvegarder</button>
+            <button type="button" class="btn btn-secondary" id="btn-export">📤 Exporter sauvegarde</button>
+            <button type="button" class="btn btn-secondary" id="btn-import">📥 Importer sauvegarde</button>
+            <textarea class="import-area" id="import-area" placeholder="Collez ici votre sauvegarde exportée…" spellcheck="false"></textarea>
+            <button type="button" class="btn btn-danger" id="btn-reset">🗑️ Réinitialiser partie</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="nav" id="main-nav" aria-label="Navigation principale">
+      <button type="button" class="nav-btn nav-btn-image" data-nav="shop" aria-label="Boutique">
+        <img
+          class="nav-btn-image-frame"
+          src="assets/contenant/bouton%20boutique.png"
+          alt=""
+          draggable="false"
+          decoding="async"
+        />
+        <span class="nav-btn-image-label">Boutique</span>
+      </button>
+      <button type="button" class="nav-btn nav-btn-image" data-nav="dragons" aria-label="Dragons">
+        <img
+          class="nav-btn-image-frame"
+          src="assets/contenant/bouton%20dragon.png"
+          alt=""
+          draggable="false"
+          decoding="async"
+        />
+        <span class="nav-btn-image-label">Dragons</span>
+      </button>
+      <button type="button" class="nav-btn nav-btn-main active" data-nav="kingdom">
+        <span class="nav-ico">🥚</span><span class="nav-label">Royaume</span>
+      </button>
+      <button type="button" class="nav-btn nav-btn-image" data-nav="world" aria-label="Monde">
+        <img
+          class="nav-btn-image-frame"
+          src="assets/contenant/bouton%20monde.png"
+          alt=""
+          draggable="false"
+          decoding="async"
+        />
+        <span class="nav-btn-image-label">Monde</span>
+      </button>
+      <button type="button" class="nav-btn nav-btn-image" data-nav="trophies" aria-label="Succès">
+        <img
+          class="nav-btn-image-frame"
+          src="assets/contenant/bouton%20succ%C3%A9s.png"
+          alt=""
+          draggable="false"
+          decoding="async"
+        />
+        <span class="nav-btn-image-label">Succès</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Hatch history modal -->
+  <div class="modal-overlay hidden" id="team-picker-modal">
+    <div class="modal team-picker" role="dialog" aria-modal="true" aria-labelledby="team-picker-title">
+      <span class="tp-ornament tp-ornament-tl" aria-hidden="true"></span>
+      <span class="tp-ornament tp-ornament-tr" aria-hidden="true"></span>
+      <span class="tp-ornament tp-ornament-bl" aria-hidden="true"></span>
+      <span class="tp-ornament tp-ornament-br" aria-hidden="true"></span>
+      <header class="tp-header">
+        <div class="tp-header-text">
+          <span class="tp-kicker">Formation</span>
+          <h2 id="team-picker-title">Choisir un dragon</h2>
+          <span class="tp-roster" id="team-picker-roster"></span>
+        </div>
+        <button type="button" class="tp-close" id="btn-close-team-picker" aria-label="Fermer">✕</button>
+      </header>
+      <div class="tp-slots" id="team-picker-slots" role="tablist" aria-label="Emplacements d'équipe"></div>
+      <div class="tp-filters" id="team-picker-filters" role="toolbar" aria-label="Filtrer par rareté"></div>
+      <div class="team-picker-grid" id="team-picker-grid"></div>
+      <footer class="tp-footer">
+        <div class="tp-preview" id="team-picker-preview"></div>
+        <div class="tp-actions">
+          <button type="button" class="tp-btn tp-btn-secondary team-picker-remove" id="btn-team-remove">Retirer</button>
+          <button type="button" class="tp-btn tp-btn-primary" id="btn-team-confirm">Équiper</button>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Coffres V1 : inventaire (tuiles + sélection) -->
+  <div class="modal-overlay hidden" id="chest-modal">
+    <div class="modal chest-modal" role="dialog" aria-modal="true" aria-labelledby="chest-modal-title">
+      <button type="button" class="chest-close" id="btn-close-chests" aria-label="Fermer">✕</button>
+      <header class="chest-modal-head">
+        <h2 id="chest-modal-title" class="chest-modal-title">Trésor Draconique</h2>
+        <p class="chest-modal-sub">Choisissez un coffre à ouvrir</p>
+      </header>
+      <div class="chest-zone-switch" id="chest-zone-switch" hidden></div>
+      <div class="chest-tiles" id="chest-tiles" role="listbox" aria-label="Types de coffres"></div>
+      <div class="chest-action" id="chest-action">
+        <div class="chest-action-name" id="chest-action-name">Coffre de base</div>
+        <button type="button" class="btn chest-open-btn" id="btn-chest-open" disabled>Ouvrir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Coffres V1 : ouverture / récompenses -->
+  <div class="modal-overlay hidden" id="chest-reveal-modal">
+    <div class="modal chest-reveal" role="dialog" aria-modal="true" aria-labelledby="chest-reveal-title">
+      <div class="chest-reveal-flash" id="chest-reveal-flash" aria-hidden="true"></div>
+      <h2 id="chest-reveal-title" class="chest-reveal-title">Coffre</h2>
+      <p class="chest-reveal-zone" id="chest-reveal-zone"></p>
+      <div class="chest-reveal-art" id="chest-reveal-art">
+        <img id="chest-reveal-img" alt="" draggable="false" />
+      </div>
+      <ul class="chest-reveal-rewards" id="chest-reveal-rewards" hidden></ul>
+      <div class="chest-reveal-actions" id="chest-reveal-actions" hidden>
+        <button type="button" class="btn btn-secondary chest-reveal-again" id="btn-chest-open-again" hidden>Ouvrir encore</button>
+        <button type="button" class="btn chest-reveal-ok" id="btn-chest-reveal-ok">Continuer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="dragon-detail-modal">
+    <div class="modal dragon-sheet" id="dragon-detail-sheet" role="dialog" aria-label="Fiche du dragon">
+      <button type="button" class="sheet-close ds-close" id="btn-close-dragon-detail" aria-label="Fermer">✕</button>
+      <div id="dragon-detail-body"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="history-modal">
+    <div class="modal" role="dialog" aria-labelledby="history-modal-title" style="width:min(420px,100%)">
+      <h2 id="history-modal-title">🕘 Dernières éclosions</h2>
+      <ul class="recent-hatches" id="recent-hatches-list" style="text-align:left;margin:12px 0;padding:10px;list-style:none;background:rgba(0,0,0,0.25);border-radius:10px;border:1px solid var(--border);max-height:50vh;overflow:auto">
+        <li class="empty">Aucune éclosion pour le moment.</li>
+      </ul>
+      <button type="button" class="btn btn-secondary" id="btn-close-history">Fermer</button>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toast-container" aria-live="polite"></div>
+
+  <!-- Intro modal -->
+  <div class="modal-overlay" id="intro-modal">
+    <div class="modal" role="dialog" aria-labelledby="intro-title">
+      <h2 id="intro-title">🐉 Dragon Clicker</h2>
+      <p class="intro-text">Depuis des siècles, les dragons ont disparu.</p>
+      <p class="intro-text">Au plus profond d'une montagne oubliée, quelque chose vient pourtant de se réveiller...</p>
+      <p class="intro-text">Un œuf.</p>
+      <p class="intro-text">Votre histoire commence ici.</p>
+      <button type="button" class="btn" id="btn-awaken">🔥 ÉVEILLER L'ŒUF</button>
+    </div>
+  </div>
+
+  <!-- Offline modal -->
+  <div class="modal-overlay hidden" id="offline-modal">
+    <div class="modal" role="dialog" aria-labelledby="offline-title">
+      <h2 id="offline-title">🐉 Votre royaume a continué sans vous !</h2>
+      <p>Absence :</p>
+      <p class="modal-stat" id="offline-time">—</p>
+      <p>Essence gagnée :</p>
+      <p class="modal-stat" id="offline-gain">—</p>
+      <button type="button" class="btn" id="btn-offline-ok">Récupérer</button>
+    </div>
+  </div>
+
+  <!-- Hatch sequence overlay -->
+  <div class="hatch-overlay" id="hatch-overlay" aria-hidden="true">
+    <div class="hatch-flash" id="hatch-flash"></div>
+    <div class="hatch-particles" id="hatch-particles"></div>
+    <div class="hatch-suspense" id="hatch-suspense"></div>
+  </div>
+
+  <!-- Twin hatch interstitial -->
+  <div class="twin-hatch-banner hidden" id="twin-hatch-banner" aria-hidden="true">
+    <div class="twin-hatch-banner-text">ÉCLOSION JUMELLE !</div>
+  </div>
+
+  <!-- Reveal / reward modal -->
+  <div class="modal-overlay hidden" id="dragon-modal">
+    <div class="modal" id="dragon-modal-inner" role="dialog" aria-labelledby="dragon-modal-title">
+      <h2 id="dragon-modal-title" class="dragon-reveal-ui">🐉 NOUVEAU DRAGON DÉCOUVERT !</h2>
+      <div class="dc-art dragon-modal-art" id="dragon-modal-art">
+        <div class="dragon-modal-aura" aria-hidden="true"></div>
+        <div class="dragon-reveal-ring" id="dragon-reveal-ring" aria-hidden="true"></div>
+        <div class="dragon-reveal-flash" id="dragon-reveal-flash" aria-hidden="true"></div>
+        <div class="dragon-reveal-sparks" id="dragon-reveal-sparks" aria-hidden="true"></div>
+        <img id="dragon-modal-img" alt="" draggable="false" hidden />
+        <span id="dragon-modal-emoji">🐲</span>
+      </div>
+      <p class="modal-stat dragon-reveal-ui" id="dragon-modal-name">—</p>
+      <p id="dragon-modal-rarity-wrap" class="dragon-reveal-ui"><span class="rarity-label" id="dragon-modal-rarity">—</span></p>
+      <div id="dragon-modal-badge" class="dragon-modal-badge new dragon-reveal-ui" hidden>NOUVEAU !</div>
+      <p id="dragon-modal-desc" class="dragon-reveal-ui" style="margin-top:12px">—</p>
+      <p id="dragon-modal-extra" class="dragon-reveal-ui" style="color:var(--gold);font-size:0.85rem;margin-top:8px"></p>
+      <button type="button" class="btn dragon-reveal-ui" id="btn-add-dragon">CONTINUER</button>
+    </div>
+  </div>
+
+  <!-- Egg pool viewer -->
+  <div class="modal-overlay hidden" id="pool-modal">
+    <div class="modal" role="dialog" aria-labelledby="pool-modal-title" style="width:min(520px,100%);text-align:center">
+      <h2 id="pool-modal-title">Collection de l'Œuf Draconique</h2>
+      <p class="modal-stat" id="pool-modal-count">0 / 5 découverts</p>
+      <div class="pool-modal-grid" id="pool-modal-grid"></div>
+      <button type="button" class="btn btn-secondary" id="btn-close-pool">Fermer</button>
+    </div>
+  </div>
+
+  <script src="js/data/zones.js"></script>
+  <script src="js/data/dragons.js"></script>
+  <script src="js/data/upgrades.js"></script>
+  <script src="js/data/expeditions.js"></script>
+  <script src="js/data/chests.js"></script>
+  <script src="js/animations/animation-manager.js"></script>
+  <script src="js/animations/particles.js"></script>
+  <script src="js/animations/egg-animations.js"></script>
+  <script src="js/animations/dragon-reveal.js"></script>
+  <script src="js/animations/ui-animations.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+
+</body>
+</html>
