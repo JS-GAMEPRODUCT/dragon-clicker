@@ -41,9 +41,9 @@ var CHEST_TYPES = {
  */
 var CHEST_ZONE_REWARDS = {
   sanctuary: {
-    draconic: { essenceMin: 500, essenceMax: 1500, fragmentsGuaranteed: 0, fragmentBonusChance: 0.25 },
-    rare: { essenceMin: 2000, essenceMax: 5000, fragmentsGuaranteed: 1, fragmentBonusChance: 0.25 },
-    epic: { essenceMin: 6000, essenceMax: 12000, fragmentsGuaranteed: 2, fragmentBonusChance: 0.10 }
+    draconic: { essenceMin: 250, essenceMax: 750, fragmentsGuaranteed: 0, fragmentBonusChance: 0.20 },
+    rare: { essenceMin: 1000, essenceMax: 2500, fragmentsGuaranteed: 1, fragmentBonusChance: 0.15 },
+    epic: { essenceMin: 3000, essenceMax: 6000, fragmentsGuaranteed: 2, fragmentBonusChance: 0.05 }
   },
   valley: {
     draconic: { essenceMin: 1500, essenceMax: 4000, fragmentsGuaranteed: 0, fragmentBonusChance: 0.25 },
@@ -52,9 +52,12 @@ var CHEST_ZONE_REWARDS = {
   }
 };
 
-/** Chance d'obtenir 0/1 coffre à la fin d'une expédition, puis répartition par type. */
+/**
+ * Fallback zone-level (Zone 2 / anciennes saves).
+ * Zone 1 utilise les chestChance / chestWeights par expédition.
+ */
 var CHEST_EXPEDITION_DROPS = {
-  sanctuary: { chance: 0.35, weights: { draconic: 75, rare: 20, epic: 5 } },
+  sanctuary: { chance: 0.65, weights: { draconic: 85, rare: 14, epic: 1 } },
   valley: { chance: 0.45, weights: { draconic: 65, rare: 25, epic: 10 } }
 };
 

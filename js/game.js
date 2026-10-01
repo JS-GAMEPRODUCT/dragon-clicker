@@ -5043,6 +5043,88 @@
       return (dragonIds || []).reduce((sum, id) => sum + calculateDragonExpeditionPower(id), 0);
     }
 
+    /**
+     * Puissance effective pour qualité de coffre / futur système d'affinités.
+     * Pour l'instant : aucune affinité — effective = baseTeamPower.
+     */
+    function getEffectiveExpeditionPower(baseTeamPower, _dragonIds) {
+      const base = Math.max(0, safeNumber(baseTeamPower, 0));
+      /* Futur : base + affinityBonus(dragonIds, expedition) */
+      const affinityBonus = 0;
+      return base + affinityBonus;
+    }
+
+    function getExpeditionPowerRatio(teamPower, recommendedPower) {
+      const rec = Math.max(1, safeNumber(recommendedPower, 1));
+      const effective = getEffectiveExpeditionPower(teamPower);
+      /* Cap absolu à 200 % — un ratio 500 % = même bonus que 200 %. */
+      return Math.min(2, effective / rec);
+    }
+
+    function getChestQualityLabel(teamPower, recommendedPower) {
+      const ratio = getExpeditionPowerRatio(teamPower, recommendedPower);
+      if (ratio < 0.75) return "Faible";
+      if (ratio < 1.00) return "Réduite";
+      if (ratio < 1.25) return "Normale";
+      if (ratio < 1.50) return "Améliorée";
+      if (ratio < 2.00) return "Très améliorée";
+      return "Maximale";
+    }
+
+    /**
+     * Ajuste les poids de rareté de coffre selon powerRatio (cap 2.0).
+     * Garantit draconic + rare + epic = 100, sans négatif.
+     */
+    function getAdjustedChestRarityChances(baseWeights, teamPower, recommendedPower) {
+      const base = baseWeights || {};
+      let draconic = Math.max(0, safeNumber(base.draconic, 0));
+      let rare = Math.max(0, safeNumber(base.rare, 0));
+      let epic = Math.max(0, safeNumber(base.epic, 0));
+      const startSum = draconic + rare + epic;
+      if (startSum <= 0) return { draconic: 100, rare: 0, epic: 0 };
+
+      const ratio = getExpeditionPowerRatio(teamPower, recommendedPower);
+      let rareDelta = 0;
+      let epicDelta = 0;
+      if (ratio < 0.75) {
+        rareDelta = -5;
+        epicDelta = -1;
+      } else if (ratio < 1.00) {
+        rareDelta = -2;
+        epicDelta = -1;
+      } else if (ratio < 1.25) {
+        rareDelta = 0;
+        epicDelta = 0;
+      } else if (ratio < 1.50) {
+        rareDelta = 3;
+        epicDelta = 1;
+      } else if (ratio < 2.00) {
+        rareDelta = 6;
+        epicDelta = 2;
+      } else {
+        rareDelta = 10;
+        epicDelta = 4;
+      }
+
+      const newRare = Math.max(0, rare + rareDelta);
+      const newEpic = Math.max(0, epic + epicDelta);
+      const actualRareDelta = newRare - rare;
+      const actualEpicDelta = newEpic - epic;
+      rare = newRare;
+      epic = newEpic;
+      draconic = Math.max(0, draconic - (actualRareDelta + actualEpicDelta));
+
+      let sum = draconic + rare + epic;
+      if (sum <= 0) return { draconic: 100, rare: 0, epic: 0 };
+      if (sum !== 100) {
+        /* Renormalise au cas où un clamp a cassé le total. */
+        draconic = Math.round((draconic / sum) * 100);
+        rare = Math.round((rare / sum) * 100);
+        epic = Math.max(0, 100 - draconic - rare);
+      }
+      return { draconic: draconic, rare: rare, epic: epic };
+    }
+
     function calculateSuccessChance(teamPower, recommendedPower) {
       const rec = Math.max(1, safeNumber(recommendedPower, 1));
       const ratio = safeNumber(teamPower, 0) / rec;
@@ -5079,14 +5161,26 @@
       const fragments = [];
       let rarePower = 0;
       const fragChance = safeNumber(cfg.fragmentChance, 0) * (success ? 1 : 0.35);
-      if (rng() < fragChance && dragonIds.length) {
-        const pick = dragonIds[Math.floor(rng() * dragonIds.length)];
-        let amount = randomIntInclusive(rng, cfg.fragmentMin || 1, cfg.fragmentMax || 1);
+      const fragMax = Math.max(0, Math.floor(safeNumber(cfg.fragmentMax, 0)));
+      if (fragMax > 0 && rng() < fragChance) {
+        let amount = randomIntInclusive(rng, cfg.fragmentMin || 1, fragMax);
         amount = Math.max(1, Math.floor(amount * (1 + bonus)));
         if (!success) amount = Math.max(1, Math.floor(amount * 0.35));
-        if (getDragonDef(pick) && isDragonDiscovered(gameState.dragons[pick], pick, gameState)) {
-          fragments.push({ dragonId: pick, amount });
+        /* Zone 1 : 0 ou 1 fragment direct max, jamais multiplié au-delà. */
+        if (fragMax <= 1) amount = 1;
+
+        let pick = null;
+        if ((def.zoneId || "sanctuary") === "sanctuary") {
+          /* Zone 1 : dragon découvert de la zone, hors mythique (poids 0). */
+          const eligible = getEligibleChestDragons(def.zoneId || "sanctuary");
+          pick = eligible.length ? pickChestFragmentDragon(eligible, rng) : null;
+        } else if (dragonIds.length) {
+          pick = dragonIds[Math.floor(rng() * dragonIds.length)];
+          if (!getDragonDef(pick) || !isDragonDiscovered(gameState.dragons[pick], pick, gameState)) {
+            pick = null;
+          }
         }
+        if (pick) fragments.push({ dragonId: pick, amount: amount });
       }
 
       const rareChance = safeNumber(cfg.rareChance, 0) * (success ? 1 : 0.15);
@@ -5173,7 +5267,7 @@
       const rng = makeSeededRng(run.seed);
       const success = rng() < safeNumber(run.successChance, 0.4);
       run.result = calculateExpeditionRewards(def, run.dragonIds || [], success, rng);
-      run.result.chest = rollExpeditionChest(def.zoneId, rng);
+      run.result.chest = rollExpeditionChest(def, safeNumber(run.teamPower, 0), rng);
       run.resolved = true;
       run.status = "ready";
       if (!run.notifiedComplete) {
@@ -5449,9 +5543,10 @@
       saveGame(true);
 
       const def = getExpeditionDef(run.expeditionId);
+      const claimBits = describeExpeditionRewardLines(result).slice(0, 3);
       showNotification(
-        "🧭 Récompenses récupérées",
-        (def ? def.name + " — " : "") + "+" + formatNumber(result.power + (result.rarePower || 0)) + " ✨"
+        "🧭 Expédition terminée",
+        (def ? def.name + " — " : "") + (claimBits.length ? claimBits.join(" · ") : "Récompenses récupérées")
       );
       const claimHost = document.getElementById("expeditions-root");
       if (claimHost && window.DCAnim && DCAnim.expeditionClaimFx) {
@@ -5562,14 +5657,48 @@
       return keys[keys.length - 1];
     }
 
-    /** 0 ou 1 coffre en fin d'expédition (zone de l'expédition). */
-    function rollExpeditionChest(zoneId, rng) {
-      const cfg = typeof CHEST_EXPEDITION_DROPS === "object" ? CHEST_EXPEDITION_DROPS[zoneId] : null;
-      if (!cfg) return null;
-      const r = typeof rng === "function" ? rng : Math.random;
-      if (r() >= safeNumber(cfg.chance, 0)) return null;
-      const type = pickWeighted(cfg.weights || {}, r);
-      return isValidChest(zoneId, type) ? { zoneId, type } : null;
+    /** 0 ou 1 coffre en fin d'expédition (jet drop puis jet rareté). */
+    function rollExpeditionChest(defOrZoneId, teamPowerOrRng, maybeRng) {
+      let def = null;
+      let zoneId = null;
+      let teamPower = 0;
+      let rng = Math.random;
+
+      if (defOrZoneId && typeof defOrZoneId === "object") {
+        def = defOrZoneId;
+        zoneId = def.zoneId;
+        teamPower = safeNumber(teamPowerOrRng, 0);
+        rng = typeof maybeRng === "function" ? maybeRng : Math.random;
+      } else {
+        zoneId = defOrZoneId;
+        rng = typeof teamPowerOrRng === "function" ? teamPowerOrRng : Math.random;
+        teamPower = 0;
+      }
+
+      const cfg = (def && def.rewardConfig) || {};
+      const zoneDrop =
+        typeof CHEST_EXPEDITION_DROPS === "object" && zoneId
+          ? CHEST_EXPEDITION_DROPS[zoneId]
+          : null;
+
+      const chance =
+        cfg.chestChance != null
+          ? safeNumber(cfg.chestChance, 0)
+          : safeNumber(zoneDrop && zoneDrop.chance, 0);
+      if (!(chance > 0) || !zoneId) return null;
+      if (rng() >= chance) return null;
+
+      const baseWeights =
+        cfg.chestWeights ||
+        (zoneDrop && zoneDrop.weights) ||
+        { draconic: 100, rare: 0, epic: 0 };
+      const recommendedPower = def ? safeNumber(def.recommendedPower, 1) : 1;
+      /* Qualité liée à la puissance : uniquement si l'expédition définit chestWeights (Zone 1). */
+      const weights = cfg.chestWeights
+        ? getAdjustedChestRarityChances(baseWeights, teamPower, recommendedPower)
+        : baseWeights;
+      const type = pickWeighted(weights, rng);
+      return isValidChest(zoneId, type) ? { zoneId: zoneId, type: type } : null;
     }
 
     /** Dragons découverts de la zone, hors mythiques (poids 0) et secrets. */
@@ -5581,12 +5710,12 @@
       });
     }
 
-    function pickChestFragmentDragon(eligible) {
+    function pickChestFragmentDragon(eligible, rng) {
       const weights = {};
       eligible.forEach((def) => {
         weights[def.id] = safeNumber(CHEST_FRAGMENT_RARITY_WEIGHTS[def.rarity], 0);
       });
-      return pickWeighted(weights, Math.random);
+      return pickWeighted(weights, typeof rng === "function" ? rng : Math.random);
     }
 
     function rollChestReward(zoneId, chestType) {
@@ -6327,17 +6456,28 @@
           : "Mission terminée — récupérez ce que vos dragons ont rapporté.";
         body.appendChild(msg);
 
-        const chestDrop = sanitizeExpeditionChest(result.chest);
-        if (chestDrop && CHEST_TYPES[chestDrop.type]) {
-          const chestDef = CHEST_TYPES[chestDrop.type];
-          const chestLine = document.createElement("div");
-          chestLine.className = "expedition-chest-drop " + chestDef.css;
-          chestLine.innerHTML =
-            '<img alt="" draggable="false" decoding="async" />' +
-            "<span>+1 " + chestDef.name + "</span>";
-          chestLine.querySelector("img").src = chestDef.imageClosed;
-          body.appendChild(chestLine);
-        }
+        const rewardList = document.createElement("ul");
+        rewardList.className = "expedition-reward-list expedition-card-rewards";
+        describeExpeditionRewardLines(result).forEach((line) => {
+          const li = document.createElement("li");
+          const chestDrop = sanitizeExpeditionChest(result.chest);
+          if (
+            chestDrop &&
+            CHEST_TYPES[chestDrop.type] &&
+            line.indexOf(CHEST_TYPES[chestDrop.type].name) !== -1
+          ) {
+            const chestDef = CHEST_TYPES[chestDrop.type];
+            li.className = "expedition-reward-chest " + chestDef.css;
+            li.innerHTML =
+              '<img alt="" draggable="false" decoding="async" />' +
+              "<span>" + line + "</span>";
+            li.querySelector("img").src = chestDef.imageClosed;
+          } else {
+            li.textContent = line;
+          }
+          rewardList.appendChild(li);
+        });
+        body.appendChild(rewardList);
       }
 
       const actions = document.createElement("div");
@@ -6441,16 +6581,19 @@
 
       const teamPower = calculateExpeditionTeamPower(expeditionUi.selectedDragons);
       const chance = calculateSuccessChance(teamPower, def.recommendedPower);
+      const chestQuality = getChestQualityLabel(teamPower, def.recommendedPower);
       const stats = document.createElement("div");
       stats.className = "expedition-stats";
       stats.innerHTML =
         '<div><span>Puissance envoyée</span><strong></strong></div>' +
         '<div><span>Puissance recommandée</span><strong></strong></div>' +
-        '<div><span>Chance de réussite</span><strong></strong></div>';
+        '<div><span>Chance de réussite</span><strong></strong></div>' +
+        '<div class="expedition-chest-quality"><span>Qualité des coffres</span><strong></strong></div>';
       const strongs = stats.querySelectorAll("strong");
       strongs[0].textContent = formatNumber(teamPower);
       strongs[1].textContent = formatNumber(def.recommendedPower);
       strongs[2].textContent = Math.round(chance * 100) + " %";
+      strongs[3].textContent = chestQuality;
       wrap.appendChild(stats);
 
       const pickTitle = document.createElement("h4");

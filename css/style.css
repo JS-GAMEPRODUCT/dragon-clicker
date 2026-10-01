@@ -8522,6 +8522,17 @@
     }
     .expedition-stats span { color: var(--text-dim); }
     .expedition-stats strong { color: var(--gold-bright); font-variant-numeric: tabular-nums; }
+    .expedition-chest-quality strong { color: #e8d5a0; }
+    .expedition-card-rewards {
+      list-style: none;
+      margin: 8px 0 0;
+      padding: 0;
+      display: grid;
+      gap: 4px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #f2e6c8;
+    }
     .expedition-subtitle {
       margin: 4px 0 0;
       font-size: 0.72rem;
