@@ -35,10 +35,10 @@ var ZONE_DEFS = [
       },
       {
         id: "mountains",
-        name: "Montagnes sauvages",
+        name: "Montagne sauvage",
         rank: "Adepte",
-        description: "Pics venteux — contenu détaillé à venir.",
-        background: "basic",
+        description: "Pics venteux et sentiers perdus dans la brume — contenu détaillé à venir.",
+        background: "mountains",
         startUnlocked: false,
         comingSoon: true,
         unlockCost: 500000,
