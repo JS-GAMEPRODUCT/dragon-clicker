@@ -10,8 +10,8 @@ var CHEST_TYPE_ORDER = ["draconic", "rare", "epic"];
 
 var CHEST_TYPES = {
   draconic: {
-    name: "Coffre Draconique",
-    rarityLabel: "Draconique",
+    name: "Coffre de base",
+    rarityLabel: "Base",
     css: "chest-draconic",
     blurb: "Essence, fragments communs, petites récompenses.",
     imageClosed: "assets/coffre/coffre%20de%20base%20ferm%C3%A9.png",

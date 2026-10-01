@@ -5630,6 +5630,11 @@
       return (idx >= 0 ? "Zone " + (idx + 1) : "Zone") + (zone ? " · " + zone.name : "");
     }
 
+    function getChestZoneTabLabel(zoneId) {
+      const idx = ZONE_DEFS.findIndex((z) => z.id === zoneId);
+      return idx >= 0 ? ("ZONE " + (idx + 1)) : "ZONE";
+    }
+
     function addChest(zoneId, chestType, amount) {
       if (!isValidChest(zoneId, chestType)) return false;
       const n = Math.max(1, Math.floor(safeNumber(amount, 1)));
@@ -5870,14 +5875,8 @@
       const def = CHEST_TYPES[selectedChestType];
       const count = getChestCount(selectedChestZoneId, selectedChestType);
       const nameEl = document.getElementById("chest-action-name");
-      const countEl = document.getElementById("chest-action-count");
-      const descEl = document.getElementById("chest-action-desc");
       const openBtn = document.getElementById("btn-chest-open");
       if (nameEl) nameEl.textContent = def ? def.name : "Coffre";
-      if (countEl) countEl.textContent = "x" + count;
-      if (descEl) {
-        descEl.textContent = (def && def.blurb) || "Essence et fragments selon la rareté.";
-      }
       if (openBtn) openBtn.disabled = count <= 0;
     }
 
@@ -5898,7 +5897,7 @@
             const btn = document.createElement("button");
             btn.type = "button";
             btn.className = "chest-zone-pill" + (zId === zoneId ? " is-active" : "");
-            btn.textContent = getChestZoneLabel(zId);
+            btn.textContent = getChestZoneTabLabel(zId);
             btn.addEventListener("click", () => {
               selectedChestZoneId = zId;
               selectedChestType = pickDefaultChestSelection(zId);
@@ -5926,10 +5925,10 @@
         tile.setAttribute("aria-selected", type === selectedChestType ? "true" : "false");
         tile.setAttribute("aria-label", def.name + ", x" + count);
         tile.innerHTML =
+          '<span class="chest-tile-count"></span>' +
           (count > 0 && isChestNew(zoneId, type) ? '<span class="chest-tile-new">Nouveau</span>' : "") +
           '<span class="chest-tile-art"><img alt="" draggable="false" decoding="async" /></span>' +
-          '<span class="chest-tile-name"></span>' +
-          '<span class="chest-tile-count"></span>';
+          '<span class="chest-tile-name"></span>';
         tile.querySelector("img").src = def.imageClosed;
         tile.querySelector(".chest-tile-name").textContent = def.name;
         tile.querySelector(".chest-tile-count").textContent = "x" + count;
