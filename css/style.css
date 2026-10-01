@@ -11534,12 +11534,24 @@ html {
     display: none !important;
   }
 
-  /* Mini-équipe desktop — dans la même colonne que Coffres */
+  /* Mini-équipe desktop — dans la même colonne que Coffres (légèrement remontée) */
   .scene-left-stack {
     left: max(12px, 1.2vw);
-    top: clamp(20%, calc(var(--altar-y, 64%) - 30%), 32%);
-    gap: 14px;
+    top: clamp(12%, calc(var(--altar-y, 64%) - 40%), 22%);
+    gap: 16px;
     z-index: 22;
+  }
+
+  /* Coffre desktop : label / compteur (taille image gérée après .scene-chests-art de base) */
+  .scene-chests-label {
+    font-size: 0.64rem;
+  }
+  .scene-chests-count {
+    font-size: 0.7rem;
+  }
+  /* Masquer x0 sur PC uniquement — mobile conserve x0 */
+  .scene-chests-count.is-empty {
+    display: none !important;
   }
 
   .mobile-team-rail,
@@ -11702,6 +11714,13 @@ html {
   object-fit: contain;
   filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
   pointer-events: none;
+}
+/* Desktop : image coffre un peu plus grande (après la base 48px) */
+@media (min-width: 769px) {
+  .scene-chests-art {
+    width: 60px;
+    height: 60px;
+  }
 }
 .scene-chests-label {
   font-family: var(--font-display);
@@ -12247,8 +12266,12 @@ html {
 @media (min-width: 769px) and (max-width: 1100px) {
   .scene-left-stack {
     left: max(10px, 1vw);
-    top: clamp(18%, calc(var(--altar-y, 64%) - 32%), 30%);
-    gap: 12px;
+    top: clamp(11%, calc(var(--altar-y, 64%) - 42%), 20%);
+    gap: 14px;
+  }
+  .scene-chests-art {
+    width: 56px;
+    height: 56px;
   }
 }
 

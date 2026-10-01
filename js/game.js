@@ -5823,6 +5823,8 @@
       if (badge) {
         badge.hidden = false;
         badge.textContent = "x" + (n > 99 ? "99+" : String(n));
+        /* Desktop CSS masque .is-empty ; mobile continue d'afficher x0 */
+        badge.classList.toggle("is-empty", n <= 0);
       }
       if (btn) {
         btn.classList.toggle("has-chests", n > 0);
