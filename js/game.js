@@ -7309,6 +7309,8 @@
       if (!slots || !list) return;
 
       const teamMod = document.getElementById("team-module");
+      /* Pendant Formation : garder l'état DOM, pas de rebuild/animation derrière. */
+      if (teamMod && teamMod.classList.contains("is-picker-open")) return;
       const teamOpen = !!(teamMod && teamMod.classList.contains("open"));
       /* Skip heavy drawer rebuild while closed (rail already updated). */
       if (!teamOpen && slots.childElementCount > 0) return;
@@ -7384,9 +7386,17 @@
     const TEAM_PICKER_RARITY_ORDER = ["divine", "mythic", "legendary", "epic", "rare", "common"];
     const teamPickerState = { slot: 0, selectedId: null, filter: "all" };
     let teamUiDelegatesBound = false;
+    let teamPickerOwnedCache = null;
+    let teamPickerFooterRaf = 0;
+    let teamPickerFooterDragonId = null;
+
+    function invalidateTeamPickerOwnedCache() {
+      teamPickerOwnedCache = null;
+    }
 
     function getOwnedTeamCandidates() {
-      return DRAGON_DEFS
+      if (teamPickerOwnedCache) return teamPickerOwnedCache;
+      teamPickerOwnedCache = DRAGON_DEFS
         .filter((def) => !def.secret && isDragonDiscovered(gameState.dragons[def.id], def.id, gameState))
         .sort((a, b) => {
           const ra = TEAM_PICKER_RARITY_ORDER.indexOf(a.rarity);
@@ -7397,6 +7407,7 @@
           if (sa !== sb) return sb - sa;
           return a.name.localeCompare(b.name);
         });
+      return teamPickerOwnedCache;
     }
 
     function getDragonExpeditionRemaining(dragonId) {
@@ -7408,11 +7419,15 @@
     function openTeamPicker(slotIndex) {
       const modal = document.getElementById("team-picker-modal");
       if (!modal) return;
+      invalidateTeamPickerOwnedCache();
+      teamPickerFooterDragonId = null;
       teamPickerState.slot = Math.max(0, Math.min(TEAM_SIZE - 1, slotIndex));
       teamPickerState.selectedId = getTeam()[teamPickerState.slot] || null;
       teamPickerState.filter = "all";
       renderTeamPicker();
       modal.classList.remove("hidden");
+      const teamMod = document.getElementById("team-module");
+      if (teamMod) teamMod.classList.add("is-picker-open");
     }
 
     function renderTeamPicker() {
@@ -7485,6 +7500,7 @@
       const wrap = document.getElementById("team-picker-slots");
       if (!wrap) return;
       wrap.innerHTML = "";
+      const frag = document.createDocumentFragment();
       for (let i = 0; i < TEAM_SIZE; i++) {
         const d = getTeamDragon(i);
         const btn = document.createElement("button");
@@ -7511,8 +7527,9 @@
           art.textContent = "+";
           btn.querySelector(".tp-slot-name").textContent = "Vide";
         }
-        wrap.appendChild(btn);
+        frag.appendChild(btn);
       }
+      wrap.appendChild(frag);
     }
 
     function renderTeamPickerFilters() {
@@ -7526,6 +7543,7 @@
 
       wrap.innerHTML = "";
       wrap.hidden = rarities.length < 2;
+      const frag = document.createDocumentFragment();
       [{ id: "all", label: "Tous", count: owned.length }]
         .concat(rarities.map((r) => ({ id: r, label: (RARITIES[r] || RARITIES.common).label, count: counts[r] })))
         .forEach((f) => {
@@ -7538,8 +7556,66 @@
           chip.innerHTML = '<span></span><span class="tp-chip-count"></span>';
           chip.firstChild.textContent = f.label;
           chip.lastChild.textContent = String(f.count);
-          wrap.appendChild(chip);
+          frag.appendChild(chip);
         });
+      wrap.appendChild(frag);
+    }
+
+    function applyTeamPickerFilter(filterId) {
+      if (!filterId) return;
+      teamPickerState.filter = filterId;
+      const wrap = document.getElementById("team-picker-filters");
+      if (wrap) {
+        wrap.querySelectorAll(".tp-chip").forEach((chip) => {
+          chip.classList.toggle("active", chip.dataset.rarity === filterId);
+        });
+      }
+      const grid = document.getElementById("team-picker-grid");
+      if (!grid) return;
+      let visible = 0;
+      grid.querySelectorAll(".tp-card").forEach((card) => {
+        const show = filterId === "all" || card.dataset.rarity === filterId;
+        card.hidden = !show;
+        if (show) visible += 1;
+      });
+      let empty = grid.querySelector(".team-picker-empty");
+      if (!visible) {
+        if (!empty) {
+          empty = document.createElement("p");
+          empty.className = "team-picker-empty";
+          grid.appendChild(empty);
+        }
+        empty.hidden = false;
+        empty.textContent = getOwnedTeamCandidates().length
+          ? "Aucun dragon de cette rareté."
+          : "Faites éclore des œufs pour obtenir vos premiers dragons.";
+      } else if (empty) {
+        empty.hidden = true;
+      }
+    }
+
+    function selectTeamPickerCard(card) {
+      if (!card || card.classList.contains("locked")) return;
+      const id = card.dataset.dragonId;
+      if (!id) return;
+      const grid = document.getElementById("team-picker-grid");
+      if (!grid) return;
+
+      /* Feedback sélection immédiat — avant footer/calculs */
+      const prev = grid.querySelector(".tp-card.selected");
+      if (prev && prev !== card) {
+        prev.classList.remove("selected");
+        prev.setAttribute("aria-pressed", "false");
+      }
+      card.classList.add("selected");
+      card.setAttribute("aria-pressed", "true");
+      teamPickerState.selectedId = id;
+
+      if (teamPickerFooterRaf) cancelAnimationFrame(teamPickerFooterRaf);
+      teamPickerFooterRaf = requestAnimationFrame(() => {
+        teamPickerFooterRaf = 0;
+        renderTeamPickerFooter();
+      });
     }
 
     function renderTeamPickerGrid() {
@@ -7549,31 +7625,34 @@
       const team = getTeam();
       const slotIndex = teamPickerState.slot;
       const owned = getOwnedTeamCandidates();
-      const list = teamPickerState.filter === "all"
-        ? owned
-        : owned.filter((d) => d.rarity === teamPickerState.filter);
+      const filterId = teamPickerState.filter;
 
-      if (!list.length) {
+      if (!owned.length) {
         const p = document.createElement("p");
         p.className = "team-picker-empty";
-        p.textContent = owned.length
-          ? "Aucun dragon de cette rareté."
-          : "Faites éclore des œufs pour obtenir vos premiers dragons.";
+        p.textContent = "Faites éclore des œufs pour obtenir vos premiers dragons.";
         grid.appendChild(p);
         return;
       }
 
-      list.forEach((def, index) => {
+      const frag = document.createDocumentFragment();
+      let visibleCount = 0;
+      owned.forEach((def, index) => {
         const entry = gameState.dragons[def.id];
         const stars = Math.max(1, safeNumber(entry.stars, 1));
         const rarity = RARITIES[def.rarity] || RARITIES.common;
         const inSlot = team.indexOf(def.id);
         const onExpedition = isDragonOnExpedition(def.id);
+        const show = filterId === "all" || def.rarity === filterId;
+        if (show) visibleCount += 1;
 
-        const card = document.createElement("button");
-        card.type = "button";
+        /* article + role=button : même modèle tactile que le menu Dragons (scroll natif iOS) */
+        const card = document.createElement("article");
         card.dataset.dragonId = def.id;
-        card.style.setProperty("--i", String(index));
+        card.dataset.rarity = def.rarity;
+        card.tabIndex = 0;
+        card.setAttribute("role", "button");
+        card.hidden = !show;
         card.className = "tp-card " + rarity.css +
           (inSlot === slotIndex ? " in-this-slot" : "") +
           (onExpedition ? " locked" : "") +
@@ -7619,8 +7698,16 @@
           card.appendChild(tag);
         }
 
-        grid.appendChild(card);
+        frag.appendChild(card);
       });
+
+      if (!visibleCount) {
+        const p = document.createElement("p");
+        p.className = "team-picker-empty";
+        p.textContent = "Aucun dragon de cette rareté.";
+        frag.appendChild(p);
+      }
+      grid.appendChild(frag);
     }
 
     function bindTeamUiDelegates() {
@@ -7654,34 +7741,51 @@
           if (!chip || !filters.contains(chip)) return;
           const id = chip.dataset.rarity;
           if (!id || teamPickerState.filter === id) return;
-          teamPickerState.filter = id;
-          renderTeamPickerFilters();
-          renderTeamPickerGrid();
+          applyTeamPickerFilter(id);
         });
       }
 
       const grid = document.getElementById("team-picker-grid");
       if (grid) {
+        grid.addEventListener("pointerdown", (e) => {
+          const card = e.target.closest(".tp-card");
+          if (!card || !grid.contains(card) || card.classList.contains("locked")) return;
+          card.classList.add("is-pressed");
+        }, { passive: true });
+        const clearPressed = (e) => {
+          const card = e.target.closest(".tp-card");
+          if (card) card.classList.remove("is-pressed");
+          else grid.querySelectorAll(".tp-card.is-pressed").forEach((c) => c.classList.remove("is-pressed"));
+        };
+        grid.addEventListener("pointerup", clearPressed, { passive: true });
+        grid.addEventListener("pointercancel", clearPressed, { passive: true });
+        grid.addEventListener("pointerleave", clearPressed, { passive: true });
+
+        let lastTapId = null;
+        let lastTapAt = 0;
         grid.addEventListener("click", (e) => {
           const card = e.target.closest(".tp-card");
           if (!card || !grid.contains(card)) return;
+          selectTeamPickerCard(card);
+          /* Double-tap équipement (évite dblclick + délai 300ms sur mobile) */
+          if (card.classList.contains("locked")) return;
           const id = card.dataset.dragonId;
-          if (!id) return;
-          teamPickerState.selectedId = id;
-          grid.querySelectorAll(".tp-card").forEach((c) => {
-            const on = c.dataset.dragonId === id;
-            c.classList.toggle("selected", on);
-            c.setAttribute("aria-pressed", on ? "true" : "false");
-          });
-          renderTeamPickerFooter();
+          const now = performance.now();
+          if (id && id === lastTapId && now - lastTapAt < 320) {
+            lastTapId = null;
+            lastTapAt = 0;
+            if (getTeam()[teamPickerState.slot] !== id) confirmTeamPickerSelection();
+            return;
+          }
+          lastTapId = id;
+          lastTapAt = now;
         });
-        grid.addEventListener("dblclick", (e) => {
+        grid.addEventListener("keydown", (e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
           const card = e.target.closest(".tp-card");
-          if (!card || !grid.contains(card) || card.classList.contains("locked")) return;
-          const id = card.dataset.dragonId;
-          if (!id) return;
-          teamPickerState.selectedId = id;
-          if (getTeam()[teamPickerState.slot] !== id) confirmTeamPickerSelection();
+          if (!card || !grid.contains(card)) return;
+          e.preventDefault();
+          selectTeamPickerCard(card);
         });
       }
     }
@@ -7696,6 +7800,14 @@
       const slotIndex = teamPickerState.slot;
       const currentId = team[slotIndex] || null;
       const id = teamPickerState.selectedId;
+      const footerKey = String(id || "") + "|" + slotIndex + "|" + String(currentId || "");
+      /* Évite de recharger l'image / reconstruire le panneau si rien n'a changé. */
+      if (teamPickerFooterDragonId === footerKey && preview.childElementCount) {
+        removeBtn.hidden = !currentId;
+        return;
+      }
+      teamPickerFooterDragonId = footerKey;
+
       const def = id ? getDragonDef(id) : null;
       removeBtn.hidden = !currentId;
 
@@ -7718,7 +7830,7 @@
       const otherSlot = team.indexOf(id);
 
       preview.innerHTML =
-        '<span class="tp-preview-art"><img alt="" draggable="false" hidden /><span class="dc-emoji"></span></span>' +
+        '<span class="tp-preview-art"><img alt="" draggable="false" decoding="async" hidden /><span class="dc-emoji"></span></span>' +
         '<span class="tp-preview-body">' +
           '<span class="tp-preview-title"><span class="tp-preview-name"></span><span class="rarity-label"></span></span>' +
           '<span class="tp-preview-stars"></span>' +
@@ -7777,6 +7889,13 @@
     function closeTeamPicker() {
       const modal = document.getElementById("team-picker-modal");
       if (modal) modal.classList.add("hidden");
+      const teamMod = document.getElementById("team-module");
+      if (teamMod) teamMod.classList.remove("is-picker-open");
+      if (teamPickerFooterRaf) {
+        cancelAnimationFrame(teamPickerFooterRaf);
+        teamPickerFooterRaf = 0;
+      }
+      teamPickerFooterDragonId = null;
     }
 
     function assignTeamSlot(slotIndex, dragonId) {
@@ -7795,6 +7914,7 @@
       team[slotIndex] = dragonId;
       calculateProduction();
       saveGame(true);
+      invalidateTeamPickerOwnedCache();
       renderTeamModule();
       uiDirty = true;
       closeTeamPicker();
