@@ -11290,8 +11290,102 @@ html {
 }
 
 @media (min-width: 769px) {
+  /*
+   * DESKTOP Boutique ouverte :
+   * HUD complet au-dessus → panneau au milieu → nav en dessous.
+   * Mobile (max-width:768) inchangé.
+   */
   #app:has(#panel-shop.active) {
-    --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + 72px);
+    /* HUD desktop (scale + /clic) ≈ 120px ; marge sous le bandeau */
+    --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + 134px);
+    --shop-nav-reserve: calc(118px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Stacking clair : scène < panneau < HUD/nav (pas de z-index géants) */
+  #app:has(#panel-shop.active) .header,
+  #app:has(#panel-shop.active) .game-header {
+    position: relative;
+    z-index: 110 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: none !important;
+    min-height: 0 !important;
+  }
+
+  #app:has(#panel-shop.active) .nav {
+    position: relative;
+    z-index: 110 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  /* Tout le HUD desktop reste visible (réutilise les vrais éléments) */
+  #app:has(#panel-shop.active) .hud-resource-card.hud-power-card,
+  #app:has(#panel-shop.active) .hud-resource-card.hud-cps-card,
+  #app:has(#panel-shop.active) .stat-pill.hud-badge-click,
+  #app:has(#panel-shop.active) .header-gear,
+  #app:has(#panel-shop.active) .hud-resource-card.essence-stat,
+  #app:has(#panel-shop.active) .header-logo-wrap,
+  #app:has(#panel-shop.active) .hud-resource-card.hud-badge-prod,
+  #app:has(#panel-shop.active) .stat-pill.hud-badge-prod {
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: revert !important;
+    position: relative;
+    z-index: 111;
+  }
+
+  #app:has(#panel-shop.active) .header-gear {
+    pointer-events: auto !important;
+  }
+
+  /* Bande utile entre HUD et navigation */
+  #app:has(#panel-shop.active) #panel-shop.shop-panel.overlay-panel.active {
+    position: fixed !important;
+    inset: var(--shop-hud-strip) 0 var(--shop-nav-reserve) 0 !important;
+    height: auto !important;
+    width: auto !important;
+    z-index: 90 !important;
+    overflow: hidden !important;
+    pointer-events: none;
+  }
+
+  /* Cadre Boutique : centré dans la bande, hauteur plafonnée (scroll interne) */
+  #app:has(#panel-shop.active) #panel-shop .shop-menu {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: min(92vw, 2200px) !important;
+    max-width: min(96%, calc((100% - 24px) * 1796 / 876)) !important;
+    height: auto !important;
+    max-height: calc(100% - 24px) !important;
+    aspect-ratio: 1796 / 876 !important;
+    z-index: 1 !important;
+    pointer-events: none;
+  }
+
+  #app:has(#panel-shop.active) #panel-shop .shop-menu-bg {
+    max-height: 100% !important;
+    width: 100% !important;
+    height: auto !important;
+    object-fit: contain !important;
+  }
+
+  #app:has(#panel-shop.active) #panel-shop .shop-menu-overlay {
+    pointer-events: none;
+  }
+
+  #app:has(#panel-shop.active) #panel-shop .shop-column-scroll,
+  #app:has(#panel-shop.active) #panel-shop .item-row,
+  #app:has(#panel-shop.active) #panel-shop .item-card-foot .btn {
+    pointer-events: auto;
+  }
+
+  #app:has(#panel-shop.active) .sheet-bar {
+    top: var(--shop-hud-strip) !important;
+    z-index: 115 !important;
   }
 }
 
