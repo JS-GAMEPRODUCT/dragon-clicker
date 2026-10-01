@@ -437,10 +437,10 @@
       user-select: none;
       -webkit-user-drag: none;
     }
-    /* Puissance : icône plus grande, texte / valeur inchangés */
+    /* Puissance : icône plus grande (asset 3:2 + contain → besoin >100%) */
     .hud-power-card .hud-resource-icon {
-      width: 96%;
-      height: 96%;
+      width: 128%;
+      height: 128%;
       filter: drop-shadow(0 0 5px rgba(255, 190, 60, 0.55));
     }
     /* Essence/sec : même badge que Essence, label un peu plus compact */
@@ -10966,8 +10966,8 @@ html {
 
   /* Puissance : icône plus lisible aussi sur mobile */
   .hud-power-card .hud-resource-icon {
-    width: 96% !important;
-    height: 96% !important;
+    width: 128% !important;
+    height: 128% !important;
   }
 
   .hud-resource-value {
