@@ -1530,6 +1530,13 @@
       selectedDragons: []
     };
     let lastExpeditionUiRefresh = 0;
+    const expeditionRewardsTip = {
+      el: null,
+      hideTimer: 0,
+      openId: null,
+      pinned: false,
+      trigger: null
+    };
     let clicksLocked = false;
     let hatchSequenceActive = false;
     let isEggCarouselAnimating = false;
@@ -5423,6 +5430,7 @@
       const drawer = document.getElementById("expedition-drawer");
       const btn = document.getElementById("btn-expeditions");
       if (!drawer) return;
+      hideExpeditionRewardsTip(true);
       drawer.classList.remove("open");
       drawer.setAttribute("aria-hidden", "true");
       if (btn) btn.setAttribute("aria-expanded", "false");
@@ -6407,12 +6415,14 @@
       root.innerHTML = "";
 
       if (!areExpeditionsUnlocked()) {
+        hideExpeditionRewardsTip(true);
         root.appendChild(buildExpeditionUnlockGate());
         expeditionsDirty = false;
         return;
       }
 
       if (expeditionUi.mode === "prepare" && expeditionUi.selectedExpeditionId) {
+        hideExpeditionRewardsTip(true);
         root.appendChild(buildExpeditionPrepareView());
         expeditionsDirty = false;
         return;
@@ -6420,6 +6430,20 @@
 
       root.appendChild(buildExpeditionListView());
       expeditionsDirty = false;
+      if (expeditionRewardsTip.openId) {
+        const btn = root.querySelector(
+          '[data-action="expedition-rewards-tip"][data-expedition-id="' +
+            expeditionRewardsTip.openId + '"]'
+        );
+        if (btn) {
+          expeditionRewardsTip.trigger = btn;
+          fillExpeditionRewardsTip(expeditionRewardsTip.openId);
+          positionExpeditionRewardsTip(btn);
+          btn.setAttribute("aria-expanded", "true");
+        } else {
+          hideExpeditionRewardsTip(true);
+        }
+      }
     }
 
     function buildExpeditionUnlockGate() {
@@ -6507,6 +6531,281 @@
       });
       expeditionIntroAnimPending = false;
       return wrap;
+    }
+
+    function prefersFineHover() {
+      return !!(window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches);
+    }
+
+    function getExpeditionTooltipPowerContext(def) {
+      const recommended = Math.max(1, safeNumber(def && def.recommendedPower, 1));
+      const busy = getBusyExpeditionRun();
+      if (busy && busy.run && def && busy.run.expeditionId === def.id) {
+        return {
+          teamPower: Math.max(0, safeNumber(busy.run.teamPower, 0)),
+          recommendedPower: Math.max(1, safeNumber(busy.run.recommendedPower, recommended)),
+          frozen: true
+        };
+      }
+      if (
+        def &&
+        expeditionUi.selectedExpeditionId === def.id &&
+        Array.isArray(expeditionUi.selectedDragons) &&
+        expeditionUi.selectedDragons.length
+      ) {
+        return {
+          teamPower: calculateExpeditionTeamPower(expeditionUi.selectedDragons),
+          recommendedPower: recommended,
+          frozen: false
+        };
+      }
+      const teamIds = (typeof getTeam === "function" ? getTeam() : []).filter(Boolean);
+      return {
+        teamPower: calculateExpeditionTeamPower(teamIds),
+        recommendedPower: recommended,
+        frozen: false
+      };
+    }
+
+    function ensureExpeditionRewardsTip() {
+      if (expeditionRewardsTip.el) return expeditionRewardsTip.el;
+      const el = document.createElement("div");
+      el.id = "expedition-rewards-tip";
+      el.className = "expedition-rewards-tip is-hidden";
+      el.setAttribute("role", "tooltip");
+      el.hidden = true;
+      el.addEventListener("mouseenter", () => {
+        if (expeditionRewardsTip.hideTimer) {
+          clearTimeout(expeditionRewardsTip.hideTimer);
+          expeditionRewardsTip.hideTimer = 0;
+        }
+      });
+      el.addEventListener("mouseleave", () => {
+        if (!expeditionRewardsTip.pinned) scheduleHideExpeditionRewardsTip();
+      });
+      const host = document.getElementById("expedition-drawer") || document.body;
+      host.appendChild(el);
+      expeditionRewardsTip.el = el;
+      return el;
+    }
+
+    function hideExpeditionRewardsTip(immediate) {
+      if (expeditionRewardsTip.hideTimer) {
+        clearTimeout(expeditionRewardsTip.hideTimer);
+        expeditionRewardsTip.hideTimer = 0;
+      }
+      const el = expeditionRewardsTip.el;
+      if (el) {
+        el.classList.add("is-hidden");
+        el.hidden = true;
+      }
+      if (expeditionRewardsTip.trigger) {
+        expeditionRewardsTip.trigger.setAttribute("aria-expanded", "false");
+      }
+      expeditionRewardsTip.openId = null;
+      expeditionRewardsTip.pinned = false;
+      expeditionRewardsTip.trigger = null;
+      if (immediate) { /* no-op: already cleared */ }
+    }
+
+    function scheduleHideExpeditionRewardsTip() {
+      if (expeditionRewardsTip.hideTimer) clearTimeout(expeditionRewardsTip.hideTimer);
+      expeditionRewardsTip.hideTimer = setTimeout(() => {
+        expeditionRewardsTip.hideTimer = 0;
+        hideExpeditionRewardsTip(true);
+      }, 120);
+    }
+
+    function fillExpeditionRewardsTip(expeditionId) {
+      const el = ensureExpeditionRewardsTip();
+      const def = getExpeditionDef(expeditionId);
+      if (!def) {
+        el.innerHTML = "";
+        return;
+      }
+      const cfg = def.rewardConfig || {};
+      const powerCtx = getExpeditionTooltipPowerContext(def);
+      const teamPower = powerCtx.teamPower;
+      const rec = powerCtx.recommendedPower;
+      const qualityLabel = getChestQualityLabel(teamPower, rec);
+      const baseWeights = cfg.chestWeights || null;
+      const adjusted = baseWeights
+        ? getAdjustedChestRarityChances(baseWeights, teamPower, rec)
+        : null;
+
+      const rows = [];
+      const pMin = Math.floor(safeNumber(cfg.powerMin, 0));
+      const pMax = Math.floor(safeNumber(cfg.powerMax, 0));
+      if (pMax > 0 || pMin > 0) {
+        rows.push(
+          '<div class="ert-row">' +
+            '<span class="ert-label">🔥 Essence</span>' +
+            '<span class="ert-value">' + formatNumber(pMin) + " – " + formatNumber(pMax) + "</span>" +
+          "</div>"
+        );
+      }
+      const fragChance = safeNumber(cfg.fragmentChance, 0);
+      if (fragChance > 0) {
+        rows.push(
+          '<div class="ert-row">' +
+            '<span class="ert-label">💎 Fragment</span>' +
+            '<span class="ert-value">' + Math.round(fragChance * 100) + " %</span>" +
+          "</div>"
+        );
+      }
+      const chestChance = safeNumber(cfg.chestChance, 0);
+      if (chestChance > 0) {
+        rows.push(
+          '<div class="ert-row">' +
+            '<span class="ert-label">📦 Coffre</span>' +
+            '<span class="ert-value">' + Math.round(chestChance * 100) + " %</span>" +
+          "</div>"
+        );
+      }
+
+      let qualityBlock = "";
+      if (adjusted && baseWeights) {
+        const items = [
+          { key: "draconic", label: (CHEST_TYPES.draconic && CHEST_TYPES.draconic.name) || "Coffre de base" },
+          { key: "rare", label: (CHEST_TYPES.rare && CHEST_TYPES.rare.name) || "Coffre Rare" },
+          { key: "epic", label: (CHEST_TYPES.epic && CHEST_TYPES.epic.name) || "Coffre Épique" }
+        ];
+        qualityBlock =
+          '<div class="ert-section">Qualité du coffre</div>' +
+          items.map((it) => {
+            const cur = Math.max(0, safeNumber(adjusted[it.key], 0));
+            const base = Math.max(0, safeNumber(baseWeights[it.key], 0));
+            let tone = "is-neutral";
+            if (cur > base) tone = "is-up";
+            else if (cur < base) tone = "is-down";
+            return (
+              '<div class="ert-row ert-quality">' +
+                '<span class="ert-label">' + it.label + "</span>" +
+                '<span class="ert-value ' + tone + '">' + cur + " %</span>" +
+              "</div>"
+            );
+          }).join("");
+      }
+
+      el.innerHTML =
+        '<div class="ert-title">Récompenses possibles</div>' +
+        (rows.length ? '<div class="ert-block">' + rows.join("") + "</div>" : "") +
+        qualityBlock +
+        '<div class="ert-footer">' +
+          '<div class="ert-row">' +
+            '<span class="ert-label">⚔ Puissance</span>' +
+            '<span class="ert-value">' + formatNumber(teamPower) + " / " + formatNumber(rec) + "</span>" +
+          "</div>" +
+          '<div class="ert-row">' +
+            '<span class="ert-label">✦ Qualité</span>' +
+            '<span class="ert-value ert-quality-label">' + String(qualityLabel).toUpperCase() + "</span>" +
+          "</div>" +
+        "</div>";
+    }
+
+    function positionExpeditionRewardsTip(trigger) {
+      const el = ensureExpeditionRewardsTip();
+      if (!trigger || !el) return;
+      el.hidden = false;
+      el.classList.remove("is-hidden");
+      el.style.left = "0px";
+      el.style.top = "0px";
+      const tipRect = el.getBoundingClientRect();
+      const btnRect = trigger.getBoundingClientRect();
+      const drawer = document.getElementById("expedition-drawer");
+      const bounds = drawer
+        ? drawer.getBoundingClientRect()
+        : { left: 8, top: 8, right: window.innerWidth - 8, bottom: window.innerHeight - 8, width: window.innerWidth };
+      const gap = 8;
+      let left = btnRect.left + (btnRect.width - tipRect.width) / 2;
+      let top = btnRect.top - tipRect.height - gap;
+      if (top < bounds.top + 6) {
+        top = btnRect.bottom + gap;
+      }
+      const minL = bounds.left + 6;
+      const maxL = bounds.right - tipRect.width - 6;
+      left = Math.max(minL, Math.min(left, Math.max(minL, maxL)));
+      const maxT = Math.max(bounds.top + 6, bounds.bottom - tipRect.height - 6);
+      top = Math.max(bounds.top + 6, Math.min(top, maxT));
+      el.style.left = Math.round(left) + "px";
+      el.style.top = Math.round(top) + "px";
+    }
+
+    function showExpeditionRewardsTip(trigger, opts) {
+      opts = opts || {};
+      if (!trigger) return;
+      const expeditionId = trigger.dataset.expeditionId;
+      if (!expeditionId) return;
+      if (expeditionRewardsTip.hideTimer) {
+        clearTimeout(expeditionRewardsTip.hideTimer);
+        expeditionRewardsTip.hideTimer = 0;
+      }
+      if (expeditionRewardsTip.trigger && expeditionRewardsTip.trigger !== trigger) {
+        expeditionRewardsTip.trigger.setAttribute("aria-expanded", "false");
+      }
+      expeditionRewardsTip.openId = expeditionId;
+      expeditionRewardsTip.trigger = trigger;
+      expeditionRewardsTip.pinned = !!opts.pinned;
+      fillExpeditionRewardsTip(expeditionId);
+      positionExpeditionRewardsTip(trigger);
+      trigger.setAttribute("aria-expanded", "true");
+    }
+
+    function bindExpeditionRewardsTipDelegates() {
+      const expRoot = document.getElementById("expeditions-root");
+      if (!expRoot || expRoot.dataset.rewardsTipBound) return;
+      expRoot.dataset.rewardsTipBound = "1";
+
+      expRoot.addEventListener("mouseover", (ev) => {
+        if (!prefersFineHover()) return;
+        const btn = ev.target.closest('[data-action="expedition-rewards-tip"]');
+        if (!btn || !expRoot.contains(btn)) return;
+        showExpeditionRewardsTip(btn, { pinned: false });
+      });
+
+      expRoot.addEventListener("mouseout", (ev) => {
+        if (!prefersFineHover()) return;
+        const btn = ev.target.closest('[data-action="expedition-rewards-tip"]');
+        if (!btn || !expRoot.contains(btn)) return;
+        const related = ev.relatedTarget;
+        const tip = expeditionRewardsTip.el;
+        if (related && (btn.contains(related) || (tip && tip.contains(related)))) return;
+        if (!expeditionRewardsTip.pinned) scheduleHideExpeditionRewardsTip();
+      });
+
+      expRoot.addEventListener("click", (ev) => {
+        const btn = ev.target.closest('[data-action="expedition-rewards-tip"]');
+        if (!btn || !expRoot.contains(btn)) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (prefersFineHover()) {
+          /* Desktop : hover suffit ; clic garde la tip ouverte brièvement */
+          showExpeditionRewardsTip(btn, { pinned: false });
+          return;
+        }
+        if (
+          expeditionRewardsTip.openId === btn.dataset.expeditionId &&
+          expeditionRewardsTip.pinned
+        ) {
+          hideExpeditionRewardsTip(true);
+          return;
+        }
+        showExpeditionRewardsTip(btn, { pinned: true });
+      });
+
+      document.addEventListener("click", (ev) => {
+        if (!expeditionRewardsTip.openId) return;
+        const tip = expeditionRewardsTip.el;
+        if (tip && tip.contains(ev.target)) return;
+        if (ev.target.closest && ev.target.closest('[data-action="expedition-rewards-tip"]')) return;
+        hideExpeditionRewardsTip(true);
+      }, true);
+
+      window.addEventListener("resize", () => {
+        if (expeditionRewardsTip.openId && expeditionRewardsTip.trigger) {
+          positionExpeditionRewardsTip(expeditionRewardsTip.trigger);
+        }
+      });
     }
 
     function buildExpeditionDestinationCard(def, busy, opts) {
@@ -6654,10 +6953,11 @@
       const rewardsBtn = document.createElement("button");
       rewardsBtn.type = "button";
       rewardsBtn.className = "expedition-btn-rewards";
-      rewardsBtn.dataset.action = "rewards";
-      rewardsBtn.disabled = true;
-      rewardsBtn.setAttribute("aria-disabled", "true");
-      rewardsBtn.innerHTML = '🎁 Récompenses : <span class="soon">À venir</span>';
+      rewardsBtn.dataset.action = "expedition-rewards-tip";
+      rewardsBtn.dataset.expeditionId = def.id;
+      rewardsBtn.setAttribute("aria-label", "Voir les récompenses possibles");
+      rewardsBtn.setAttribute("aria-expanded", "false");
+      rewardsBtn.textContent = "🎁 RÉCOMPENSES ?";
       actions.appendChild(rewardsBtn);
 
       if (status === "done" && busy) {
@@ -10627,6 +10927,7 @@
           if (res && res.ok) renderExpeditions();
         });
       }
+      bindExpeditionRewardsTipDelegates();
       updateExpeditionButtonIndicator();
       document.getElementById("team-close").addEventListener("click", () => toggleTeamDrawer(false));
       document.getElementById("dragon-detail-modal").addEventListener("click", (e) => {
