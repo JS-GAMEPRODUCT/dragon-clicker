@@ -165,7 +165,8 @@
     const SCENE_BACKGROUNDS = {
       basic: "assets/backgrounds/background.png",
       valley: "assets/backgrounds/background zone 2.png",
-      mountains: "assets/backgrounds/zone3-montagne-sauvage.png"
+      /* Même convention de nommage que Z1/Z2 (background zone N). */
+      mountains: "assets/backgrounds/background zone 3.png"
     };
 
     /* -------------------------------------------------------
@@ -2260,6 +2261,11 @@
         el.style.filter = "";
         el.style.zIndex = "";
         el.style.width = "";
+        const peerImg = el.querySelector(".egg-carousel-item-img");
+        if (peerImg) {
+          peerImg.style.transform = "";
+          peerImg.style.transformOrigin = "";
+        }
       };
 
       const clearActiveMotion = () => {
@@ -2302,6 +2308,12 @@
         img.alt = eggDef.name || "";
         if (img.getAttribute("src") !== src) img.src = src;
         resetPeerEl(el);
+        /* Même visualScale que l'œuf actif (ex. granite/storm ~91 %) — ratio carrousel inchangé. */
+        const peerScale = safeNumber(eggDef.visualScale, 1);
+        if (peerScale > 0 && peerScale !== 1 && Number.isFinite(peerScale)) {
+          img.style.transform = "scale(" + peerScale + ")";
+          img.style.transformOrigin = "center center";
+        }
       };
 
       if (!carouselCapable || eggs.length < 2 || hatchSequenceActive) {
@@ -2568,6 +2580,13 @@
         }
       }
       inner.style.setProperty("--egg-visual-ox", ox ? (ox + "%") : "0%");
+      /* Scale visuelle optionnelle (ex. œufs Zone 3) — n'affecte pas la logique d'éclosion. */
+      let scale = 1;
+      if (eggDef && eggDef.visualScale != null) {
+        scale = safeNumber(eggDef.visualScale, 1);
+        if (!(scale > 0) || !Number.isFinite(scale)) scale = 1;
+      }
+      inner.style.setProperty("--egg-visual-scale", String(scale));
     }
 
     function applyEggProgressImage(src) {

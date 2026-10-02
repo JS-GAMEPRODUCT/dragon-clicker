@@ -600,6 +600,8 @@ var EGG_DEFS = [
         comingSoon: false,
         secret: false,
         visualOffsetX: 0,
+        /* PNG Granit légèrement trop grand dans le cadre — ~9 % plus petit (91 %). */
+        visualScale: 0.91,
         dragonPool: [
           { dragonId: "petrak", weight: 1 },
           { dragonId: "gritling", weight: 1 },
@@ -636,6 +638,8 @@ var EGG_DEFS = [
         comingSoon: false,
         secret: false,
         visualOffsetX: 0,
+        /* PNG Tempête légèrement trop grand dans le cadre — ~9 % plus petit (91 %). */
+        visualScale: 0.91,
         dragonPool: [
           { dragonId: "galeon", weight: 1 },
           { dragonId: "zephyric", weight: 1 },

@@ -1255,12 +1255,12 @@
       background: transparent;
     }
 
-    /* Correction visuelle PNG (marges transparentes) â€” n'affecte PAS le transform carrousel */
+    /* Correction visuelle PNG (marges transparentes) — n'affecte PAS le transform carrousel */
     .egg-visual-inner {
       position: relative;
       display: block;
       width: 100%;
-      transform: translateX(var(--egg-visual-ox, 0%));
+      transform: translateX(var(--egg-visual-ox, 0%)) scale(var(--egg-visual-scale, 1));
       will-change: transform;
     }
 
