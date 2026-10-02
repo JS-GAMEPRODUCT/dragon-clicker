@@ -1,0 +1,12 @@
+{
+  "name": "dragon-clicker",
+  "private": true,
+  "description": "Local tooling only (thumbnail generation).",
+  "scripts": {
+    "thumbs": "node scripts/generate-dragon-thumbs.mjs",
+    "generate-dragon-thumbs": "node scripts/generate-dragon-thumbs.mjs"
+  },
+  "devDependencies": {
+    "sharp": "^0.33.5"
+  }
+}

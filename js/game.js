@@ -2527,9 +2527,12 @@
     }
 
     /**
-     * File idle : portraits Dragons / Équipe prioritaires, puis reste collection,
-     * puis scènes des autres zones débloquées.
+     * File idle : portraits découverts uniquement (Équipe / Dragons).
+     * PAS de backgrounds / œufs des autres zones.
      */
+    const DRAGONS_VIEWPORT_WARM = 8;
+    const DRAGONS_WARM_WAIT_MS = 80;
+
     function scheduleSessionAssetWarmup() {
       if (!window.DCAssets || typeof DCAssets.preloadIdle !== "function") return;
       const paths = [];
@@ -2540,27 +2543,56 @@
         paths.push(src);
       };
 
-      /* 1) Dragons possédés (Équipe / Formation) */
-      DRAGON_DEFS.forEach((d) => {
-        if (d.secret || !d.image) return;
-        if (isDragonDiscovered(gameState.dragons?.[d.id], d.id, gameState)) push(d.image);
-      });
-
-      /* 2) Première vue filtre TOUS (zones débloquées) — portraits dans l'ordre d'affichage */
+      /* 1) Dragons découverts — ordre d'affichage filtre TOUS (premier viewport d'abord) */
       getDragonsForFilter("all").forEach((d) => {
-        if (d.image) push(d.image);
+        if (!d.image || d.secret) return;
+        if (isDragonDiscovered(gameState.dragons?.[d.id], d.id, gameState)) {
+          push(getDragonAsset(d, "thumb"));
+        }
       });
 
-      /* 3) Scènes des autres zones débloquées (idle, pas critique) */
-      getUnlockedZoneIds(gameState).forEach((zid) => {
-        if (zid === (gameState.currentZoneId || "sanctuary")) return;
-        getZoneSceneAssetPaths(zid).forEach(push);
-      });
-
-      /* 4) Summon sprite éventuel */
+      /* 2) Summon sprite éventuel */
       if (typeof DRAGON_SUMMON_SRC === "string" && DRAGON_SUMMON_SRC) push(DRAGON_SUMMON_SRC);
 
       DCAssets.preloadIdle(paths);
+    }
+
+    /** Premiers portraits DÉCOUVERTS du filtre (slots 0..cardLimit-1 uniquement). */
+    function getViewportDiscoveredPortraitPaths(filterId, cardLimit) {
+      const limit = Math.max(1, Math.floor(safeNumber(cardLimit, DRAGONS_VIEWPORT_WARM)));
+      const defs = getDragonsForFilter(filterId || dragonsFilterZoneId || "all");
+      const paths = [];
+      for (let i = 0; i < Math.min(limit, defs.length); i++) {
+        const d = defs[i];
+        if (!d || !d.image || d.secret) continue;
+        if (!isDragonDiscovered(gameState.dragons?.[d.id], d.id, gameState)) continue;
+        paths.push(getDragonAsset(d, "thumb"));
+      }
+      return paths;
+    }
+
+    /**
+     * Priorité haute : portraits découverts du premier viewport.
+     * Retourne une Promise (preloadCritical) — ne bloque pas l'appelant.
+     */
+    function warmDragonsFirstViewport(filterId, cardLimit) {
+      const paths = getViewportDiscoveredPortraitPaths(filterId, cardLimit);
+      if (!paths.length || !window.DCAssets) return Promise.resolve(paths);
+      if (typeof DCAssets.prioritize === "function") DCAssets.prioritize(paths);
+      if (typeof DCAssets.preloadCritical === "function") {
+        return DCAssets.preloadCritical(paths).then(function () { return paths; });
+      }
+      return Promise.resolve(paths);
+    }
+
+    function raceWarmDragonsViewport(filterId, cardLimit, maxWaitMs) {
+      const wait = Math.max(0, Math.min(100, safeNumber(maxWaitMs, DRAGONS_WARM_WAIT_MS)));
+      const warm = warmDragonsFirstViewport(filterId, cardLimit);
+      if (wait <= 0) return warm;
+      return Promise.race([
+        warm,
+        new Promise(function (resolve) { setTimeout(resolve, wait); })
+      ]);
     }
 
     let currentEggImageStage = null;
@@ -3911,12 +3943,14 @@
       }
       pendingReveal = reveal;
       preloadDragonSummonSprite();
-      /* Préparer portraits reveal (primary + twin) pendant l'anim d'éclosion. */
+      /* Préparer portraits reveal HD (primary + twin) pendant l'anim d'éclosion. */
       if (window.DCAssets && typeof DCAssets.preloadCritical === "function") {
         const hatchPaths = [];
-        if (reveal.dragonDef && reveal.dragonDef.image) hatchPaths.push(reveal.dragonDef.image);
+        if (reveal.dragonDef && reveal.dragonDef.image) {
+          hatchPaths.push(getDragonAsset(reveal.dragonDef, "reveal"));
+        }
         if (reveal.twinReveal && reveal.twinReveal.dragonDef && reveal.twinReveal.dragonDef.image) {
-          hatchPaths.push(reveal.twinReveal.dragonDef.image);
+          hatchPaths.push(getDragonAsset(reveal.twinReveal.dragonDef, "reveal"));
         }
         DCAssets.preloadCritical(hatchPaths);
       }
@@ -4120,12 +4154,47 @@
       })();
     }
 
+    /**
+     * Chemin miniature WebP (512) dérivé du PNG HD.
+     * assets/dragons/foo.png → assets/dragons/thumbs/foo.webp
+     */
+    function getDragonThumbPath(def) {
+      if (!def || !def.image) return "";
+      const src = String(def.image);
+      if (src.indexOf("assets/dragons/") !== 0) return src;
+      const file = src.slice("assets/dragons/".length);
+      if (!file || file.indexOf("thumbs/") === 0) return src;
+      const base = file.replace(/\.(png|jpe?g|webp)$/i, "");
+      if (!base || base === file) return src;
+      return "assets/dragons/thumbs/" + base + ".webp";
+    }
+
+    /**
+     * Asset portrait selon usage.
+     * usage "thumb" (défaut menus) | "hd" | "reveal" | "detail"
+     */
+    function getDragonAsset(def, usage) {
+      if (!def) return "";
+      const u = usage || "thumb";
+      if (u === "hd" || u === "reveal" || u === "detail") return def.image || "";
+      const thumb = getDragonThumbPath(def);
+      return thumb || def.image || "";
+    }
+
     function loadAssetImage(imgEl, emojiEl, src, options) {
       const opts = options || {};
       if (!imgEl) return;
-      imgEl.classList.toggle("silhouette", !!opts.silhouette);
-      if (emojiEl) emojiEl.style.display = "";
+      const isSilhouette = !!opts.silhouette;
+      imgEl.classList.toggle("silhouette", isSilhouette);
+      /*
+        Découvert (pas silhouette) : JAMAIS d'emoji visible en état normal
+        (évite le flash 🐉→PNG). Emoji uniquement si erreur réelle.
+        Non découvert : "?" reste affiché.
+      */
+      if (emojiEl) emojiEl.style.display = isSilhouette ? "" : "none";
       imgEl.hidden = true;
+      if (imgEl.dataset) delete imgEl.dataset.fallbackTried;
+
       const showReady = () => {
         if (!imgEl) return;
         if (imgEl.getAttribute("src") !== src) return;
@@ -4133,44 +4202,66 @@
         imgEl.hidden = false;
         if (emojiEl) emojiEl.style.display = "none";
       };
-      imgEl.onload = showReady;
-      imgEl.onerror = function () {
+      const showErrorFallback = () => {
+        /* Thumbnail manquante / échec → retomber sur PNG HD si fourni. */
+        if (
+          opts.fallbackSrc &&
+          src !== opts.fallbackSrc &&
+          (!imgEl.dataset || imgEl.dataset.fallbackTried !== "1")
+        ) {
+          if (imgEl.dataset) imgEl.dataset.fallbackTried = "1";
+          loadAssetImage(imgEl, emojiEl, opts.fallbackSrc, {
+            silhouette: isSilhouette,
+            fallbackSrc: null
+          });
+          return;
+        }
         imgEl.hidden = true;
         if (emojiEl) emojiEl.style.display = "";
         console.warn("[Asset] image introuvable :", src);
       };
+      imgEl.onload = showReady;
+      imgEl.onerror = showErrorFallback;
+
       if (!src) {
         imgEl.removeAttribute("src");
         imgEl.hidden = true;
-        if (emojiEl) emojiEl.style.display = "";
+        if (emojiEl) emojiEl.style.display = isSilhouette ? "" : "none";
         return;
       }
+
       const applySrc = () => {
-        if (imgEl.getAttribute("src") === src) {
-          showReady();
-          if (!(imgEl.complete && imgEl.naturalWidth > 0)) {
-            imgEl.src = src;
-          }
-          return;
+        if (imgEl.getAttribute("src") !== src) {
+          imgEl.src = src;
+        } else if (!(imgEl.complete && imgEl.naturalWidth > 0)) {
+          imgEl.src = src;
         }
-        imgEl.src = src;
         showReady();
       };
-      /* Warm cache session (single-flight) puis brancher le <img> — emoji reste tant que pas prêt. */
+
+      /* Portrait déjà décodé en session → affichage immédiat, zéro frame emoji. */
+      if (window.DCAssets && typeof DCAssets.isLoaded === "function" && DCAssets.isLoaded(src)) {
+        applySrc();
+        return;
+      }
+
       if (window.DCAssets && typeof DCAssets.loadImage === "function") {
         DCAssets.loadImage(src)
           .then(applySrc)
           .catch(function () {
+            /* Essayer fallback HD si thumb a échoué au preload */
+            if (opts.fallbackSrc && src !== opts.fallbackSrc) {
+              showErrorFallback();
+              return;
+            }
             applySrc();
           });
-        /* Si déjà prêt : affichage immédiat sans attendre microtask inutilement lente */
-        if (DCAssets.isLoaded(src)) applySrc();
         return;
       }
       applySrc();
     }
 
-    const EAGER_PORTRAIT_COUNT = 8;
+    const EAGER_PORTRAIT_COUNT = DRAGONS_VIEWPORT_WARM;
     let portraitNearObserver = null;
 
     function ensurePortraitNearObserver() {
@@ -4190,7 +4281,9 @@
             const host = img.parentElement;
             const emoji = host ? host.querySelector(".dc-emoji") : null;
             const sil = img.classList.contains("silhouette");
-            loadAssetImage(img, emoji, src, { silhouette: sil });
+            const fb = img.dataset.fallbackSrc || null;
+            delete img.dataset.fallbackSrc;
+            loadAssetImage(img, emoji, src, { silhouette: sil, fallbackSrc: fb });
           });
         },
         { root: null, rootMargin: "480px 0px", threshold: 0.01 }
@@ -4202,22 +4295,23 @@
     function bindDragonPortrait(imgEl, emojiEl, src, options, index) {
       const opts = options || {};
       if (!imgEl) return;
-      imgEl.classList.toggle("silhouette", !!opts.silhouette);
-      if (emojiEl) emojiEl.style.display = "";
+      const isSilhouette = !!opts.silhouette;
+      imgEl.classList.toggle("silhouette", isSilhouette);
+      if (emojiEl) emojiEl.style.display = isSilhouette ? "" : "none";
       imgEl.hidden = true;
       if (!src) {
         imgEl.removeAttribute("src");
         return;
       }
-      const eager =
-        index < EAGER_PORTRAIT_COUNT ||
-        (window.DCAssets && DCAssets.isLoaded(src));
+      const alreadyReady = window.DCAssets && typeof DCAssets.isLoaded === "function" && DCAssets.isLoaded(src);
+      const eager = index < EAGER_PORTRAIT_COUNT || alreadyReady;
       if (eager) {
         delete imgEl.dataset.assetSrc;
         loadAssetImage(imgEl, emojiEl, src, opts);
         return;
       }
       imgEl.dataset.assetSrc = src;
+      if (opts.fallbackSrc) imgEl.dataset.fallbackSrc = opts.fallbackSrc;
       imgEl.loading = "lazy";
       imgEl.decoding = "async";
       const obs = ensurePortraitNearObserver();
@@ -4248,7 +4342,7 @@
       }
       const dragonDef = reveal.dragonDef;
       const ensurePortrait = (dragonDef.image && window.DCAssets && typeof DCAssets.loadImage === "function")
-        ? DCAssets.loadImage(dragonDef.image).catch(function () { return null; })
+        ? DCAssets.loadImage(getDragonAsset(dragonDef, "reveal")).catch(function () { return null; })
         : Promise.resolve();
 
       return ensurePortrait.then(function () {
@@ -4319,7 +4413,7 @@
       const img = document.getElementById("dragon-modal-img");
       const emoji = document.getElementById("dragon-modal-emoji");
       emoji.textContent = dragonDef.icon || "🐲";
-      loadAssetImage(img, emoji, dragonDef.image, { silhouette: false });
+      loadAssetImage(img, emoji, getDragonAsset(dragonDef, "reveal"), { silhouette: false });
 
       /* Hide portraits BEFORE showing modal — never flash opacity 1 */
       const preImg = document.getElementById("dragon-modal-img");
@@ -4677,7 +4771,10 @@
         const emoji = slot.querySelector(".ps-emoji");
         const img = slot.querySelector("img");
         emoji.textContent = def.icon || "🐲";
-        loadAssetImage(img, emoji, def.image, { silhouette: !owned });
+        loadAssetImage(img, emoji, getDragonAsset(def, "thumb"), {
+          silhouette: !owned,
+          fallbackSrc: def.image
+        });
 
         if (owned) {
           slot.querySelector(".ps-name").textContent = def.name;
@@ -4761,17 +4858,33 @@
         btn.innerHTML = html;
         btn.querySelector(".df-label").textContent = label;
 
+        btn.addEventListener("pointerdown", () => {
+          if (locked) return;
+          warmDragonsFirstViewport(id, DRAGONS_VIEWPORT_WARM);
+        }, { passive: true });
         btn.addEventListener("click", () => {
           if (locked) return;
           if (dragonsFilterZoneId === id) return;
           dragonsFilterZoneId = id;
-          if (window.DCAssets && typeof DCAssets.prioritize === "function") {
-            DCAssets.prioritize(
-              getDragonsForFilter(id).slice(0, 16).map((d) => d.image).filter(Boolean)
-            );
+          const grid = document.getElementById("dragons-grid");
+          const reveal = () => {
+            if (grid) grid.style.opacity = "";
+            dragonsDirty = true;
+            renderDragons();
+          };
+          const paths = getViewportDiscoveredPortraitPaths(id, DRAGONS_VIEWPORT_WARM);
+          const missing = window.DCAssets
+            ? paths.filter((p) => !DCAssets.isLoaded(p))
+            : [];
+          if (missing.length) {
+            if (grid) grid.style.opacity = "0";
+            raceWarmDragonsViewport(id, DRAGONS_VIEWPORT_WARM, DRAGONS_WARM_WAIT_MS)
+              .then(reveal)
+              .catch(reveal);
+            return;
           }
-          dragonsDirty = true;
-          renderDragons();
+          warmDragonsFirstViewport(id, DRAGONS_VIEWPORT_WARM);
+          reveal();
         });
         host.appendChild(btn);
       };
@@ -4902,7 +5015,10 @@
         const emoji = tile.querySelector(".dc-emoji");
         emoji.textContent = owned ? (def.icon || "🐲") : "?";
         const imgEl = tile.querySelector("img");
-        bindDragonPortrait(imgEl, emoji, def.image, { silhouette: !owned }, index);
+        bindDragonPortrait(imgEl, emoji, getDragonAsset(def, "thumb"), {
+          silhouette: !owned,
+          fallbackSrc: def.image
+        }, index);
 
         tile.querySelector(".dt-name").textContent = owned ? def.name : "???";
         if (owned) {
@@ -4951,7 +5067,7 @@
 
       const emoji = box.querySelector(".dc-emoji");
       emoji.textContent = owned ? (def.icon || "🐲") : "❔";
-      loadAssetImage(box.querySelector("img"), emoji, def.image, { silhouette: !owned });
+      loadAssetImage(box.querySelector("img"), emoji, getDragonAsset(def, "detail"), { silhouette: !owned });
 
       box.querySelector(".ds-rarity").textContent = rarity.label;
       box.querySelector(".ds-rarity").className = "ds-rarity " + rarity.css;
@@ -6328,7 +6444,12 @@
           "<span>" + (d ? d.name : f.dragonId) + "</span></span>";
         const emoji = li.querySelector(".dc-emoji");
         emoji.textContent = (d && d.icon) || "◆";
-        if (d && d.image) loadAssetImage(li.querySelector("img"), emoji, d.image, { silhouette: false });
+        if (d && d.image) {
+          loadAssetImage(li.querySelector("img"), emoji, getDragonAsset(d, "thumb"), {
+            silhouette: false,
+            fallbackSrc: d.image
+          });
+        }
         list.appendChild(li);
       });
 
@@ -7388,7 +7509,10 @@
           '<span class="ed-status"></span>';
         const emoji = btn.querySelector(".dc-emoji");
         emoji.textContent = d.icon || "🐲";
-        loadAssetImage(btn.querySelector("img"), emoji, d.image, { silhouette: false });
+        loadAssetImage(btn.querySelector("img"), emoji, getDragonAsset(d, "thumb"), {
+          silhouette: false,
+          fallbackSrc: d.image
+        });
         btn.querySelector(".ed-name").textContent = d.name;
         btn.querySelector(".ed-rarity").textContent = rarity.label;
         btn.querySelector(".ed-stars").textContent =
@@ -7539,7 +7663,10 @@
             '<span class="mts-art"><img alt="" draggable="false" decoding="async" hidden /><span class="dc-emoji"></span></span>';
           const emoji = slot.querySelector(".dc-emoji");
           emoji.textContent = d.def.icon || "🐲";
-          loadAssetImage(slot.querySelector("img"), emoji, d.def.image, { silhouette: false });
+          loadAssetImage(slot.querySelector("img"), emoji, getDragonAsset(d.def, "thumb"), {
+            silhouette: false,
+            fallbackSrc: d.def.image
+          });
         } else {
           slot.classList.add("empty");
           slot.setAttribute("aria-label", "Emplacement " + (i + 1) + " vide — ouvrir l'équipe");
@@ -7581,7 +7708,10 @@
             "</span>";
           const emoji = slot.querySelector(".dc-emoji");
           emoji.textContent = d.def.icon || "🐲";
-          loadAssetImage(slot.querySelector("img"), emoji, d.def.image, { silhouette: false });
+          loadAssetImage(slot.querySelector("img"), emoji, getDragonAsset(d.def, "thumb"), {
+            silhouette: false,
+            fallbackSrc: d.def.image
+          });
           slot.querySelector(".ts-name").textContent = d.def.name;
           slot.querySelector(".ts-stars").innerHTML = renderTeamStarsHtml(d.stars);
           slot.querySelector(".ts-bonus").textContent = describeTeamSlotBonus(d.def, d.stars);
@@ -7675,7 +7805,7 @@
         const owned = DRAGON_DEFS.filter((d) =>
           !d.secret && isDragonDiscovered(gameState.dragons?.[d.id], d.id, gameState)
         ).slice(0, 16);
-        DCAssets.prioritize(owned.map((d) => d.image).filter(Boolean));
+        DCAssets.prioritize(owned.map((d) => getDragonAsset(d, "thumb")).filter(Boolean));
       }
       renderTeamPicker();
       modal.classList.remove("hidden");
@@ -7775,7 +7905,10 @@
           art.innerHTML = '<img alt="" draggable="false" decoding="async" hidden /><span class="dc-emoji"></span>';
           const emoji = art.querySelector(".dc-emoji");
           emoji.textContent = d.def.icon || "🐲";
-          loadAssetImage(art.querySelector("img"), emoji, d.def.image, { silhouette: false });
+          loadAssetImage(art.querySelector("img"), emoji, getDragonAsset(d.def, "thumb"), {
+            silhouette: false,
+            fallbackSrc: d.def.image
+          });
           btn.querySelector(".tp-slot-name").textContent = d.def.name;
         } else {
           art.textContent = "+";
@@ -7923,7 +8056,10 @@
         const emoji = card.querySelector(".dc-emoji");
         emoji.textContent = def.icon || "🐲";
         const imgEl = card.querySelector("img");
-        bindDragonPortrait(imgEl, emoji, def.image, { silhouette: false }, index);
+        bindDragonPortrait(imgEl, emoji, getDragonAsset(def, "thumb"), {
+          silhouette: false,
+          fallbackSrc: def.image
+        }, index);
         card.querySelector(".tp-card-stars").innerHTML = renderTeamStarsHtml(stars);
 
         if (onExpedition) {
@@ -8084,7 +8220,10 @@
       art.classList.add(rarity.css);
       const emoji = art.querySelector(".dc-emoji");
       emoji.textContent = def.icon || "🐲";
-      loadAssetImage(art.querySelector("img"), emoji, def.image, { silhouette: false });
+      loadAssetImage(art.querySelector("img"), emoji, getDragonAsset(def, "thumb"), {
+        silhouette: false,
+        fallbackSrc: def.image
+      });
       preview.querySelector(".tp-preview-name").textContent = def.name;
       const rLabel = preview.querySelector(".rarity-label");
       rLabel.textContent = rarity.label;
@@ -11077,10 +11216,32 @@
       });
       const gear = document.getElementById("btn-open-settings");
       if (gear) gear.classList.toggle("active", group === "settings");
-      /* Prioriser portraits visibles du filtre courant à l'ouverture Dragons / Équipe. */
-      if ((name === "dragons") && window.DCAssets && typeof DCAssets.prioritize === "function") {
-        const defs = getDragonsForFilter(dragonsFilterZoneId).slice(0, 16);
-        DCAssets.prioritize(defs.map((d) => d.image).filter(Boolean));
+      /* Prioriser / attendre brièvement les portraits découverts du 1er viewport. */
+      let dragonsWarmPending = false;
+      if (name === "dragons") {
+        const filterId = dragonsFilterZoneId || "all";
+        const paths = getViewportDiscoveredPortraitPaths(filterId, DRAGONS_VIEWPORT_WARM);
+        const missing = window.DCAssets
+          ? paths.filter((p) => !DCAssets.isLoaded(p))
+          : [];
+        if (missing.length) {
+          const grid = document.getElementById("dragons-grid");
+          if (grid) grid.style.opacity = "0";
+          dragonsWarmPending = true;
+          dragonsDirty = false;
+          raceWarmDragonsViewport(filterId, DRAGONS_VIEWPORT_WARM, DRAGONS_WARM_WAIT_MS)
+            .then(function () {
+              if (grid) grid.style.opacity = "";
+              renderDragons();
+            })
+            .catch(function () {
+              if (grid) grid.style.opacity = "";
+              renderDragons();
+            });
+        } else {
+          warmDragonsFirstViewport(filterId, DRAGONS_VIEWPORT_WARM);
+          dragonsDirty = true;
+        }
       }
       const activePanel = document.querySelector('.panel.overlay-panel.active');
       if (activePanel) {
@@ -11095,7 +11256,7 @@
         upgradesDirty = true;
       }
       if (name === "achievements") achievementsDirty = true;
-      if (name === "dragons") dragonsDirty = true;
+      if (name === "dragons" && !dragonsWarmPending) dragonsDirty = true;
       if (name === "eggs") eggsDirty = true;
       if (name === "zones") {
         zonesDirty = true;
@@ -11217,6 +11378,12 @@
       });
 
       document.querySelectorAll(".nav-btn").forEach((btn) => {
+        /* pointerdown : warm assets avant l'ouverture (click) — pas de double navigation. */
+        btn.addEventListener("pointerdown", () => {
+          if (btn.dataset.nav === "dragons") {
+            warmDragonsFirstViewport(dragonsFilterZoneId || "all", DRAGONS_VIEWPORT_WARM);
+          }
+        }, { passive: true });
         btn.addEventListener("click", () => openNavGroup(btn.dataset.nav));
       });
       document.getElementById("btn-open-settings").addEventListener("click", () => {
@@ -11522,6 +11689,8 @@
       renderEggPicker();
       updateEggCarouselPeer();
       scheduleUpdateGameCenterAxis();
+      /* Haute priorité : 1er viewport Dragons (découverts) dès que le Royaume est prêt. */
+      warmDragonsFirstViewport("all", DRAGONS_VIEWPORT_WARM);
       renderDragons();
       renderAllStatic();
       scheduleUpdateGameCenterAxis();
@@ -11533,7 +11702,24 @@
         AudioManager.bindMusicGestureOnce();
       }
 
-      /* Warmup discret après premier rendu — ne bloque pas l'input. */
+      /* Si le warm critique finit juste après le premier paint : re-lier les PNG prêts (pas de full menu). */
+      raceWarmDragonsViewport("all", DRAGONS_VIEWPORT_WARM, DRAGONS_WARM_WAIT_MS)
+        .then(function () {
+          const grid = document.getElementById("dragons-grid");
+          if (!grid) return;
+          grid.querySelectorAll("img[data-asset-src], img[src]").forEach(function (img) {
+            const tile = img.closest(".dragon-tile");
+            if (!tile || tile.classList.contains("undiscovered")) return;
+            const src = img.getAttribute("src") || img.dataset.assetSrc;
+            if (!src || !window.DCAssets || !DCAssets.isLoaded(src)) return;
+            const emoji = tile.querySelector(".dc-emoji");
+            delete img.dataset.assetSrc;
+            loadAssetImage(img, emoji, src, { silhouette: false });
+          });
+        })
+        .catch(function () { /* ignore */ });
+
+      /* Warmup idle : reste des portraits découverts — pas les scènes des autres zones. */
       const startWarmup = () => {
         try {
           scheduleSessionAssetWarmup();
