@@ -29,11 +29,15 @@
        CONSTANTS & CONFIG
        ------------------------------------------------------- */
     const SAVE_KEY = "dragonClicker_save_v1";
-    const SAVE_VERSION = 14;
+    const SAVE_VERSION = 15;
     const AUTO_SAVE_MS = 10000;
-    const MAX_OFFLINE_MS = 24 * 60 * 60 * 1000; /* hard safety cap */
-    const OFFLINE_HOURS_BASE = 1;
-    const OFFLINE_YIELD_BASE = 0.20;
+    /* Hard safety cap — le vrai plafond joueur vient de getOfflineCapMs (max 4 h). */
+    const MAX_OFFLINE_MS = 4 * 60 * 60 * 1000;
+    /* Valeurs TOTALES par niveau (pas cumulatives). Index = niveau passif. */
+    const OFFLINE_HOURS_BY_LEVEL = [1, 2, 3, 4];
+    const OFFLINE_YIELD_BY_LEVEL = [0.05, 0.075, 0.10, 0.125, 0.15];
+    const OFFLINE_HOURS_BASE = OFFLINE_HOURS_BY_LEVEL[0];
+    const OFFLINE_YIELD_BASE = OFFLINE_YIELD_BY_LEVEL[0];
     const PRICE_GROWTH = 1.15;
     const CRIT_CHANCE_BASE = 0.02;
     const CRIT_MULT_BASE = 10;
@@ -1163,31 +1167,71 @@
     }
 
     function getLevelPassiveCost(def, level) {
+      if (Array.isArray(def.costs) && def.costs.length) {
+        const idx = Math.max(0, Math.floor(safeNumber(level, 0)));
+        if (idx >= def.costs.length) return Infinity;
+        return Math.max(1, Math.ceil(safeNumber(def.costs[idx], 0)));
+      }
       const growth = safeNumber(def.costGrowth, 1.5);
       return Math.max(1, Math.ceil(safeNumber(def.baseCost, 1) * Math.pow(growth, Math.max(0, level))));
     }
 
+    function getOfflineCapHoursForLevel(level) {
+      const lvl = Math.max(0, Math.min(
+        OFFLINE_HOURS_BY_LEVEL.length - 1,
+        Math.floor(safeNumber(level, 0))
+      ));
+      return OFFLINE_HOURS_BY_LEVEL[lvl];
+    }
+
+    function getOfflineYieldRateForLevel(level) {
+      const lvl = Math.max(0, Math.min(
+        OFFLINE_YIELD_BY_LEVEL.length - 1,
+        Math.floor(safeNumber(level, 0))
+      ));
+      return OFFLINE_YIELD_BY_LEVEL[lvl];
+    }
+
+    function formatOfflineYieldPct(rate) {
+      const pct = safeNumber(rate, OFFLINE_YIELD_BASE) * 100;
+      if (!Number.isFinite(pct)) return "5 %";
+      const rounded = Math.round(pct * 10) / 10;
+      return (Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)) + " %";
+    }
+
     function getOfflineCapMs(state) {
       const lvl = getLevelPassiveLevel("ancestralReserve", state);
-      const hours = OFFLINE_HOURS_BASE + lvl;
-      return Math.max(OFFLINE_HOURS_BASE, hours) * 60 * 60 * 1000;
+      return getOfflineCapHoursForLevel(lvl) * 60 * 60 * 1000;
     }
 
     function getOfflineYieldRate(state) {
       const lvl = getLevelPassiveLevel("dragonWatch", state);
-      return Math.min(0.45, OFFLINE_YIELD_BASE + lvl * 0.05);
+      return getOfflineYieldRateForLevel(lvl);
     }
 
     function describeLevelPassiveBonus(def, level) {
       if (def.id === "ancestralReserve") {
-        const hours = OFFLINE_HOURS_BASE + level;
-        return "Hors ligne max : " + hours + " h";
+        const hours = getOfflineCapHoursForLevel(level);
+        if (level >= def.maxLevel) return "MAX · " + hours + " h maximum";
+        return "Durée maximale : " + hours + " h";
       }
       if (def.id === "dragonWatch") {
-        const pct = Math.round((OFFLINE_YIELD_BASE + level * 0.05) * 100);
-        return "Rendement hors ligne : " + pct + " %";
+        const pct = formatOfflineYieldPct(getOfflineYieldRateForLevel(level));
+        if (level >= def.maxLevel) return "MAX · " + pct + " de la production passive";
+        return "Production récupérée : " + pct;
       }
       return def.description || "";
+    }
+
+    function describeLevelPassiveNext(def, level) {
+      if (level >= def.maxLevel) return "";
+      if (def.id === "ancestralReserve") {
+        return "Prochain niveau : " + getOfflineCapHoursForLevel(level + 1) + " h";
+      }
+      if (def.id === "dragonWatch") {
+        return "Prochain niveau : " + formatOfflineYieldPct(getOfflineYieldRateForLevel(level + 1));
+      }
+      return "";
     }
 
     function evaluateProgressCondition(cond, state) {
@@ -1754,8 +1798,6 @@
         if (!gameState.specialUpgrades?.[def.id]?.bought) return;
         applyBonus(def.effect);
       });
-      /* Veille draconique sets offline yield floor (not multiplicative stack) */
-      m.offlineMult = getOfflineYieldRate(gameState);
 
       ACHIEVEMENT_DEFS.forEach((def) => {
         if (!gameState.achievements[def.id] || !gameState.achievements[def.id].unlocked) return;
@@ -1782,12 +1824,15 @@
           else if (t === "duplicateBonusFragmentChance") m.duplicateFragmentChance += value;
           else if (t === "expeditionReward") m.expeditionReward += value;
           else if (t === "rarityLuck") m.rarityLuck += value;
-          else if (t === "offlineMult") m.offlineMult *= (1 + value);
+          /* offlineMult dragon/achievement : ignoré ici — efficacité hors-ligne = table unique (getOfflineYieldRate). */
         });
       }
 
       m.click *= m.globalPower;
       m.globalProduction *= m.globalPower;
+
+      /* Efficacité hors-ligne = valeur TOTALE du passif (jamais empilée avec d'autres offlineMult). */
+      m.offlineMult = getOfflineYieldRate(gameState);
 
       if (!Number.isFinite(m.critChance) || m.critChance < 0) m.critChance = CRIT_CHANCE_BASE;
       if (m.critChance > CRIT_CHANCE_CAP) m.critChance = CRIT_CHANCE_CAP;
@@ -2899,7 +2944,8 @@
         const maxL = Math.max(1, Math.floor(safeNumber(def.maxLevel, 1)));
         const level = Math.max(0, Math.min(maxL, Math.floor(safeNumber(s.levelPassives?.[def.id]?.level, 0))));
         for (let i = 0; i < level; i++) {
-          total += Math.max(1, Math.round(safeNumber(def.baseCost, 1) * Math.pow(safeNumber(def.costGrowth, 1.5), i)));
+          const c = getLevelPassiveCost(def, i);
+          if (Number.isFinite(c)) total += c;
         }
       });
       SPECIAL_UPGRADE_DEFS.forEach((def) => {
@@ -9963,26 +10009,42 @@
 
     /* -------------------------------------------------------
        OFFLINE PROGRESS
+       Formule unique :
+         productiveMs = min(absenceRéelle, duréeMax)
+         gain = productionPassive/sec × (productiveMs/1000) × efficacité
+       L'efficacité vient UNIQUEMENT de dragonWatch (valeurs totales).
+       zoneSpent n'est PAS modifié ici — seule spendEssence({zoneId}) l'alimente.
        ------------------------------------------------------- */
     function calculateOfflineProgress() {
       const last = safeNumber(gameState.lastSaveTime, 0);
       if (!last) return null;
 
       const now = Date.now();
-      let away = now - last;
-      if (away < 5000) return null; /* ignore tiny gaps / refresh bounce */
+      let realAway = now - last;
+      if (!Number.isFinite(realAway) || realAway < 0) realAway = 0;
+      if (realAway < 5000) return null; /* ignore tiny gaps / refresh bounce */
 
       const cap = Math.min(MAX_OFFLINE_MS, getOfflineCapMs(gameState));
-      if (away > cap) away = cap;
+      const productiveMs = Math.min(realAway, cap);
+      if (!(productiveMs > 0)) return null;
 
       const pps = calculateProduction();
-      if (pps <= 0) return null;
+      if (!Number.isFinite(pps) || pps <= 0) return null;
 
-      const offlineMult = safeNumber(gameState.multipliers.offlineMult, OFFLINE_YIELD_BASE);
-      const gained = pps * (away / 1000) * offlineMult;
-      if (gained < 1) return null;
+      const efficiency = getOfflineYieldRate(gameState);
+      if (!Number.isFinite(efficiency) || efficiency <= 0) return null;
 
-      return { awayMs: away, gained: gained };
+      const gained = pps * (productiveMs / 1000) * efficiency;
+      if (!Number.isFinite(gained) || gained < 1) return null;
+
+      return {
+        awayMs: realAway,
+        productiveMs: productiveMs,
+        capMs: cap,
+        efficiency: efficiency,
+        pps: pps,
+        gained: gained
+      };
     }
 
     function applyOfflineProgress(info) {
@@ -9998,9 +10060,32 @@
     }
 
     function showOfflineModal(info) {
-      document.getElementById("offline-time").textContent = formatDuration(info.awayMs);
-      document.getElementById("offline-gain").textContent =
-        "+" + formatNumber(info.gained) + " ✨ Essence";
+      const title = document.getElementById("offline-title");
+      if (title) title.textContent = "Retour au royaume";
+
+      const awayEl = document.getElementById("offline-time");
+      if (awayEl) awayEl.textContent = formatDuration(info.awayMs);
+
+      const prodEl = document.getElementById("offline-productive");
+      if (prodEl) {
+        const capLabel = formatDuration(info.capMs || getOfflineCapMs(gameState));
+        prodEl.textContent =
+          formatDuration(info.productiveMs != null ? info.productiveMs : info.awayMs) +
+          " / " + capLabel + " max";
+      }
+
+      const effEl = document.getElementById("offline-efficiency");
+      if (effEl) {
+        effEl.textContent = formatOfflineYieldPct(
+          info.efficiency != null ? info.efficiency : getOfflineYieldRate(gameState)
+        );
+      }
+
+      const gainEl = document.getElementById("offline-gain");
+      if (gainEl) {
+        gainEl.textContent = "+" + formatNumber(info.gained) + " ✨ Essence";
+      }
+
       document.getElementById("offline-modal").classList.remove("hidden");
     }
 
@@ -10333,6 +10418,7 @@
             icon: def.icon,
             name: def.name,
             effectText: describeLevelPassiveBonus(def, level),
+            descText: atMax ? "" : describeLevelPassiveNext(def, level),
             atMax: atMax,
             canBuy: canBuy,
             level: level,

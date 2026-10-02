@@ -184,23 +184,23 @@ var SHOP_PASSIVE_DEFS = [
 var LEVEL_PASSIVE_DEFS = [
       {
         id: "ancestralReserve",
-        name: "Réserve ancestrale",
+        name: "Réserve hors-ligne",
         icon: "⏳",
         zoneId: "sanctuary",
-        maxLevel: 4,
-        baseCost: 400,
-        costGrowth: 1.65,
-        description: "Prolonge la durée maximale hors ligne (base 1 h)."
+        maxLevel: 3,
+        /* Coûts fixes par palier (niv.0→1, 1→2, 2→3) — total 310K */
+        costs: [25000, 85000, 200000],
+        description: "Prolonge la durée maximale hors ligne (base 1 h, max 4 h)."
       },
       {
         id: "dragonWatch",
-        name: "Veille draconique",
+        name: "Efficacité hors-ligne",
         icon: "🌙",
         zoneId: "sanctuary",
-        maxLevel: 5,
-        baseCost: 650,
-        costGrowth: 1.55,
-        description: "Améliore le rendement hors ligne (base 20 %)."
+        maxLevel: 4,
+        /* Coûts fixes par palier (niv.0→1 … 3→4) — total 440K */
+        costs: [20000, 50000, 120000, 250000],
+        description: "Améliore le rendement hors ligne (base 5 %, max 15 %)."
       }
     ];
 
