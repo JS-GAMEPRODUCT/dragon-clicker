@@ -2483,20 +2483,84 @@
       return getEggEffectStage(pct);
     }
 
-    function preloadEggProgressImages() {
-      const seen = {};
-      EGG_DEFS.forEach((def) => {
-        const list = [def.image];
+    /** Chemins scène (background + œufs / fissures) pour une zone. */
+    function getZoneSceneAssetPaths(zoneId) {
+      const paths = [];
+      const seen = Object.create(null);
+      const push = (src) => {
+        if (!src || seen[src]) return;
+        seen[src] = true;
+        paths.push(src);
+      };
+      const zone = getZoneDef(zoneId);
+      if (!zone) return paths;
+      const bgKey = zone.background;
+      if (bgKey && SCENE_BACKGROUNDS[bgKey]) push(SCENE_BACKGROUNDS[bgKey]);
+      (zone.eggIds || []).forEach((eggId) => {
+        const def = getEggDef(eggId);
+        if (!def || def.comingSoon || def.secret) return;
+        push(def.image);
         if (def.progressImages) {
-          Object.keys(def.progressImages).forEach((k) => list.push(def.progressImages[k]));
+          Object.keys(def.progressImages).forEach((k) => push(def.progressImages[k]));
         }
-        list.forEach((src) => {
-          if (!src || seen[src]) return;
-          seen[src] = true;
-          const img = new Image();
-          img.src = src;
-        });
       });
+      return paths;
+    }
+
+    function preloadZoneSceneAssets(zoneId) {
+      const paths = getZoneSceneAssetPaths(zoneId);
+      if (!paths.length) return Promise.resolve();
+      if (window.DCAssets && typeof DCAssets.preloadCritical === "function") {
+        return DCAssets.preloadCritical(paths);
+      }
+      paths.forEach((src) => {
+        const img = new Image();
+        img.src = src;
+      });
+      return Promise.resolve();
+    }
+
+    /** Précharge uniquement les œufs / fissures de la zone courante (plus tous les EGG_DEFS). */
+    function preloadEggProgressImages() {
+      const zoneId = (gameState && gameState.currentZoneId) || "sanctuary";
+      preloadZoneSceneAssets(zoneId);
+    }
+
+    /**
+     * File idle : portraits Dragons / Équipe prioritaires, puis reste collection,
+     * puis scènes des autres zones débloquées.
+     */
+    function scheduleSessionAssetWarmup() {
+      if (!window.DCAssets || typeof DCAssets.preloadIdle !== "function") return;
+      const paths = [];
+      const seen = Object.create(null);
+      const push = (src) => {
+        if (!src || seen[src]) return;
+        seen[src] = true;
+        paths.push(src);
+      };
+
+      /* 1) Dragons possédés (Équipe / Formation) */
+      DRAGON_DEFS.forEach((d) => {
+        if (d.secret || !d.image) return;
+        if (isDragonDiscovered(gameState.dragons?.[d.id], d.id, gameState)) push(d.image);
+      });
+
+      /* 2) Première vue filtre TOUS (zones débloquées) — portraits dans l'ordre d'affichage */
+      getDragonsForFilter("all").forEach((d) => {
+        if (d.image) push(d.image);
+      });
+
+      /* 3) Scènes des autres zones débloquées (idle, pas critique) */
+      getUnlockedZoneIds(gameState).forEach((zid) => {
+        if (zid === (gameState.currentZoneId || "sanctuary")) return;
+        getZoneSceneAssetPaths(zid).forEach(push);
+      });
+
+      /* 4) Summon sprite éventuel */
+      if (typeof DRAGON_SUMMON_SRC === "string" && DRAGON_SUMMON_SRC) push(DRAGON_SUMMON_SRC);
+
+      DCAssets.preloadIdle(paths);
     }
 
     let currentEggImageStage = null;
@@ -3847,6 +3911,15 @@
       }
       pendingReveal = reveal;
       preloadDragonSummonSprite();
+      /* Préparer portraits reveal (primary + twin) pendant l'anim d'éclosion. */
+      if (window.DCAssets && typeof DCAssets.preloadCritical === "function") {
+        const hatchPaths = [];
+        if (reveal.dragonDef && reveal.dragonDef.image) hatchPaths.push(reveal.dragonDef.image);
+        if (reveal.twinReveal && reveal.twinReveal.dragonDef && reveal.twinReveal.dragonDef.image) {
+          hatchPaths.push(reveal.twinReveal.dragonDef.image);
+        }
+        DCAssets.preloadCritical(hatchPaths);
+      }
 
       const wrap = document.getElementById("entity-wrap");
       const overlay = document.getElementById("hatch-overlay");
@@ -4053,13 +4126,18 @@
       imgEl.classList.toggle("silhouette", !!opts.silhouette);
       if (emojiEl) emojiEl.style.display = "";
       imgEl.hidden = true;
-      imgEl.onload = function () {
+      const showReady = () => {
+        if (!imgEl) return;
+        if (imgEl.getAttribute("src") !== src) return;
+        if (!(imgEl.complete && imgEl.naturalWidth > 0)) return;
         imgEl.hidden = false;
         if (emojiEl) emojiEl.style.display = "none";
       };
+      imgEl.onload = showReady;
       imgEl.onerror = function () {
         imgEl.hidden = true;
         if (emojiEl) emojiEl.style.display = "";
+        console.warn("[Asset] image introuvable :", src);
       };
       if (!src) {
         imgEl.removeAttribute("src");
@@ -4067,16 +4145,87 @@
         if (emojiEl) emojiEl.style.display = "";
         return;
       }
-      if (imgEl.getAttribute("src") === src) {
-        if (imgEl.complete && imgEl.naturalWidth > 0) {
-          imgEl.hidden = false;
-          if (emojiEl) emojiEl.style.display = "none";
-        } else {
-          imgEl.src = src;
+      const applySrc = () => {
+        if (imgEl.getAttribute("src") === src) {
+          showReady();
+          if (!(imgEl.complete && imgEl.naturalWidth > 0)) {
+            imgEl.src = src;
+          }
+          return;
         }
+        imgEl.src = src;
+        showReady();
+      };
+      /* Warm cache session (single-flight) puis brancher le <img> — emoji reste tant que pas prêt. */
+      if (window.DCAssets && typeof DCAssets.loadImage === "function") {
+        DCAssets.loadImage(src)
+          .then(applySrc)
+          .catch(function () {
+            applySrc();
+          });
+        /* Si déjà prêt : affichage immédiat sans attendre microtask inutilement lente */
+        if (DCAssets.isLoaded(src)) applySrc();
         return;
       }
-      imgEl.src = src;
+      applySrc();
+    }
+
+    const EAGER_PORTRAIT_COUNT = 8;
+    let portraitNearObserver = null;
+
+    function ensurePortraitNearObserver() {
+      if (portraitNearObserver) return portraitNearObserver;
+      if (typeof IntersectionObserver !== "function") return null;
+      portraitNearObserver = new IntersectionObserver(
+        function (entries) {
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            const img = entry.target;
+            const src = img && img.dataset ? img.dataset.assetSrc : "";
+            if (!src) return;
+            delete img.dataset.assetSrc;
+            try {
+              portraitNearObserver.unobserve(img);
+            } catch (e) { /* ignore */ }
+            const host = img.parentElement;
+            const emoji = host ? host.querySelector(".dc-emoji") : null;
+            const sil = img.classList.contains("silhouette");
+            loadAssetImage(img, emoji, src, { silhouette: sil });
+          });
+        },
+        { root: null, rootMargin: "480px 0px", threshold: 0.01 }
+      );
+      return portraitNearObserver;
+    }
+
+    /** Charge immédiatement les N premiers portraits ; le reste via IO + idle warm. */
+    function bindDragonPortrait(imgEl, emojiEl, src, options, index) {
+      const opts = options || {};
+      if (!imgEl) return;
+      imgEl.classList.toggle("silhouette", !!opts.silhouette);
+      if (emojiEl) emojiEl.style.display = "";
+      imgEl.hidden = true;
+      if (!src) {
+        imgEl.removeAttribute("src");
+        return;
+      }
+      const eager =
+        index < EAGER_PORTRAIT_COUNT ||
+        (window.DCAssets && DCAssets.isLoaded(src));
+      if (eager) {
+        delete imgEl.dataset.assetSrc;
+        loadAssetImage(imgEl, emojiEl, src, opts);
+        return;
+      }
+      imgEl.dataset.assetSrc = src;
+      imgEl.loading = "lazy";
+      imgEl.decoding = "async";
+      const obs = ensurePortraitNearObserver();
+      if (obs) {
+        obs.observe(imgEl);
+      } else {
+        loadAssetImage(imgEl, emojiEl, src, opts);
+      }
     }
 
     function findEggChanceForDragon(dragonId) {
@@ -4098,6 +4247,11 @@
         return Promise.resolve();
       }
       const dragonDef = reveal.dragonDef;
+      const ensurePortrait = (dragonDef.image && window.DCAssets && typeof DCAssets.loadImage === "function")
+        ? DCAssets.loadImage(dragonDef.image).catch(function () { return null; })
+        : Promise.resolve();
+
+      return ensurePortrait.then(function () {
       const rarity = RARITIES[dragonDef.rarity] || RARITIES.common;
       const title = document.getElementById("dragon-modal-title");
       const badge = document.getElementById("dragon-modal-badge");
@@ -4180,6 +4334,7 @@
       modal.classList.remove("hidden");
       /* Await full materialize — sole reveal path after hatch sequence */
       return playDragonRevealAppear(dragonDef.rarity, !!reveal.isNew);
+      });
     }
 
     function playDragonRevealAppear(rarity, isNew) {
@@ -4610,6 +4765,11 @@
           if (locked) return;
           if (dragonsFilterZoneId === id) return;
           dragonsFilterZoneId = id;
+          if (window.DCAssets && typeof DCAssets.prioritize === "function") {
+            DCAssets.prioritize(
+              getDragonsForFilter(id).slice(0, 16).map((d) => d.image).filter(Boolean)
+            );
+          }
           dragonsDirty = true;
           renderDragons();
         });
@@ -4742,8 +4902,7 @@
         const emoji = tile.querySelector(".dc-emoji");
         emoji.textContent = owned ? (def.icon || "🐲") : "?";
         const imgEl = tile.querySelector("img");
-        if (index >= 6) imgEl.loading = "lazy";
-        loadAssetImage(imgEl, emoji, def.image, { silhouette: !owned });
+        bindDragonPortrait(imgEl, emoji, def.image, { silhouette: !owned }, index);
 
         tile.querySelector(".dt-name").textContent = owned ? def.name : "???";
         if (owned) {
@@ -7512,6 +7671,12 @@
       teamPickerState.slot = Math.max(0, Math.min(TEAM_SIZE - 1, slotIndex));
       teamPickerState.selectedId = getTeam()[teamPickerState.slot] || null;
       teamPickerState.filter = "all";
+      if (window.DCAssets && typeof DCAssets.prioritize === "function") {
+        const owned = DRAGON_DEFS.filter((d) =>
+          !d.secret && isDragonDiscovered(gameState.dragons?.[d.id], d.id, gameState)
+        ).slice(0, 16);
+        DCAssets.prioritize(owned.map((d) => d.image).filter(Boolean));
+      }
       renderTeamPicker();
       modal.classList.remove("hidden");
       const teamMod = document.getElementById("team-module");
@@ -7758,8 +7923,7 @@
         const emoji = card.querySelector(".dc-emoji");
         emoji.textContent = def.icon || "🐲";
         const imgEl = card.querySelector("img");
-        if (index >= 6) imgEl.loading = "lazy";
-        loadAssetImage(imgEl, emoji, def.image, { silhouette: false });
+        bindDragonPortrait(imgEl, emoji, def.image, { silhouette: false }, index);
         card.querySelector(".tp-card-stars").innerHTML = renderTeamStarsHtml(stars);
 
         if (onExpedition) {
@@ -8058,13 +8222,22 @@
         showNotification("🗺️ Zone", "Cette zone n'est pas encore disponible.");
         return;
       }
-      selectZone(zoneId);
-      closeZoneDetail();
-      renderZones();
-      renderEggPicker();
-      renderShop();
-      renderUpgrades();
-      switchPanel("kingdom");
+      const finishEnter = () => {
+        selectZone(zoneId);
+        closeZoneDetail();
+        renderZones();
+        renderEggPicker();
+        renderShop();
+        renderUpgrades();
+        switchPanel("kingdom");
+      };
+      /* Attendre assets scène critiques si besoin — transition immédiate si déjà en cache. */
+      const sameZone = (gameState.currentZoneId || "sanctuary") === zoneId;
+      if (sameZone) {
+        finishEnter();
+        return;
+      }
+      preloadZoneSceneAssets(zoneId).then(finishEnter).catch(finishEnter);
     }
 
     /* Ancien rendu carte Monde désactivé — données WORLD_MAP_PAGES / ZONE_DEFS conservées. */
@@ -10904,6 +11077,11 @@
       });
       const gear = document.getElementById("btn-open-settings");
       if (gear) gear.classList.toggle("active", group === "settings");
+      /* Prioriser portraits visibles du filtre courant à l'ouverture Dragons / Équipe. */
+      if ((name === "dragons") && window.DCAssets && typeof DCAssets.prioritize === "function") {
+        const defs = getDragonsForFilter(dragonsFilterZoneId).slice(0, 16);
+        DCAssets.prioritize(defs.map((d) => d.image).filter(Boolean));
+      }
       const activePanel = document.querySelector('.panel.overlay-panel.active');
       if (activePanel) {
         activePanel.scrollTop = 0;
@@ -11323,12 +11501,14 @@
     function init() {
       initSparks();
       if (window.DCAnim && DCAnim.initParticles) DCAnim.initParticles();
-      preloadEggProgressImages();
       bindEvents();
 
       const loaded = loadGame();
 
       syncActiveEggFromZoneSelection();
+
+      /* Scène critique après load : uniquement la zone active. */
+      preloadEggProgressImages();
 
       if (!gameState.introSeen) {
         document.getElementById("intro-modal").classList.remove("hidden");
@@ -11351,6 +11531,20 @@
       AudioManager.startMusic({ fade: true });
       if (!AudioManager.musicStarted) {
         AudioManager.bindMusicGestureOnce();
+      }
+
+      /* Warmup discret après premier rendu — ne bloque pas l'input. */
+      const startWarmup = () => {
+        try {
+          scheduleSessionAssetWarmup();
+        } catch (e) {
+          console.warn("[Asset] warmup idle échoué", e);
+        }
+      };
+      if (typeof requestIdleCallback === "function") {
+        requestIdleCallback(startWarmup, { timeout: 2200 });
+      } else {
+        setTimeout(startWarmup, 120);
       }
 
       /* Offline progress after load (only if intro already seen).
