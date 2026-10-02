@@ -4558,6 +4558,40 @@
       });
     }
 
+    let dragonsGridDelegatesBound = false;
+
+    function setSelectedDragonTile(dragonId) {
+      const grid = document.getElementById("dragons-grid");
+      if (!grid) return;
+      const prev = grid.querySelector(".dragon-tile.selected");
+      if (prev) prev.classList.remove("selected");
+      if (!dragonId) return;
+      const next = grid.querySelector('.dragon-tile[data-dragon-id="' + dragonId + '"]');
+      if (next) next.classList.add("selected");
+    }
+
+    function bindDragonsGridDelegates() {
+      if (dragonsGridDelegatesBound) return;
+      const grid = document.getElementById("dragons-grid");
+      if (!grid) return;
+      dragonsGridDelegatesBound = true;
+
+      grid.addEventListener("click", (e) => {
+        const tile = e.target.closest(".dragon-tile");
+        if (!tile || !grid.contains(tile)) return;
+        const id = tile.dataset.dragonId;
+        if (id) openDragonDetail(id);
+      });
+      grid.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter" && ev.key !== " ") return;
+        const tile = ev.target.closest(".dragon-tile");
+        if (!tile || !grid.contains(tile)) return;
+        ev.preventDefault();
+        const id = tile.dataset.dragonId;
+        if (id) openDragonDetail(id);
+      });
+    }
+
     function renderDragons() {
       const grid = document.getElementById("dragons-grid");
       if (!grid) return;
@@ -4568,6 +4602,7 @@
       }
 
       renderDragonsFilters();
+      bindDragonsGridDelegates();
 
       const visibleDefs = getDragonsForFilter(dragonsFilterZoneId);
       const ownedCount = visibleDefs.filter((d) =>
@@ -4586,23 +4621,33 @@
         }
       }
 
-      visibleDefs.forEach((def) => {
+      const modal = document.getElementById("dragon-detail-modal");
+      const selectedId =
+        modal && !modal.classList.contains("hidden") ? modal.dataset.dragonId : null;
+
+      const frag = document.createDocumentFragment();
+      visibleDefs.forEach((def, index) => {
         const entry = ensureDragonEntry(def.id, gameState);
         const owned = isDragonDiscovered(entry, def.id, gameState);
         if (owned) markDragonDiscovered(def.id, gameState);
         const rarity = RARITIES[def.rarity] || RARITIES.common;
         const stars = owned ? Math.max(1, safeNumber(entry.stars, 1)) : 0;
-        const next = owned ? getFragmentsForNextStar(def, entry) : null;
-        const frags = safeNumber(entry.fragments, 0);
         const onExpedition = owned && isDragonOnExpedition(def.id);
         const onTeam = owned && getTeam().indexOf(def.id) !== -1;
 
+        /* Carte épurée (style Formation) : rareté + gros art + nom discret + étoiles.
+           Bonus / fragments / progression → panneau détail au clic. */
         const tile = document.createElement("article");
-        tile.className = "dragon-tile " + (owned ? rarity.css : "undiscovered");
+        tile.className = "dragon-tile " + rarity.css +
+          (owned ? "" : " undiscovered") +
+          (selectedId === def.id ? " selected" : "");
         tile.dataset.dragonId = def.id;
         tile.tabIndex = 0;
         tile.setAttribute("role", "button");
-        tile.setAttribute("aria-label", owned ? def.name : "Dragon inconnu");
+        tile.setAttribute("aria-label", owned
+          ? def.name + " — " + rarity.label + " — " + stars + " étoiles"
+          : "Dragon inconnu — " + rarity.label);
+        tile.setAttribute("aria-pressed", selectedId === def.id ? "true" : "false");
 
         let badges = "";
         if (onExpedition) badges += '<span class="dt-expedition-badge">Expédition</span>';
@@ -4610,68 +4655,28 @@
 
         tile.innerHTML =
           (badges ? '<div class="dt-status-badges">' + badges + "</div>" : "") +
-          '<div class="dt-art"><img alt="" draggable="false" hidden /><span class="dc-emoji"></span></div>' +
-          '<div class="dt-meta">' +
-            '<div class="dt-stars"></div>' +
-            '<div class="dt-name"></div>' +
-            '<div class="dt-bonus" hidden><span class="dt-bonus-name"></span><span class="dt-bonus-value"></span></div>' +
-            '<div class="dt-frag-block" hidden>' +
-              '<div class="dt-frag-meta"><span class="dt-frag-ico" aria-hidden="true">◆</span><span class="dt-frag-count"></span></div>' +
-              '<div class="dt-frag"><div class="dt-frag-fill"></div></div>' +
-            "</div>" +
-          "</div>";
+          '<span class="dt-band"></span>' +
+          '<div class="dt-art"><img alt="" draggable="false" decoding="async" width="160" height="160" hidden /><span class="dc-emoji"></span></div>' +
+          '<div class="dt-name"></div>' +
+          '<div class="dt-stars"></div>';
 
+        tile.querySelector(".dt-band").textContent = rarity.label;
         const emoji = tile.querySelector(".dc-emoji");
         emoji.textContent = owned ? (def.icon || "🐲") : "?";
-        loadAssetImage(tile.querySelector("img"), emoji, def.image, { silhouette: !owned });
+        const imgEl = tile.querySelector("img");
+        if (index >= 6) imgEl.loading = "lazy";
+        loadAssetImage(imgEl, emoji, def.image, { silhouette: !owned });
 
         tile.querySelector(".dt-name").textContent = owned ? def.name : "???";
-
         if (owned) {
-          tile.querySelector(".dt-stars").textContent =
-            "★".repeat(stars) + "☆".repeat(MAX_DRAGON_STARS - stars);
-
-          const bonusBlock = tile.querySelector(".dt-bonus");
-          const activeBonus = getDragonActiveBonus(def, stars);
-          const bonusShort = describeDragonBonusShort(def, stars);
-          if (bonusBlock && activeBonus && bonusShort) {
-            bonusBlock.hidden = false;
-            bonusBlock.querySelector(".dt-bonus-name").textContent = activeBonus.name || "";
-            bonusBlock.querySelector(".dt-bonus-value").textContent =
-              describeDragonBonusShort(def, stars, { compact: true });
-          }
-
-          const fragBlock = tile.querySelector(".dt-frag-block");
-          const fragBar = tile.querySelector(".dt-frag");
-          fragBlock.hidden = false;
-          if (next) {
-            const ready = frags >= next.cost;
-            if (ready) tile.classList.add("can-evolve");
-            tile.querySelector(".dt-frag-count").textContent =
-              formatNumber(frags) + " / " + next.cost;
-            fragBar.querySelector(".dt-frag-fill").style.width =
-              Math.min(100, (frags / Math.max(1, next.cost)) * 100) + "%";
-          } else {
-            fragBar.classList.add("maxed");
-            tile.querySelector(".dt-frag-count").textContent = "MAX";
-            fragBar.querySelector(".dt-frag-fill").style.width = "100%";
-          }
+          tile.querySelector(".dt-stars").innerHTML = renderTeamStarsHtml(stars);
         }
 
-        tile.addEventListener("click", () => openDragonDetail(def.id));
-        tile.addEventListener("keydown", (ev) => {
-          if (ev.key === "Enter" || ev.key === " ") {
-            ev.preventDefault();
-            openDragonDetail(def.id);
-          }
-        });
-        grid.appendChild(tile);
+        frag.appendChild(tile);
       });
+      grid.appendChild(frag);
 
-      const modal = document.getElementById("dragon-detail-modal");
-      if (modal && !modal.classList.contains("hidden") && modal.dataset.dragonId) {
-        fillDragonDetail(modal.dataset.dragonId);
-      }
+      if (selectedId) fillDragonDetail(selectedId);
       renderTeamModule();
       dragonsDirty = false;
     }
@@ -4858,6 +4863,7 @@
       modal.dataset.dragonId = dragonId;
       fillDragonDetail(dragonId);
       modal.classList.remove("hidden");
+      setSelectedDragonTile(dragonId);
     }
 
     function closeDragonDetail() {
@@ -4867,6 +4873,7 @@
       delete modal.dataset.dragonId;
       const sheet = document.getElementById("dragon-detail-sheet");
       if (sheet) sheet.classList.remove("ds-evolving");
+      setSelectedDragonTile(null);
     }
 
     /* -------------------------------------------------------
