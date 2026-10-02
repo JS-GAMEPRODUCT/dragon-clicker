@@ -8180,9 +8180,14 @@
 
           const label = document.createElement("p");
           label.className = "world-zone-invest-label";
-          label.textContent = investReady
-            ? "Progression requise atteinte"
-            : ("Progression Zone " + getZoneMapIndex(invest.fromZoneId));
+          if (investReady) {
+            label.textContent = "Conditions remplies";
+          } else {
+            const fromZone = getZoneDef(invest.fromZoneId);
+            label.textContent = fromZone
+              ? ("Investissement " + fromZone.name)
+              : ("Progression Zone " + getZoneMapIndex(invest.fromZoneId));
+          }
 
           const track = document.createElement("div");
           track.className = "world-zone-invest-track";
@@ -8253,7 +8258,9 @@
         if (unlockCost > 0) {
           const price = document.createElement("p");
           price.className = "world-zone-footer-price" + (investReady ? "" : " is-muted");
-          price.textContent = formatNumber(unlockCost) + " Essence";
+          price.textContent = investReady
+            ? ("Déblocage : " + formatNumber(unlockCost) + " Essence")
+            : (formatNumber(unlockCost) + " Essence");
           content.appendChild(price);
           if (investReady && missingEssence > 0) {
             const miss = document.createElement("p");

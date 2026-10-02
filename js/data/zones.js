@@ -40,9 +40,12 @@ var ZONE_DEFS = [
         description: "Pics venteux et sentiers perdus dans la brume — contenu détaillé à venir.",
         background: "mountains",
         startUnlocked: false,
-        comingSoon: true,
-        unlockCost: 500000,
-        unlockRequirements: [{ type: "eggsHatched", value: 25 }],
+        /* Gate économique uniquement : 5,5M investis en Vallée, puis 1M pour ouvrir. */
+        unlockCost: 1000000,
+        unlockPortalName: "Portail vers la Montagne",
+        unlockRequirements: [
+          { type: "zoneSpent", zoneId: "valley", value: 5500000 }
+        ],
         eggIds: [],
         producerIds: []
       },

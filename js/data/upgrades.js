@@ -82,13 +82,13 @@ var PRODUCER_DEFS = [
         tier: 5,
         zoneId: "sanctuary"
       },
-      /* Zone 2 — Vallée : plus de niveaux, stats max ≈ +830 Essence/sec boutique. */
+      /* Zone 2 — Vallée : coûts rééquilibrés (totaux cibles ≈ 3,14M boutique). Production inchangée. */
       {
         id: "valleyCub",
         name: "Dragonnet de vallée",
         icon: "🐉",
         description: "Plus vif que les dragonneaux du Sanctuaire.",
-        baseCost: 300,
+        baseCost: 450,
         costGrowth: 1.13,
         productionPerLevel: 1.2,
         baseProduction: 1.2,
@@ -103,8 +103,8 @@ var PRODUCER_DEFS = [
         name: "Nid de vallée",
         icon: "🪺",
         description: "Nids tissés dans les collines fertiles.",
-        baseCost: 1200,
-        costGrowth: 1.15,
+        baseCost: 1908,
+        costGrowth: 1.156,
         productionPerLevel: 3.5,
         baseProduction: 3.5,
         maxProduction: 70,
@@ -118,8 +118,8 @@ var PRODUCER_DEFS = [
         name: "Aiguille de vallée",
         icon: "🏔️",
         description: "Une aiguille de pierre qui concentre le flux draconique.",
-        baseCost: 5000,
-        costGrowth: 1.17,
+        baseCost: 6250,
+        costGrowth: 1.226,
         productionPerLevel: 10,
         baseProduction: 10,
         maxProduction: 150,
@@ -133,8 +133,8 @@ var PRODUCER_DEFS = [
         name: "Donjon de vallée",
         icon: "🏯",
         description: "Forteresse avancée de la Vallée draconique.",
-        baseCost: 15000,
-        costGrowth: 1.20,
+        baseCost: 25500,
+        costGrowth: 1.262,
         productionPerLevel: 24,
         baseProduction: 24,
         maxProduction: 240,
@@ -148,8 +148,8 @@ var PRODUCER_DEFS = [
         name: "Citadelle de vallée",
         icon: "🛡️",
         description: "Le joyau économique de la Vallée.",
-        baseCost: 35000,
-        costGrowth: 1.25,
+        baseCost: 67900,
+        costGrowth: 1.352,
         productionPerLevel: 340 / 7,
         baseProduction: 340 / 7,
         maxProduction: 340,
@@ -294,7 +294,7 @@ var ZONE_RANK_META = [
       },
       {
         zoneId: "valley", rank: "Éveillé", order: 2,
-        /* Zone 2 : 6 améliorations — plus de niveaux, plafonds stats inchangés. */
+        /* Zone 2 : 6 améliorations — effets inchangés, coûts rééquilibrés (≈ 5,57M total). */
         customActiveUpgrades: [
           {
             id: "claws_valley",
@@ -308,8 +308,8 @@ var ZONE_RANK_META = [
               0.9, 1.8, 2.7, 3.6, 4.5, 5.4, 6.3, 7.2, 8.1, 9,
               9.9, 10.8, 11.7, 12.6, 13.5, 14.4, 15.3, 16.2, 17.1, 18
             ],
-            baseCost: 3000,
-            costGrowth: 1.18,
+            baseCost: 5520,
+            costGrowth: 1.184,
             uiOrder: 1
           },
           {
@@ -320,8 +320,8 @@ var ZONE_RANK_META = [
             maxLevel: 5,
             bonusType: "clickPowerFlat",
             bonusValues: [4, 8, 12, 16, 20],
-            baseCost: 30000,
-            costGrowth: 1.45,
+            baseCost: 58800,
+            costGrowth: 1.482,
             uiOrder: 2
           },
           {
@@ -336,8 +336,8 @@ var ZONE_RANK_META = [
               0.0015, 0.003, 0.0045, 0.006, 0.0075, 0.009,
               0.011, 0.013, 0.015, 0.017, 0.0185, 0.02
             ],
-            baseCost: 8000,
-            costGrowth: 1.22,
+            baseCost: 12160,
+            costGrowth: 1.264,
             uiOrder: 3
           },
           {
@@ -348,8 +348,8 @@ var ZONE_RANK_META = [
             maxLevel: 8,
             bonusType: "critMultiplierFlat",
             bonusValues: [0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.68, 0.75],
-            baseCost: 15000,
-            costGrowth: 1.28,
+            baseCost: 24600,
+            costGrowth: 1.348,
             uiOrder: 4
           },
           {
@@ -361,8 +361,8 @@ var ZONE_RANK_META = [
             bonusType: "chargedStrike",
             triggerClicks: [25, 22, 18, 15, 12, 10],
             multiplier: 2,
-            baseCost: 25000,
-            costGrowth: 1.40,
+            baseCost: 37500,
+            costGrowth: 1.584,
             uiOrder: 5
           },
           {
@@ -374,8 +374,8 @@ var ZONE_RANK_META = [
             bonusType: "twinHatchChance",
             /* Valeurs en pourcent (0.2 … 1.0) — converties en fraction au jet. */
             bonusValues: [0.2, 0.4, 0.6, 0.8, 1.0],
-            baseCost: 50000,
-            costGrowth: 1.45,
+            baseCost: 120000,
+            costGrowth: 1.506,
             uiOrder: 6
           }
         ]
