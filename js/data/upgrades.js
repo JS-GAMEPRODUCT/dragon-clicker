@@ -380,20 +380,7 @@ var ZONE_RANK_META = [
           }
         ]
       },
-      {
-        zoneId: "mountains", rank: "Adepte", order: 3,
-        names: {
-          claws: "Griffes de l'Adepte",
-          instinct: "Instinct de l'Adepte",
-          bite: "Morsure de l'Adepte",
-          fervor: "Ferveur de l'Adepte"
-        },
-        clickFlatPerLevel: 0.45,
-        critChance: 0.0018, critMult: 0.07,
-        fervorPower: 0.03, fervorDuration: 55,
-        baseCosts: { claws: 80000, instinct: 140000, bite: 200000, fervor: 160000 },
-        costGrowth: 1.185
-      },
+      /* Zone 3 (mountains) : pas d'améliorations actives pour l'instant — boutique/améliorations à concevoir plus tard. */
       {
         zoneId: "forgotten", rank: "Vétéran", order: 4,
         names: {

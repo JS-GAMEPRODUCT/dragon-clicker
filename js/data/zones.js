@@ -37,7 +37,7 @@ var ZONE_DEFS = [
         id: "mountains",
         name: "Montagne sauvage",
         rank: "Adepte",
-        description: "Pics venteux et sentiers perdus dans la brume — contenu détaillé à venir.",
+        description: "Pics venteux et sentiers perdus dans la brume — refuge des lignées de Granit et de Tempête.",
         background: "mountains",
         startUnlocked: false,
         /* Gate économique uniquement : 5,5M investis en Vallée, puis 1M pour ouvrir. */
@@ -46,7 +46,7 @@ var ZONE_DEFS = [
         unlockRequirements: [
           { type: "zoneSpent", zoneId: "valley", value: 5500000 }
         ],
-        eggIds: [],
+        eggIds: ["granite", "storm"],
         producerIds: []
       },
       {

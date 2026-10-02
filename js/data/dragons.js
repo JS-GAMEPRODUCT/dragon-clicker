@@ -324,6 +324,140 @@ var DRAGON_DEFS = [
           name: "Écho des Abysses",
           values: [5, 10, 15, 20, 25]
         }
+      },
+      /* Zone 3 — Œuf de Granit (assets dragon granite *) — bonus économiques à définir plus tard */
+      {
+        id: "petrak",
+        name: "Pétrak",
+        element: "earth",
+        rarity: "common",
+        description: "Dragonnet de pierre ambrée, abondant dans les falaises de la Montagne sauvage.",
+        image: "assets/dragons/dragon granite commun.png",
+        icon: "🪨",
+        zoneId: "mountains",
+        eggId: "granite"
+      },
+      {
+        id: "gritling",
+        name: "Gritling",
+        element: "earth",
+        rarity: "common",
+        description: "Ses écailles gréseuses crissent sous le vent des cimes.",
+        image: "assets/dragons/dragon granite commun2.png",
+        icon: "🟤",
+        zoneId: "mountains",
+        eggId: "granite"
+      },
+      {
+        id: "amberon",
+        name: "Ambéron",
+        element: "earth",
+        rarity: "rare",
+        description: "Veines d'ambre figées dans la roche — rares sont ceux qui l'aperçoivent.",
+        image: "assets/dragons/dragon granite rare.png",
+        icon: "🔶",
+        zoneId: "mountains",
+        eggId: "granite"
+      },
+      {
+        id: "basaltis",
+        name: "Basaltis",
+        element: "earth",
+        rarity: "epic",
+        description: "Forgé dans les coulées basaltiques, il porte la mémoire des volcans endormis.",
+        image: "assets/dragons/dragon granite epic1.png",
+        icon: "🗿",
+        zoneId: "mountains",
+        eggId: "granite"
+      },
+      {
+        id: "mountainyx",
+        name: "Mountainyx",
+        element: "earth",
+        rarity: "legendary",
+        description: "Gardien des crêtes ancestrales. La montagne elle-même semble s'incliner à son passage.",
+        image: "assets/dragons/dragon granite legendaire1.png",
+        icon: "⛰️",
+        zoneId: "mountains",
+        eggId: "granite"
+      },
+      {
+        id: "auralith",
+        name: "Auralith",
+        element: "earth",
+        rarity: "mythic",
+        description: "Mythe doré des pics : on dit que son cœur est un cristal plus ancien que les royaumes.",
+        image: "assets/dragons/dragon granite mythique.png",
+        icon: "✨",
+        zoneId: "mountains",
+        eggId: "granite"
+      },
+      /* Zone 3 — Œuf des Tempêtes (assets dragon tempete *) — bonus économiques à définir plus tard */
+      {
+        id: "galeon",
+        name: "Galéon",
+        element: "air",
+        rarity: "common",
+        description: "Petit dragon des bourrasques, courant le long des arêtes venteuses.",
+        image: "assets/dragons/dragon tempete commun.png",
+        icon: "💨",
+        zoneId: "mountains",
+        eggId: "storm"
+      },
+      {
+        id: "zephyric",
+        name: "Zéphyric",
+        element: "air",
+        rarity: "common",
+        description: "Léger comme un souffle d'altitude, il danse entre les nuages bas.",
+        image: "assets/dragons/dragon tempete commun2.png",
+        icon: "🌬️",
+        zoneId: "mountains",
+        eggId: "storm"
+      },
+      {
+        id: "stormyx",
+        name: "Stormyx",
+        element: "air",
+        rarity: "rare",
+        description: "Son regard coupe comme la pluie glacée des hauteurs.",
+        image: "assets/dragons/dragon tempete rare.png",
+        icon: "⛈️",
+        zoneId: "mountains",
+        eggId: "storm"
+      },
+      {
+        id: "voltara",
+        name: "Voltara",
+        element: "air",
+        rarity: "epic",
+        description: "Éclairs figés dans ses ailes — l'orage suit sa trajectoire.",
+        image: "assets/dragons/dragon tempete epic.png",
+        icon: "⚡",
+        zoneId: "mountains",
+        eggId: "storm"
+      },
+      {
+        id: "cimor",
+        name: "Cimor",
+        element: "air",
+        rarity: "legendary",
+        description: "Seigneur des cimes orageuses. Les vents obéissent à son cri.",
+        image: "assets/dragons/dragon tempete legendaire.png",
+        icon: "🌩️",
+        zoneId: "mountains",
+        eggId: "storm"
+      },
+      {
+        id: "aetherion",
+        name: "Aéthérion",
+        element: "air",
+        rarity: "mythic",
+        description: "Esprit mythique des hauteurs célestes. On dit qu'il naît là où le ciel touche la pierre.",
+        image: "assets/dragons/dragon tempete mythique.png",
+        icon: "🌌",
+        zoneId: "mountains",
+        eggId: "storm"
       }
     ];
 
@@ -436,6 +570,79 @@ var EGG_DEFS = [
           { dragonId: "spumara", weight: 1 },
           { dragonId: "abyssara", weight: 1 },
           { dragonId: "naiadryn", weight: 1 }
+        ],
+        pity: {
+          enabled: false,
+          rules: [
+            { rarity: "legendary", softPityAfter: 20, hardPityAt: 50 },
+            { rarity: "mythic", softPityAfter: 80, hardPityAt: 200 }
+          ]
+        }
+      },
+      {
+        id: "granite",
+        name: "Œuf de Granit",
+        description: "Un œuf de pierre ambrée, formé dans les failles de la Montagne sauvage.",
+        image: "assets/eggs/oeuf granite.png",
+        progressImages: {
+          intact: "assets/eggs/oeuf granite.png",
+          cracked35: "assets/eggs/oeuf granite35.png",
+          /* Seul stade avancé présent dans les assets (nom historique 99). */
+          cracked75: "assets/eggs/oeuf granite99.png"
+        },
+        background: "mountains",
+        zoneId: "mountains",
+        requiredHatchPower: 5000,
+        requiredClicks: 5000,
+        rarity: "common",
+        element: "earth",
+        startUnlocked: false,
+        comingSoon: false,
+        secret: false,
+        visualOffsetX: 0,
+        dragonPool: [
+          { dragonId: "petrak", weight: 1 },
+          { dragonId: "gritling", weight: 1 },
+          { dragonId: "amberon", weight: 1 },
+          { dragonId: "basaltis", weight: 1 },
+          { dragonId: "mountainyx", weight: 1 },
+          { dragonId: "auralith", weight: 1 }
+        ],
+        pity: {
+          enabled: false,
+          rules: [
+            { rarity: "legendary", softPityAfter: 20, hardPityAt: 50 },
+            { rarity: "mythic", softPityAfter: 80, hardPityAt: 200 }
+          ]
+        }
+      },
+      {
+        id: "storm",
+        name: "Œuf des Tempêtes",
+        description: "Un œuf chargé d'électricité d'altitude, né sous les orages des cimes.",
+        image: "assets/eggs/oeuf tempete.png",
+        progressImages: {
+          intact: "assets/eggs/oeuf tempete.png",
+          cracked35: "assets/eggs/oeuf tempete35.png",
+          cracked75: "assets/eggs/oeuf tempete75.png"
+        },
+        background: "mountains",
+        zoneId: "mountains",
+        requiredHatchPower: 7000,
+        requiredClicks: 7000,
+        rarity: "common",
+        element: "air",
+        startUnlocked: false,
+        comingSoon: false,
+        secret: false,
+        visualOffsetX: 0,
+        dragonPool: [
+          { dragonId: "galeon", weight: 1 },
+          { dragonId: "zephyric", weight: 1 },
+          { dragonId: "stormyx", weight: 1 },
+          { dragonId: "voltara", weight: 1 },
+          { dragonId: "cimor", weight: 1 },
+          { dragonId: "aetherion", weight: 1 }
         ],
         pity: {
           enabled: false,
