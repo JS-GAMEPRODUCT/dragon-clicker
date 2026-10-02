@@ -46,6 +46,8 @@
     const HATCH_CRIT_MULTIPLIER = 1.5;
     const HATCH_CHARGED_MULTIPLIER = 2;
     const CRIT_MULT_CAP = 22;
+    /** Cap cumul Éclosion Jumelle (Z2 + Z3) — toujours au plus 1 second dragon. */
+    const TWIN_HATCH_CHANCE_CAP = 0.02;
     const BASE_CLICK_POWER = 1;
     /** Hatch progress per manual click (independent from essence gained). */
     const BASE_HATCH_PROGRESS = 1;
@@ -1078,7 +1080,8 @@
         chance += getUpgradeTableBonus(def, lvl) / 100;
       });
       if (!Number.isFinite(chance) || chance < 0) return 0;
-      return Math.min(0.01, chance); /* hard cap 1 % */
+      /* Cap 2 % : Z2 Éclosion Jumelle (1 %) + Z3 Écho des Tempêtes (1 %). Toujours max 1 twin. */
+      return Math.min(TWIN_HATCH_CHANCE_CAP, chance);
     }
 
     /**
@@ -1122,6 +1125,11 @@
         const pct = getUpgradeTableBonus(def, level);
         const txt = pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1);
         return txt + " % CHANCE D'ÉCLOSION JUMELLE";
+      }
+      if (def.bonusType === "globalProdPct") {
+        const pct = getUpgradeTableBonus(def, level);
+        const txt = pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1);
+        return "+" + txt + " % PRODUCTION PASSIVE";
       }
       if (def.family === "claws") {
         const flat = getClawsFlatBonus(def, level);
@@ -1766,6 +1774,11 @@
         }
         if (def.bonusType === "clickPowerFlat") {
           m.clickFlat += getClickPowerFlatBonus(def, lvl);
+        }
+        if (def.bonusType === "globalProdPct") {
+          /* bonusValues en points de % (2 … 10) → multiplicateur production passive */
+          const pctPts = getUpgradeTableBonus(def, lvl);
+          if (pctPts > 0) m.globalProduction *= (1 + pctPts / 100);
         }
         if (def.bonusType === "critChanceFlat") {
           m.critChance += getUpgradeTableBonus(def, lvl);
@@ -10371,11 +10384,13 @@
             || def.bonusType === "critMultiplierFlat"
             || def.bonusType === "chargedStrike"
             || def.bonusType === "twinHatchChance"
+            || def.bonusType === "globalProdPct"
           );
           let familyLabel = (FAMILY_META[def.family] || {}).label || "";
           if (def.bonusType === "clickPowerFlat") familyLabel = "Puissance de clic";
           else if (def.bonusType === "chargedStrike") familyLabel = "Frappe Chargée";
           else if (def.bonusType === "twinHatchChance") familyLabel = "Éclosion spéciale";
+          else if (def.bonusType === "globalProdPct") familyLabel = "Production passive";
           const curBonus = level > 0 ? describeActiveBonusLine(def, level) : "—";
           let nextHint = "";
           if (showNext) {

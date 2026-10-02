@@ -157,6 +157,82 @@ var PRODUCER_DEFS = [
         productionCurve: "linear",
         tier: 5,
         zoneId: "valley"
+      },
+      /* Zone 3 — Montagne sauvage : 5 producteurs (~11,45M Essence). */
+      {
+        id: "graniteNest",
+        name: "Nid de Granit",
+        icon: "🪨",
+        description: "Nids de pierre ambrée nichés dans les failles.",
+        baseCost: 5000,
+        costGrowth: 1.0663,
+        productionPerLevel: 4,
+        baseProduction: 4,
+        maxProduction: 100,
+        maxLevel: 25,
+        productionCurve: "linear",
+        tier: 1,
+        zoneId: "mountains"
+      },
+      {
+        id: "amberRefuge",
+        name: "Refuge d'Ambre",
+        icon: "🔶",
+        description: "Abri de cristal d'ambre où l'essence s'accumule.",
+        baseCost: 15000,
+        costGrowth: 1.088,
+        productionPerLevel: 10,
+        baseProduction: 10,
+        maxProduction: 200,
+        maxLevel: 20,
+        productionCurve: "linear",
+        tier: 2,
+        zoneId: "mountains"
+      },
+      {
+        id: "cliffSanctuary",
+        name: "Sanctuaire des Falaises",
+        icon: "🏔️",
+        description: "Autel sculpté dans la falaise, baigné de vents anciens.",
+        baseCost: 50000,
+        costGrowth: 1.1085,
+        productionPerLevel: 25,
+        baseProduction: 25,
+        maxProduction: 375,
+        maxLevel: 15,
+        productionCurve: "linear",
+        tier: 3,
+        zoneId: "mountains"
+      },
+      {
+        id: "peakTower",
+        name: "Tour des Cimes",
+        icon: "🗼",
+        description: "Tour dressée sur les crêtes, capte le flux des sommets.",
+        baseCost: 150000,
+        costGrowth: 1.1601,
+        productionPerLevel: 60,
+        baseProduction: 60,
+        maxProduction: 600,
+        maxLevel: 10,
+        productionCurve: "linear",
+        tier: 4,
+        zoneId: "mountains"
+      },
+      {
+        id: "stormBastion",
+        name: "Bastion des Tempêtes",
+        icon: "⛈️",
+        description: "Forteresse orageuse — cœur économique de la Montagne.",
+        baseCost: 400000,
+        costGrowth: 1.2202,
+        productionPerLevel: 130,
+        baseProduction: 130,
+        maxProduction: 910,
+        maxLevel: 7,
+        productionCurve: "linear",
+        tier: 5,
+        zoneId: "mountains"
       }
     ];
 
@@ -380,7 +456,95 @@ var ZONE_RANK_META = [
           }
         ]
       },
-      /* Zone 3 (mountains) : pas d'améliorations actives pour l'instant — boutique/améliorations à concevoir plus tard. */
+      /* Zone 3 — Montagne sauvage : 6 améliorations (~13,6M Essence). */
+      {
+        zoneId: "mountains", rank: "Adepte", order: 3,
+        customActiveUpgrades: [
+          {
+            id: "claws_mountains",
+            family: "claws",
+            name: "Griffes de Granit",
+            icon: "✊",
+            maxLevel: 20,
+            bonusType: "clickPowerFlat",
+            /* +2 / niveau → +40 au max (valeurs totales cumulées) */
+            bonusValues: [
+              2, 4, 6, 8, 10, 12, 14, 16, 18, 20,
+              22, 24, 26, 28, 30, 32, 34, 36, 38, 40
+            ],
+            baseCost: 20000,
+            costGrowth: 1.156,
+            uiOrder: 1
+          },
+          {
+            id: "force_mountains",
+            family: "force",
+            name: "Force des Sommets",
+            icon: "💪",
+            maxLevel: 5,
+            bonusType: "clickPowerFlat",
+            bonusValues: [5, 11, 18, 26, 35],
+            baseCost: 150000,
+            costGrowth: 1.506,
+            uiOrder: 2
+          },
+          {
+            id: "instinct_mountains",
+            family: "instinct",
+            name: "Instinct Tempétueux",
+            icon: "👁️",
+            maxLevel: 10,
+            bonusType: "critChanceFlat",
+            /* +0,15 point de % / niveau → +1,5 % au max */
+            bonusValues: [
+              0.0015, 0.003, 0.0045, 0.006, 0.0075,
+              0.009, 0.0105, 0.012, 0.0135, 0.015
+            ],
+            baseCost: 50000,
+            costGrowth: 1.266,
+            uiOrder: 3
+          },
+          {
+            id: "bite_mountains",
+            family: "bite",
+            name: "Morsure du Titan",
+            icon: "💥",
+            maxLevel: 8,
+            bonusType: "critMultiplierFlat",
+            /* +0,125 / niveau → +1,00 au max */
+            bonusValues: [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0],
+            baseCost: 80000,
+            costGrowth: 1.2988,
+            uiOrder: 4
+          },
+          {
+            id: "breath_mountains",
+            family: "breath",
+            name: "Souffle des Cimes",
+            icon: "🌬️",
+            maxLevel: 5,
+            bonusType: "globalProdPct",
+            /* Valeurs totales en points de % → +10 % production passive au max */
+            bonusValues: [2, 4, 6, 8, 10],
+            baseCost: 200000,
+            costGrowth: 1.471,
+            uiOrder: 5
+          },
+          {
+            id: "twin_mountains",
+            family: "twin",
+            name: "Écho des Tempêtes",
+            icon: "✨",
+            maxLevel: 5,
+            bonusType: "twinHatchChance",
+            /* S'ajoute à Éclosion Jumelle Z2 (valeurs en %) */
+            bonusValues: [0.2, 0.4, 0.6, 0.8, 1.0],
+            baseCost: 300000,
+            costGrowth: 1.3863,
+            uiOrder: 6
+          }
+        ]
+      },
       {
         zoneId: "forgotten", rank: "Vétéran", order: 4,
         names: {
