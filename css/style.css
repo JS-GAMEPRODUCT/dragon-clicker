@@ -12229,29 +12229,22 @@ html {
   }
 
   /*
-    Titre œuf : depuis Paramètres sous Puissance, le HUD mobile est plus haut
-    (min-height 214px) → capitales Cinzel + text-shadow clipées par la couche
-    transform de .egg-stage (et autrefois par #panel-kingdom overflow:hidden).
-    Mobile only : overflow visible, padding haut, line-height, légère descente.
+    Titre œuf (mobile only) — NE PAS déplacer .egg-stage.
+    Position scène = cascade existante (-58% / lift 24px, ou -56% / 20px ≤600px).
+    Correctif local : overflow + line-height/padding légers sur le label.
   */
   #panel-kingdom.active {
     overflow: visible;
   }
-  #app {
-    --egg-stage-lift: 14px;
-  }
   .egg-stage {
-    transform: translate(-50%, calc(-48% - var(--egg-stage-lift, 14px)));
-    padding-top: 26px;
     overflow: visible;
   }
   .egg-title-block {
-    padding-top: 6px;
     overflow: visible;
   }
   .egg-stage-label {
-    line-height: 1.55;
-    padding: 0.22em 10px 0.12em;
+    line-height: 1.2;
+    padding: 2px 8px 0;
     overflow: visible;
   }
 
@@ -13840,13 +13833,6 @@ html {
       108px
     );
     gap: 7px;
-  }
-  #app {
-    --egg-stage-lift: 12px;
-  }
-  .egg-stage {
-    transform: translate(-50%, calc(-48% - var(--egg-stage-lift, 12px)));
-    padding-top: 16px;
   }
   .scene-events-art {
     width: 54px;
