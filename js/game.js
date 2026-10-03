@@ -2623,12 +2623,19 @@
         }
       }
       if (clickWrap) {
-        clickWrap.classList.remove("egg-press-fallback");
+        clickWrap.classList.remove("egg-press-fallback", "egg-press-active", "egg-press-animating");
         clickWrap.style.opacity = "";
         clickWrap.style.transform = "";
         clickWrap.style.filter = "";
         if (clickWrap.getAnimations) {
           clickWrap.getAnimations().forEach((a) => { try { a.cancel(); } catch (e) { /* ignore */ } });
+        }
+      }
+      if (visual) {
+        visual.classList.remove("egg-press-fallback", "egg-press-active", "egg-press-animating");
+        visual.style.transform = "";
+        if (visual.getAnimations) {
+          visual.getAnimations().forEach((a) => { try { a.cancel(); } catch (e) { /* ignore */ } });
         }
       }
       if (hatchWrap) {
@@ -3202,13 +3209,13 @@
       checkSecretUnlocks();
 
       /*
-        Mobile intermittent : parfois `click` arrive sans `pointerdown` utile
-        (rétarget / gesture). Les frappes normales ne rejouent pas le press dans
-        spawnClickEffects — on rattrape ici si aucun press récent.
+        Feedback visuel = pointerdown uniquement.
+        Fallback click seulement si aucun press récent (pointerdown manqué).
+        Crit/charged : glow via spawnClickEffects, PAS de 2e press qui cancel.
       */
-      const pressPrimed = (now - eggPressPrimedAt) < 280;
-      if (!pressPrimed && !isCrit && !isCharged) {
-        playEggClickPress(false);
+      const pressPrimed = (now - eggPressPrimedAt) < 120;
+      if (!pressPrimed) {
+        playEggClickPress(!!isCrit, { charged: isCharged });
       }
       eggPressPrimedAt = 0;
 
@@ -3513,25 +3520,37 @@
 
       syncEggProgressImage(eggDef, pct, !!(opts && opts.forceImage));
 
-      wrap.classList.remove(
-        "egg-stage-normal",
-        "egg-stage-awakening",
-        "egg-stage-hatching",
-        "egg-stage-critical",
-        "prog-0", "prog-1", "prog-2", "prog-3", "prog-4",
-        "breathe",
-        "clicked"
-      );
-      const hatchWrap = document.getElementById("egg-hatch-wrapper");
-      if (hatchWrap) {
-        hatchWrap.classList.remove("egg-soft-pulse", "egg-soft-pulse-mid", "egg-soft-pulse-fast");
-      }
-      if (!hatchSequenceActive) {
-        wrap.classList.add(effectStage);
-        if (hatchWrap && !prefersReducedMotion()) {
-          if (effectStage === "egg-stage-awakening") hatchWrap.classList.add("egg-soft-pulse");
-          else if (effectStage === "egg-stage-hatching") hatchWrap.classList.add("egg-soft-pulse-mid");
-          else if (effectStage === "egg-stage-critical") hatchWrap.classList.add("egg-soft-pulse-fast");
+      /*
+        Ne retoggle soft-pulse / stage QUE si le palier change.
+        Avant : remove+add à CHAQUE clic → restart CSS transform sur
+        .egg-hatch-wrapper → masquait ~1 feedback WAAPI sur 2 (Safari mobile).
+      */
+      const prevStage = wrap.getAttribute("data-egg-effect-stage") || "";
+      const stageChanged = prevStage !== effectStage || !!(opts && opts.forceImage);
+      if (stageChanged || hatchSequenceActive) {
+        wrap.classList.remove(
+          "egg-stage-normal",
+          "egg-stage-awakening",
+          "egg-stage-hatching",
+          "egg-stage-critical",
+          "prog-0", "prog-1", "prog-2", "prog-3", "prog-4",
+          "breathe",
+          "clicked"
+        );
+        const hatchWrap = document.getElementById("egg-hatch-wrapper");
+        if (hatchWrap) {
+          hatchWrap.classList.remove("egg-soft-pulse", "egg-soft-pulse-mid", "egg-soft-pulse-fast");
+        }
+        if (!hatchSequenceActive) {
+          wrap.classList.add(effectStage);
+          wrap.setAttribute("data-egg-effect-stage", effectStage);
+          if (hatchWrap && !prefersReducedMotion()) {
+            if (effectStage === "egg-stage-awakening") hatchWrap.classList.add("egg-soft-pulse");
+            else if (effectStage === "egg-stage-hatching") hatchWrap.classList.add("egg-soft-pulse-mid");
+            else if (effectStage === "egg-stage-critical") hatchWrap.classList.add("egg-soft-pulse-fast");
+          }
+        } else {
+          wrap.setAttribute("data-egg-effect-stage", "");
         }
       }
 
@@ -9363,6 +9382,11 @@
       return document.getElementById("egg-hatch-wrapper");
     }
 
+    /** Visuel œuf actif — cible WAAPI du press (jamais le slot carousel). */
+    function getEggClickVisual() {
+      return document.getElementById("egg-visual") || getEggClickWrapper();
+    }
+
     function playEggClickPress(isCrit, opts) {
       opts = opts || {};
       const isCharged = !!opts.charged;
@@ -9371,57 +9395,62 @@
       else if (isCharged) kind = "charged";
       else if (isCrit) kind = "crit";
 
-      const el = getEggClickWrapper();
+      /* Toujours résoudre le DOM courant (changement d'œuf / zone / éclosion). */
+      const el = getEggClickVisual();
       if (!el) return;
-
-      /* CSS fallback when WAAPI unavailable — class remove + reflow + re-add */
-      if (typeof el.animate !== "function") {
-        el.classList.remove("egg-press-fallback");
-        void el.offsetWidth;
-        el.classList.add("egg-press-fallback");
-        clearTimeout(el._pressTimer);
-        el._pressTimer = setTimeout(() => el.classList.remove("egg-press-fallback"), kind === "normal" ? 150 : 280);
-        return;
-      }
-
-      /*
-        Retrigger fiable (mobile spam 6–8 CPS) :
-        cancel → clear inline transform → reflow → nouvelle WAAPI.
-        Le cleanup ne touche que l'animation courante (évite d'effacer un press plus récent).
-        Ne jamais animer les wrappers carousel.
-      */
-      safeCancelAnimation(eggClickAnimation);
-      eggClickAnimation = null;
-      el.style.transform = "";
-      void el.offsetWidth;
 
       const reduce = prefersReducedMotion();
       const preset = (window.DCAnim && DCAnim.eggPressKeyframes)
         ? DCAnim.eggPressKeyframes(kind, reduce)
         : {
             keyframes: [
-              { transform: "scale(1) rotate(0deg)" },
-              { transform: "scale(0.96) rotate(-1deg)", offset: 0.3 },
-              { transform: "scale(1.045) rotate(1deg)", offset: 0.65 },
-              { transform: "scale(1) rotate(0deg)" }
+              { transform: "scale3d(1, 1, 1)" },
+              { transform: "scale3d(0.95, 0.95, 1)", offset: 0.4 },
+              { transform: "scale3d(1, 1, 1)" }
             ],
-            duration: 160
+            duration: 90
           };
+
+      /* Fallback sans WAAPI — reflow + classe courte (dernier recours) */
+      if (typeof el.animate !== "function") {
+        el.classList.remove("egg-press-active");
+        void el.offsetWidth;
+        el.classList.add("egg-press-active");
+        clearTimeout(el._pressTimer);
+        el._pressTimer = setTimeout(() => el.classList.remove("egg-press-active"), preset.duration || 90);
+        return;
+      }
+
+      /*
+        Pipeline impératif relançable :
+        - annule TOUTE anim transform sur #egg-visual
+        - relance immédiatement (≤110ms) — compatible 7–8 CPS
+        - carousel reste sur .egg-carousel-item (transform séparé)
+      */
+      safeCancelAnimation(eggClickAnimation);
+      eggClickAnimation = null;
+      if (el.getAnimations) {
+        el.getAnimations().forEach((a) => {
+          try { a.cancel(); } catch (e) { /* ignore */ }
+        });
+      }
+      el.classList.add("egg-press-animating");
 
       const anim = el.animate(preset.keyframes, {
         duration: preset.duration,
         easing: "ease-out",
-        fill: "none"
+        fill: "none",
+        composite: "replace"
       });
       eggClickAnimation = anim;
       waitAnimation(anim).then(() => {
         if (eggClickAnimation === anim) {
           eggClickAnimation = null;
-          if (el) el.style.transform = "";
+          el.classList.remove("egg-press-animating");
         }
       });
 
-      playEggClickGlow(kind !== "normal");
+      if (kind !== "normal") playEggClickGlow(true);
     }
 
     /** Soft gold flash on glow ring only — never touches egg image opacity */
@@ -9513,8 +9542,8 @@
       const isCharged = !!opts.charged;
       const both = isCrit && isCharged;
 
-      /* Upgrade press for special hits (normal already on pointerdown) */
-      if (isCrit || isCharged) playEggClickPress(!!isCrit, { charged: isCharged });
+      /* Crit/charged : glow seulement — le squash est déjà parti sur pointerdown */
+      if (isCrit || isCharged) playEggClickGlow(true);
 
       pruneFxList(activeClickFloats, MAX_CLICK_FLOATS);
       const ft = document.createElement("div");
@@ -12419,7 +12448,12 @@
       const zone = document.getElementById("click-zone");
 
       zone.addEventListener("pointerdown", (e) => {
-        if (e.button != null && e.button !== 0) return;
+        /*
+          Touch/pen : accepter même si button === -1 (certains WebKit).
+          Souris : uniquement bouton principal (0).
+        */
+        const isTouch = e.pointerType === "touch" || e.pointerType === "pen";
+        if (!isTouch && e.button != null && e.button !== 0) return;
         if (e.target.closest && e.target.closest("#egg-carousel-peer, #egg-carousel-peer-prev, .egg-carousel-item:not(.is-active-slot)")) {
           e.preventDefault();
           e.stopPropagation();

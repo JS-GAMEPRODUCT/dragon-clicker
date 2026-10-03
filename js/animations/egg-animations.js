@@ -7,59 +7,51 @@
 
   const DCAnim = global.DCAnim || (global.DCAnim = {});
 
+  /**
+   * Click feedback keyframes — MUST stay ≤110ms so 7–8 CPS can retrigger every tap.
+   * Applied on #egg-visual only (never carousel slot / hatch soft-pulse wrapper).
+   */
   DCAnim.eggPressKeyframes = function eggPressKeyframes(kind, reduce) {
     if (reduce) {
       return {
         keyframes: [
-          { transform: "scale(1) rotate(0deg)" },
-          { transform: "scale(0.97) rotate(0deg)", offset: 0.45 },
-          { transform: "scale(1) rotate(0deg)" }
+          { transform: "scale3d(1, 1, 1)" },
+          { transform: "scale3d(0.97, 0.97, 1)", offset: 0.45 },
+          { transform: "scale3d(1, 1, 1)" }
         ],
-        duration: 110
+        duration: 80
       };
     }
     if (kind === "chargedCrit") {
       return {
         keyframes: [
-          { transform: "scale(1) rotate(0deg)" },
-          { transform: "scale(0.90) rotate(-2.2deg)", offset: 0.28 },
-          { transform: "scale(1.07) rotate(2deg)", offset: 0.62 },
-          { transform: "scale(1) rotate(0deg)" }
+          { transform: "scale3d(1, 1, 1)" },
+          { transform: "scale3d(0.92, 0.92, 1)", offset: 0.35 },
+          { transform: "scale3d(1.03, 1.03, 1)", offset: 0.7 },
+          { transform: "scale3d(1, 1, 1)" }
         ],
-        duration: 300
+        duration: 105
       };
     }
-    if (kind === "charged") {
+    if (kind === "charged" || kind === "crit") {
       return {
         keyframes: [
-          { transform: "scale(1) rotate(0deg)" },
-          { transform: "scale(0.92) rotate(-1.8deg)", offset: 0.3 },
-          { transform: "scale(1.06) rotate(1.5deg)", offset: 0.65 },
-          { transform: "scale(1) rotate(0deg)" }
+          { transform: "scale3d(1, 1, 1)" },
+          { transform: "scale3d(0.94, 0.94, 1)", offset: 0.35 },
+          { transform: "scale3d(1.025, 1.025, 1)", offset: 0.7 },
+          { transform: "scale3d(1, 1, 1)" }
         ],
-        duration: 280
+        duration: 100
       };
     }
-    if (kind === "crit") {
-      return {
-        keyframes: [
-          { transform: "scale(1) rotate(0deg)" },
-          { transform: "scale(0.93) rotate(-1.4deg)", offset: 0.3 },
-          { transform: "scale(1.055) rotate(1.2deg)", offset: 0.62 },
-          { transform: "scale(1) rotate(0deg)" }
-        ],
-        duration: 280
-      };
-    }
-    /* normal click — soft squash + rebound */
+    /* normal — squash + light rebound */
     return {
       keyframes: [
-        { transform: "scale(1) rotate(0deg)" },
-        { transform: "scale(0.96) rotate(-1deg)", offset: 0.3 },
-        { transform: "scale(1.045) rotate(1deg)", offset: 0.65 },
-        { transform: "scale(1) rotate(0deg)" }
+        { transform: "scale3d(1, 1, 1)" },
+        { transform: "scale3d(0.95, 0.95, 1)", offset: 0.4 },
+        { transform: "scale3d(1, 1, 1)" }
       ],
-      duration: 160
+      duration: 90
     };
   };
 

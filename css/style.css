@@ -975,12 +975,12 @@
     }
 
     .egg-click-wrapper {
-      will-change: transform;
+      /* Press WAAPI déplacé sur #egg-visual — ce wrapper ne porte plus le squash */
+      transition: none;
     }
 
     .egg-click-wrapper.egg-press-fallback {
       transform: scale(0.945);
-      transition: transform 140ms cubic-bezier(.33, 0, .2, 1);
     }
 
     .egg-ground-shadow {
@@ -1287,6 +1287,17 @@
       border-radius: 0;
       overflow: visible;
       background: transparent;
+      /* Cible WAAPI du press — pas de transition CSS sur transform (conflit Safari) */
+      transform-origin: center bottom;
+      transition: none;
+    }
+
+    .egg-visual.egg-press-animating {
+      will-change: transform;
+    }
+
+    .egg-visual.egg-press-active {
+      transform: scale3d(0.95, 0.95, 1);
     }
 
     /* Correction visuelle PNG (marges transparentes) — n'affecte PAS le transform carrousel */
@@ -1295,7 +1306,7 @@
       display: block;
       width: 100%;
       transform: translateX(var(--egg-visual-ox, 0%)) scale(var(--egg-visual-scale, 1));
-      will-change: transform;
+      /* will-change retiré en permanent : réservé au press sur .egg-visual */
     }
 
     .egg-visual img {
