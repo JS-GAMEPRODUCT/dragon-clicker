@@ -12211,20 +12211,48 @@ html {
 
   /* ----- Colonne gauche : Événement → Coffre → équipe (Paramètres = HUD droite) ----- */
   .scene-left-stack {
-    left: max(2px, env(safe-area-inset-left, 0px));
     /*
-      Remontée pour finir AU-DESSUS de Progression d’éclosion.
-      Ancré sous le HUD (4 rangées droites) + clamp responsive.
+      position:fixed : remonte sous les badges GAUCHE (ESSENCE/CPS, 2 rangées)
+      sans être clipée par #panel-kingdom (overflow:hidden, top = bas du HUD 4 rangées).
     */
+    position: fixed;
+    left: max(2px, env(safe-area-inset-left, 0px));
     top: max(
-      calc(env(safe-area-inset-top, 0px) + 8px),
-      calc(clamp(2%, calc(var(--altar-y, 64%) - 52%), 10%) - 96px)
+      calc(env(safe-area-inset-top, 0px) + 108px),
+      108px
     );
-    gap: 9px;
-    z-index: 22;
+    gap: 8px;
+    z-index: 28;
     align-items: center;
     width: max-content;
     max-width: min(88px, 24vw);
+  }
+
+  /*
+    Titre œuf : depuis Paramètres sous Puissance, le HUD mobile est plus haut
+    (min-height 214px) → capitales Cinzel + text-shadow clipées par la couche
+    transform de .egg-stage (et autrefois par #panel-kingdom overflow:hidden).
+    Mobile only : overflow visible, padding haut, line-height, légère descente.
+  */
+  #panel-kingdom.active {
+    overflow: visible;
+  }
+  #app {
+    --egg-stage-lift: 14px;
+  }
+  .egg-stage {
+    transform: translate(-50%, calc(-48% - var(--egg-stage-lift, 14px)));
+    padding-top: 26px;
+    overflow: visible;
+  }
+  .egg-title-block {
+    padding-top: 6px;
+    overflow: visible;
+  }
+  .egg-stage-label {
+    line-height: 1.55;
+    padding: 0.22em 10px 0.12em;
+    overflow: visible;
   }
 
   /* Sécurité : le gear ne doit plus apparaître dans le rail mobile */
@@ -13806,11 +13834,19 @@ html {
 /* Très petits écrans : remonter la colonne gauche (événement + coffre + équipe) */
 @media (max-width: 768px) and (max-height: 700px) {
   .scene-left-stack {
+    position: fixed;
     top: max(
-      calc(env(safe-area-inset-top, 0px) + 4px),
-      calc(clamp(1%, calc(var(--altar-y, 64%) - 54%), 8%) - 88px)
+      calc(env(safe-area-inset-top, 0px) + 108px),
+      108px
     );
-    gap: 8px;
+    gap: 7px;
+  }
+  #app {
+    --egg-stage-lift: 12px;
+  }
+  .egg-stage {
+    transform: translate(-50%, calc(-48% - var(--egg-stage-lift, 12px)));
+    padding-top: 16px;
   }
   .scene-events-art {
     width: 54px;
