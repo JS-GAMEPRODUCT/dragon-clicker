@@ -1588,6 +1588,8 @@
     let eggHatchAnimation = null;
     let eggAmbientAnimation = null;
     let eggClickGlowAnimation = null;
+    /** Timestamp of last pointerdown press — fallback if mobile misses pointerdown but fires click */
+    let eggPressPrimedAt = 0;
     let hatchFxTimers = [];
     let hatchFxToken = 0;
     /**
@@ -3199,6 +3201,17 @@
 
       checkSecretUnlocks();
 
+      /*
+        Mobile intermittent : parfois `click` arrive sans `pointerdown` utile
+        (rétarget / gesture). Les frappes normales ne rejouent pas le press dans
+        spawnClickEffects — on rattrape ici si aucun press récent.
+      */
+      const pressPrimed = (now - eggPressPrimedAt) < 280;
+      if (!pressPrimed && !isCrit && !isCharged) {
+        playEggClickPress(false);
+      }
+      eggPressPrimedAt = 0;
+
       spawnClickEffects(clientX, clientY, essenceGain, isCrit, { charged: isCharged });
       AudioManager.unlock();
       playSound("click", isCrit || isCharged);
@@ -3213,6 +3226,7 @@
     function handleEggPointerDown(clientX, clientY) {
       if (clicksLocked || hatchSequenceActive || isEggCarouselAnimating) return;
       AudioManager.unlock();
+      eggPressPrimedAt = performance.now();
       playEggClickPress(false);
     }
 
@@ -4556,7 +4570,7 @@
       };
 
       if (reduce) {
-        if (!skipPopupSound) playDragonRevealSound(soundRarity);
+        if (!skipPopupSound) playDragonRevealSound(soundRarity, { force: true });
         const tasks = [];
         if (art && typeof art.animate === "function") {
           tasks.push(waitAnimation(art.animate(
@@ -4682,9 +4696,16 @@
         });
       }
 
-      /* Rarity SFX ~180ms into materialize — dragon becomes visible, not magic start */
-      const soundPromise = hatchDelay(soundAt, hatchFxToken).then((ok) => {
-        if (ok && !skipPopupSound) playDragonRevealSound(soundRarity);
+      /*
+        Rarity SFX ~180ms into materialize — dragon becomes visible, not magic start.
+        Timer indépendant de hatchFxToken / clearHatchFxTimers : un dismiss rapide
+        du modal ne doit pas annuler le popup audio déjà programmé.
+      */
+      const soundPromise = new Promise((resolve) => {
+        setTimeout(() => {
+          if (!skipPopupSound) playDragonRevealSound(soundRarity, { force: true });
+          resolve();
+        }, soundAt);
       });
 
       if (art && typeof art.animate === "function") {
@@ -9351,8 +9372,10 @@
       else if (isCrit) kind = "crit";
 
       const el = getEggClickWrapper();
-      if (!el || typeof el.animate !== "function") {
-        if (!el) return;
+      if (!el) return;
+
+      /* CSS fallback when WAAPI unavailable — class remove + reflow + re-add */
+      if (typeof el.animate !== "function") {
         el.classList.remove("egg-press-fallback");
         void el.offsetWidth;
         el.classList.add("egg-press-fallback");
@@ -9361,9 +9384,16 @@
         return;
       }
 
-      /* Cancel previous press so spam stays on identity — never touch carousel wrappers */
+      /*
+        Retrigger fiable (mobile spam 6–8 CPS) :
+        cancel → clear inline transform → reflow → nouvelle WAAPI.
+        Le cleanup ne touche que l'animation courante (évite d'effacer un press plus récent).
+        Ne jamais animer les wrappers carousel.
+      */
       safeCancelAnimation(eggClickAnimation);
       eggClickAnimation = null;
+      el.style.transform = "";
+      void el.offsetWidth;
 
       const reduce = prefersReducedMotion();
       const preset = (window.DCAnim && DCAnim.eggPressKeyframes)
@@ -9378,16 +9408,16 @@
             duration: 160
           };
 
-      eggClickAnimation = el.animate(preset.keyframes, {
+      const anim = el.animate(preset.keyframes, {
         duration: preset.duration,
-        easing: "ease-out"
+        easing: "ease-out",
+        fill: "none"
       });
-      waitAnimation(eggClickAnimation).then(() => {
-        if (eggClickAnimation && eggClickAnimation.playState === "finished") {
+      eggClickAnimation = anim;
+      waitAnimation(anim).then(() => {
+        if (eggClickAnimation === anim) {
           eggClickAnimation = null;
-        }
-        if (el) {
-          el.style.transform = "";
+          if (el) el.style.transform = "";
         }
       });
 
@@ -9601,6 +9631,7 @@
       lastPlayAt: Object.create(null),
       clickThrottleMs: 42,
       unlocked: false,
+      htmlAudioWarmed: false,
 
       /* Single global ambient track */
       musicEl: null,
@@ -9658,7 +9689,42 @@
         this.unlocked = true;
         this.ensureEggCrack();
         this.ensureDragonRevealSounds();
+        /* iOS / mobile : chauffer chaque HTMLAudio une seule fois pendant un geste */
+        if (!this.htmlAudioWarmed) {
+          this.warmHtmlAudioElements();
+          this.htmlAudioWarmed = true;
+        }
         this.startMusic({ fade: !this.musicStarted });
+      },
+
+      /** Mute-play-pause sur les SFX HTML pour autoriser play() hors geste (iOS). */
+      warmHtmlAudioElements() {
+        const warm = (el) => {
+          if (!el) return;
+          const prevVol = el.volume;
+          try {
+            el.muted = true;
+            el.volume = 0;
+            const p = el.play();
+            const restore = () => {
+              try { el.pause(); } catch (e1) { /* ignore */ }
+              try { el.currentTime = 0; } catch (e2) { /* ignore */ }
+              el.muted = false;
+              el.volume = prevVol;
+            };
+            if (p && typeof p.then === "function") {
+              p.then(restore).catch(restore);
+            } else {
+              restore();
+            }
+          } catch (e) {
+            try { el.muted = false; el.volume = prevVol; } catch (e2) { /* ignore */ }
+          }
+        };
+        warm(this.eggCrackEl);
+        const els = this.dragonRevealSoundEls || {};
+        const keys = Object.keys(els);
+        for (let i = 0; i < keys.length; i++) warm(els[keys[i]]);
       },
 
       ensureEggCrack() {
@@ -9674,11 +9740,12 @@
 
       /** Map game rarity → sound key (common / rare / epic / legendary / mythic). */
       resolveDragonRevealSoundKey(rarity) {
-        const r = rarity || "common";
+        const r = String(rarity == null ? "common" : rarity).toLowerCase().trim();
         if (r === "mythic" || r === "divine") return "mythic";
-        if (r === "legendary") return "legendary";
-        if (r === "epic") return "epic";
+        if (r === "legendary" || r === "legendaire" || r === "légendaire") return "legendary";
+        if (r === "epic" || r === "épique" || r === "epique") return "epic";
         if (r === "rare") return "rare";
+        if (r === "common" || r === "commun") return "common";
         return "common";
       },
 
@@ -9726,27 +9793,64 @@
       /**
        * Play rarity-specific dragon reveal SFX (cached Audio elements).
        * @param {string} [rarity]
+       * @param {{ force?: boolean }} [opts] force=true pour le reveal hatch (ignore throttle coffre)
        */
-      playDragonRevealSound(rarity) {
+      playDragonRevealSound(rarity, opts) {
+        opts = opts || {};
         const level = this.sfx();
         if (level <= 0) return;
-        /* Court throttle : évite double fire immédiat sur le même reveal */
-        if (!this.canPlay("dragonPopup", 180)) return;
         const key = this.resolveDragonRevealSoundKey(rarity);
+        /*
+          Throttle dédié hatch (`dragonRevealHatch`) — ne partage plus la clé
+          `dragonPopup` avec les coffres (sinon un open coffre récent coupe le reveal).
+        */
+        const throttleKey = opts.force ? "dragonRevealHatch" : "dragonPopup";
+        if (!opts.force && !this.canPlay(throttleKey, 180)) return;
+        if (opts.force && !this.canPlay(throttleKey, 120)) return;
+
         const el = this.ensureDragonRevealSound(key);
+        el.muted = false;
         el.volume = Math.max(0, Math.min(1, this.dragonPopupBaseVolume * level));
-        try {
-          el.currentTime = 0;
-        } catch (e) { /* ignore seek errors before load */ }
-        const p = el.play();
-        if (p && typeof p.catch === "function") {
-          p.catch(() => { /* autoplay / unlock may block once */ });
+        try { el.playbackRate = 1; } catch (e0) { /* optional */ }
+
+        const tryPlay = () => {
+          try { el.currentTime = 0; } catch (e) { /* ignore seek errors before load */ }
+          const p = el.play();
+          if (p && typeof p.catch === "function") {
+            p.catch(() => {
+              /* Retry une fois après unlock (autoplay policy mobile) */
+              try {
+                const ctx = this.getCtx();
+                if (ctx && ctx.state === "suspended") ctx.resume();
+              } catch (e2) { /* ignore */ }
+              try { el.currentTime = 0; } catch (e3) { /* ignore */ }
+              const p2 = el.play();
+              if (p2 && typeof p2.catch === "function") p2.catch(() => {});
+            });
+          }
+        };
+
+        if (el.readyState >= 2) {
+          tryPlay();
+        } else {
+          let done = false;
+          const finish = () => {
+            if (done) return;
+            done = true;
+            el.removeEventListener("canplaythrough", finish);
+            el.removeEventListener("loadeddata", finish);
+            tryPlay();
+          };
+          el.addEventListener("canplaythrough", finish);
+          el.addEventListener("loadeddata", finish);
+          try { el.load(); } catch (e) { /* optional */ }
+          setTimeout(finish, 280);
         }
       },
 
       /* Legacy name — délègue au son de rareté (common par défaut) */
-      playDragonPopup(rarity) {
-        this.playDragonRevealSound(rarity);
+      playDragonPopup(rarity, opts) {
+        this.playDragonRevealSound(rarity, opts);
       },
 
       master() {
@@ -10018,7 +10122,7 @@
           return;
         }
         if (type === "dragonPopup" || type === "dragonRevealSound") {
-          this.playDragonRevealSound(opts.rarity);
+          this.playDragonRevealSound(opts.rarity, opts);
           return;
         }
         if (type === "rare") {
@@ -10061,13 +10165,13 @@
     };
 
     /** Son de reveal dragon selon la rareté — joué au moment où le dragon devient visible. */
-    function playDragonRevealSound(rarity) {
-      AudioManager.playDragonRevealSound(rarity);
+    function playDragonRevealSound(rarity, opts) {
+      AudioManager.playDragonRevealSound(rarity, opts);
     }
 
     /* Alias conservé pour appels existants (passe la rareté si fournie). */
-    function playDragonPopupSound(rarity) {
-      playDragonRevealSound(rarity);
+    function playDragonPopupSound(rarity, opts) {
+      playDragonRevealSound(rarity, opts);
     }
 
     function playSound(type, isCrit) {
@@ -12778,6 +12882,9 @@
       window.calculateGlobalStats = calculateGlobalStats;
       window.recalculateGlobalStats = recalculateGlobalStats;
       window.calculateZoneEssencePerSecond = calculateZoneEssencePerSecond;
+
+      /* Expose for modules / helpers that look up window.AudioManager (ex: coffres). */
+      window.AudioManager = AudioManager;
 
       window.DragonClicker = {
         getState: () => gameState,
