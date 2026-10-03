@@ -39,7 +39,8 @@
   };
 
   DCAnim.pulseHudPower = function pulseHudPower() {
-    const el = document.querySelector(".power-stat") ||
+    const el = document.querySelector(".hud-power-card") ||
+      document.querySelector(".power-stat") ||
       document.querySelector(".hud-resource-card--power") ||
       document.getElementById("dragon-power-value");
     if (el) DCAnim.triggerClass(el, "anim-pulse", 180);

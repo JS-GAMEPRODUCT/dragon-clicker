@@ -12,8 +12,8 @@ var PRODUCER_DEFS = [
         name: "Dragonneau",
         icon: "🐲",
         description: "Un jeune dragon qui génère un peu de puissance passive.",
-        baseCost: 100,
-        costGrowth: 1.18,
+        baseCost: 85,
+        costGrowth: 1.165,
         productionPerLevel: 0.4,
         baseProduction: 0.4,
         maxProduction: 8,
@@ -27,8 +27,8 @@ var PRODUCER_DEFS = [
         name: "Nid draconique",
         icon: "🪺",
         description: "Un nid accueillant qui accélère l'économie passive.",
-        baseCost: 500,
-        costGrowth: 1.2,
+        baseCost: 420,
+        costGrowth: 1.185,
         productionPerLevel: 20 / 15,
         baseProduction: 20 / 15,
         maxProduction: 20,
@@ -42,8 +42,8 @@ var PRODUCER_DEFS = [
         name: "Sanctuaire draconique",
         icon: "🛕",
         description: "Autel baigné de magie ancienne du Sanctuaire.",
-        baseCost: 2500,
-        costGrowth: 1.22,
+        baseCost: 2100,
+        costGrowth: 1.20,
         productionPerLevel: 3.5,
         baseProduction: 3.5,
         maxProduction: 42,
@@ -57,8 +57,8 @@ var PRODUCER_DEFS = [
         name: "Tour draconique",
         icon: "🗼",
         description: "Une tour qui canalise l'énergie draconique du sanctuaire.",
-        baseCost: 8000,
-        costGrowth: 1.23,
+        baseCost: 6000,
+        costGrowth: 1.195,
         productionPerLevel: 10,
         baseProduction: 10,
         maxProduction: 80,
@@ -72,8 +72,8 @@ var PRODUCER_DEFS = [
         name: "Forteresse draconique",
         icon: "🏰",
         description: "Le cœur économique de votre empire draconique.",
-        baseCost: 20000,
-        costGrowth: 1.25,
+        baseCost: 15000,
+        costGrowth: 1.21,
         productionPerLevel: 32,
         baseProduction: 32,
         maxProduction: 160,
@@ -82,14 +82,14 @@ var PRODUCER_DEFS = [
         tier: 5,
         zoneId: "sanctuary"
       },
-      /* Zone 2 — Vallée : coûts rééquilibrés (totaux cibles ≈ 3,14M boutique). Production inchangée. */
+      /* Zone 2 — Vallée : ~1h principale à 6–7 CPS (production inchangée). */
       {
         id: "valleyCub",
         name: "Dragonnet de vallée",
         icon: "🐉",
         description: "Plus vif que les dragonneaux du Sanctuaire.",
-        baseCost: 450,
-        costGrowth: 1.13,
+        baseCost: 380,
+        costGrowth: 1.12,
         productionPerLevel: 1.2,
         baseProduction: 1.2,
         maxProduction: 30,
@@ -103,8 +103,8 @@ var PRODUCER_DEFS = [
         name: "Nid de vallée",
         icon: "🪺",
         description: "Nids tissés dans les collines fertiles.",
-        baseCost: 1908,
-        costGrowth: 1.156,
+        baseCost: 1600,
+        costGrowth: 1.145,
         productionPerLevel: 3.5,
         baseProduction: 3.5,
         maxProduction: 70,
@@ -118,8 +118,8 @@ var PRODUCER_DEFS = [
         name: "Aiguille de vallée",
         icon: "🏔️",
         description: "Une aiguille de pierre qui concentre le flux draconique.",
-        baseCost: 6250,
-        costGrowth: 1.226,
+        baseCost: 5200,
+        costGrowth: 1.21,
         productionPerLevel: 10,
         baseProduction: 10,
         maxProduction: 150,
@@ -133,8 +133,8 @@ var PRODUCER_DEFS = [
         name: "Donjon de vallée",
         icon: "🏯",
         description: "Forteresse avancée de la Vallée draconique.",
-        baseCost: 25500,
-        costGrowth: 1.262,
+        baseCost: 19500,
+        costGrowth: 1.24,
         productionPerLevel: 24,
         baseProduction: 24,
         maxProduction: 240,
@@ -148,8 +148,8 @@ var PRODUCER_DEFS = [
         name: "Citadelle de vallée",
         icon: "🛡️",
         description: "Le joyau économique de la Vallée.",
-        baseCost: 67900,
-        costGrowth: 1.352,
+        baseCost: 48000,
+        costGrowth: 1.31,
         productionPerLevel: 340 / 7,
         baseProduction: 340 / 7,
         maxProduction: 340,
@@ -158,14 +158,14 @@ var PRODUCER_DEFS = [
         tier: 5,
         zoneId: "valley"
       },
-      /* Zone 3 — Montagne sauvage : 5 producteurs (~11,45M Essence). */
+      /* Zone 3 — Montagne sauvage : ~1h pour ~75 % (production inchangée). */
       {
         id: "graniteNest",
         name: "Nid de Granit",
         icon: "🪨",
         description: "Nids de pierre ambrée nichés dans les failles.",
-        baseCost: 5000,
-        costGrowth: 1.0663,
+        baseCost: 4200,
+        costGrowth: 1.062,
         productionPerLevel: 4,
         baseProduction: 4,
         maxProduction: 100,
@@ -179,8 +179,8 @@ var PRODUCER_DEFS = [
         name: "Refuge d'Ambre",
         icon: "🔶",
         description: "Abri de cristal d'ambre où l'essence s'accumule.",
-        baseCost: 15000,
-        costGrowth: 1.088,
+        baseCost: 12500,
+        costGrowth: 1.082,
         productionPerLevel: 10,
         baseProduction: 10,
         maxProduction: 200,
@@ -194,8 +194,8 @@ var PRODUCER_DEFS = [
         name: "Sanctuaire des Falaises",
         icon: "🏔️",
         description: "Autel sculpté dans la falaise, baigné de vents anciens.",
-        baseCost: 50000,
-        costGrowth: 1.1085,
+        baseCost: 42000,
+        costGrowth: 1.10,
         productionPerLevel: 25,
         baseProduction: 25,
         maxProduction: 375,
@@ -209,8 +209,8 @@ var PRODUCER_DEFS = [
         name: "Tour des Cimes",
         icon: "🗼",
         description: "Tour dressée sur les crêtes, capte le flux des sommets.",
-        baseCost: 150000,
-        costGrowth: 1.1601,
+        baseCost: 125000,
+        costGrowth: 1.15,
         productionPerLevel: 60,
         baseProduction: 60,
         maxProduction: 600,
@@ -224,8 +224,8 @@ var PRODUCER_DEFS = [
         name: "Bastion des Tempêtes",
         icon: "⛈️",
         description: "Forteresse orageuse — cœur économique de la Montagne.",
-        baseCost: 400000,
-        costGrowth: 1.2202,
+        baseCost: 330000,
+        costGrowth: 1.205,
         productionPerLevel: 130,
         baseProduction: 130,
         maxProduction: 910,
@@ -242,7 +242,7 @@ var SHOP_PASSIVE_DEFS = [
         name: "Nids Économes",
         icon: "💰",
         description: "Coût des producteurs −5 %",
-        cost: 6000,
+        cost: 4800,
         zoneId: "sanctuary",
         effect: { type: "producerCostMult", value: 0.95 }
       },
@@ -251,7 +251,7 @@ var SHOP_PASSIVE_DEFS = [
         name: "Sens des Fragments",
         icon: "🧩",
         description: "Fragments gagnés +10 %",
-        cost: 9000,
+        cost: 7200,
         zoneId: "sanctuary",
         effect: { type: "fragmentMult", value: 0.10 }
       }
@@ -281,22 +281,14 @@ var LEVEL_PASSIVE_DEFS = [
     ];
 
 var SPECIAL_UPGRADE_DEFS = [
-      {
-        id: "critAwakening",
-        name: "Éveil Critique",
-        icon: "⚡",
-        zoneId: "sanctuary",
-        cost: 220,
-        description: "+0,5 % chance critique permanente.",
-        effect: { type: "critChance", value: 0.005 },
-        unlock: { type: "totalEssence", value: 80 }
-      },
+      /* critAwakening (Éveil Critique) retiré — anciennes saves peuvent encore
+         contenir specialUpgrades.critAwakening ; ignoré au load, effet non appliqué. */
       {
         id: "ancestralBreath",
         name: "Souffle Ancestral",
         icon: "💨",
         zoneId: "sanctuary",
-        cost: 2800,
+        cost: 2200,
         description: "+10 % production passive globale.",
         effect: { type: "globalProdPct", value: 0.10 },
         unlock: { type: "producerOwned", producerId: "sanctuaryHall", value: 1 }
@@ -306,7 +298,7 @@ var SPECIAL_UPGRADE_DEFS = [
         name: "Instinct du Chasseur",
         icon: "🎯",
         zoneId: "sanctuary",
-        cost: 4500,
+        cost: 3600,
         description: "+2 % rendement de fragments (accumulateur).",
         effect: { type: "fragmentYield", value: 0.02 },
         unlock: { type: "zoneDragons", zoneId: "sanctuary", value: 2 }
@@ -316,7 +308,7 @@ var SPECIAL_UPGRADE_DEFS = [
         name: "Résonance de l'Œuf",
         icon: "🥚",
         zoneId: "sanctuary",
-        cost: 6500,
+        cost: 5200,
         description: "+5 % progression d'éclosion sur les clics manuels.",
         effect: { type: "eggProgressPct", value: 0.05 },
         unlock: { type: "eggsHatched", value: 2 }
@@ -326,7 +318,7 @@ var SPECIAL_UPGRADE_DEFS = [
         name: "Héritage du Sanctuaire",
         icon: "🏛️",
         zoneId: "sanctuary",
-        cost: 28000,
+        cost: 22000,
         description: "+5 % clic manuel et +5 % production passive.",
         effect: { type: "heritage", clickPct: 0.05, prodPct: 0.05 },
         unlock: { type: "producerOwned", producerId: "fortress", value: 1 }
@@ -360,17 +352,17 @@ var ZONE_RANK_META = [
         /* Force Draconique : 3 paliers lourds de puissance de clic (totaux cumulés). */
         heavyClickFlat: true,
         clickPowerFlatValues: [2, 5, 8],
-        clickPowerFlatCosts: [15000, 30000, 55000],
+        clickPowerFlatCosts: [10000, 20000, 38000],
         icons: { fervor: "💪" },
-        /* Prix Z1 — bonus inchangés ; boutique Z1 non touchée. */
-        baseCosts: { claws: 250, instinct: 1500, bite: 7000, fervor: 15000 },
-        costGrowth: 1.25,
-        familyGrowth: { claws: 1.25, instinct: 1.28, bite: 1.30, fervor: 1 },
+        /* Prix Z1 — bonus inchangés ; ~1h principale à 6–7 CPS. */
+        baseCosts: { claws: 200, instinct: 1200, bite: 5500, fervor: 10000 },
+        costGrowth: 1.22,
+        familyGrowth: { claws: 1.22, instinct: 1.25, bite: 1.27, fervor: 1 },
         maxLevels: { claws: 15, instinct: 10, bite: 5, fervor: 3 }
       },
       {
         zoneId: "valley", rank: "Éveillé", order: 2,
-        /* Zone 2 : 6 améliorations — effets inchangés, coûts rééquilibrés (≈ 5,57M total). */
+        /* Zone 2 : effets inchangés, prix ~1h principale à 6–7 CPS. */
         customActiveUpgrades: [
           {
             id: "claws_valley",
@@ -384,8 +376,8 @@ var ZONE_RANK_META = [
               0.9, 1.8, 2.7, 3.6, 4.5, 5.4, 6.3, 7.2, 8.1, 9,
               9.9, 10.8, 11.7, 12.6, 13.5, 14.4, 15.3, 16.2, 17.1, 18
             ],
-            baseCost: 5520,
-            costGrowth: 1.184,
+            baseCost: 4600,
+            costGrowth: 1.17,
             uiOrder: 1
           },
           {
@@ -396,8 +388,8 @@ var ZONE_RANK_META = [
             maxLevel: 5,
             bonusType: "clickPowerFlat",
             bonusValues: [4, 8, 12, 16, 20],
-            baseCost: 58800,
-            costGrowth: 1.482,
+            baseCost: 45000,
+            costGrowth: 1.44,
             uiOrder: 2
           },
           {
@@ -412,8 +404,8 @@ var ZONE_RANK_META = [
               0.0015, 0.003, 0.0045, 0.006, 0.0075, 0.009,
               0.011, 0.013, 0.015, 0.017, 0.0185, 0.02
             ],
-            baseCost: 12160,
-            costGrowth: 1.264,
+            baseCost: 9500,
+            costGrowth: 1.24,
             uiOrder: 3
           },
           {
@@ -424,8 +416,8 @@ var ZONE_RANK_META = [
             maxLevel: 8,
             bonusType: "critMultiplierFlat",
             bonusValues: [0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.68, 0.75],
-            baseCost: 24600,
-            costGrowth: 1.348,
+            baseCost: 18500,
+            costGrowth: 1.32,
             uiOrder: 4
           },
           {
@@ -437,8 +429,8 @@ var ZONE_RANK_META = [
             bonusType: "chargedStrike",
             triggerClicks: [25, 22, 18, 15, 12, 10],
             multiplier: 2,
-            baseCost: 37500,
-            costGrowth: 1.584,
+            baseCost: 26000,
+            costGrowth: 1.51,
             uiOrder: 5
           },
           {
@@ -448,15 +440,15 @@ var ZONE_RANK_META = [
             icon: "✨",
             maxLevel: 5,
             bonusType: "twinHatchChance",
-            /* Valeurs en pourcent (0.2 … 1.0) — converties en fraction au jet. */
+            /* Valeurs en pourcent (0.2 … 1.0) — converties en fraction au jet. Contenu facultatif. */
             bonusValues: [0.2, 0.4, 0.6, 0.8, 1.0],
-            baseCost: 120000,
-            costGrowth: 1.506,
+            baseCost: 85000,
+            costGrowth: 1.45,
             uiOrder: 6
           }
         ]
       },
-      /* Zone 3 — Montagne sauvage : 6 améliorations (~13,6M Essence). */
+      /* Zone 3 — Montagne sauvage : effets inchangés, ~75 % en ~1h à 6–7 CPS. */
       {
         zoneId: "mountains", rank: "Adepte", order: 3,
         customActiveUpgrades: [
@@ -472,8 +464,8 @@ var ZONE_RANK_META = [
               2, 4, 6, 8, 10, 12, 14, 16, 18, 20,
               22, 24, 26, 28, 30, 32, 34, 36, 38, 40
             ],
-            baseCost: 20000,
-            costGrowth: 1.156,
+            baseCost: 16500,
+            costGrowth: 1.148,
             uiOrder: 1
           },
           {
@@ -484,8 +476,8 @@ var ZONE_RANK_META = [
             maxLevel: 5,
             bonusType: "clickPowerFlat",
             bonusValues: [5, 11, 18, 26, 35],
-            baseCost: 150000,
-            costGrowth: 1.506,
+            baseCost: 125000,
+            costGrowth: 1.48,
             uiOrder: 2
           },
           {
@@ -500,8 +492,8 @@ var ZONE_RANK_META = [
               0.0015, 0.003, 0.0045, 0.006, 0.0075,
               0.009, 0.0105, 0.012, 0.0135, 0.015
             ],
-            baseCost: 50000,
-            costGrowth: 1.266,
+            baseCost: 42000,
+            costGrowth: 1.25,
             uiOrder: 3
           },
           {
@@ -513,8 +505,8 @@ var ZONE_RANK_META = [
             bonusType: "critMultiplierFlat",
             /* +0,125 / niveau → +1,00 au max */
             bonusValues: [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0],
-            baseCost: 80000,
-            costGrowth: 1.2988,
+            baseCost: 66000,
+            costGrowth: 1.28,
             uiOrder: 4
           },
           {
@@ -526,8 +518,8 @@ var ZONE_RANK_META = [
             bonusType: "globalProdPct",
             /* Valeurs totales en points de % → +10 % production passive au max */
             bonusValues: [2, 4, 6, 8, 10],
-            baseCost: 200000,
-            costGrowth: 1.471,
+            baseCost: 165000,
+            costGrowth: 1.45,
             uiOrder: 5
           },
           {
@@ -539,8 +531,8 @@ var ZONE_RANK_META = [
             bonusType: "twinHatchChance",
             /* S'ajoute à Éclosion Jumelle Z2 (valeurs en %) */
             bonusValues: [0.2, 0.4, 0.6, 0.8, 1.0],
-            baseCost: 300000,
-            costGrowth: 1.3863,
+            baseCost: 250000,
+            costGrowth: 1.36,
             uiOrder: 6
           }
         ]

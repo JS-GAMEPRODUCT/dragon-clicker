@@ -1,8 +1,138 @@
 /**
  * Dragon Clicker
  * Configuration des dragons et des œufs.
+ *
+ * Bonus de base Z1–Z3 : famille par rareté, puissance par zone.
+ * (Common = click %, Rare = Essence/sec %, Epic = click % +,
+ *  Legendary = Essence/sec flat, Mythic = click flat + Essence/sec flat)
  */
 "use strict";
+
+/**
+ * Courbes partagées : même rareté + même zone = mêmes valeurs.
+ * values en points de % pour les types *Percent ; valeurs brutes pour les *Flat.
+ */
+var DRAGON_ZONE_RARITY_BONUSES = {
+  sanctuary: {
+    common: {
+      type: "clickPowerPercent",
+      name: "Puissance de clic",
+      values: [1, 2, 3, 4, 5]
+    },
+    rare: {
+      type: "essenceProductionPercent",
+      name: "Essence/sec",
+      values: [2, 3, 4, 5, 6]
+    },
+    epic: {
+      type: "clickPowerPercent",
+      name: "Puissance de clic",
+      values: [3, 5, 7, 9, 11]
+    },
+    legendary: {
+      type: "essenceProductionFlat",
+      name: "Essence/sec",
+      values: [5, 9, 14, 20, 28]
+    },
+    mythic: [
+      {
+        type: "clickPowerFlat",
+        name: "Puissance de clic",
+        values: [2, 3, 4, 6, 8]
+      },
+      {
+        type: "essenceProductionFlat",
+        name: "Essence/sec",
+        values: [10, 16, 24, 34, 45]
+      }
+    ]
+  },
+  valley: {
+    common: {
+      type: "clickPowerPercent",
+      name: "Puissance de clic",
+      values: [2, 3, 4, 5, 7]
+    },
+    rare: {
+      type: "essenceProductionPercent",
+      name: "Essence/sec",
+      values: [3, 4, 5, 7, 9]
+    },
+    epic: {
+      type: "clickPowerPercent",
+      name: "Puissance de clic",
+      values: [5, 7, 9, 12, 15]
+    },
+    legendary: {
+      type: "essenceProductionFlat",
+      name: "Essence/sec",
+      values: [25, 40, 60, 85, 120]
+    },
+    mythic: [
+      {
+        type: "clickPowerFlat",
+        name: "Puissance de clic",
+        values: [5, 7, 10, 13, 17]
+      },
+      {
+        type: "essenceProductionFlat",
+        name: "Essence/sec",
+        values: [40, 65, 95, 135, 180]
+      }
+    ]
+  },
+  mountains: {
+    common: {
+      type: "clickPowerPercent",
+      name: "Puissance de clic",
+      values: [3, 5, 7, 9, 11]
+    },
+    rare: {
+      type: "essenceProductionPercent",
+      name: "Essence/sec",
+      values: [5, 7, 9, 11, 14]
+    },
+    epic: {
+      type: "clickPowerPercent",
+      name: "Puissance de clic",
+      values: [8, 11, 14, 18, 22]
+    },
+    legendary: {
+      type: "essenceProductionFlat",
+      name: "Essence/sec",
+      values: [80, 130, 190, 260, 350]
+    },
+    mythic: [
+      {
+        type: "clickPowerFlat",
+        name: "Puissance de clic",
+        values: [12, 17, 23, 30, 40]
+      },
+      {
+        type: "essenceProductionFlat",
+        name: "Essence/sec",
+        values: [120, 190, 280, 390, 520]
+      }
+    ]
+  }
+};
+
+function cloneDragonBonusCurve(curve) {
+  if (Array.isArray(curve)) {
+    return curve.map(function (entry) {
+      return {
+        type: entry.type,
+        name: entry.name,
+        values: entry.values.slice()
+      };
+    });
+  }
+  return {
+    type: curve.type,
+    name: curve.name,
+    values: curve.values.slice()
+  };
+}
 
 var DRAGON_DEFS = [
       {
@@ -14,12 +144,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon de base commun.png",
         icon: "🐲",
         zoneId: "sanctuary",
-        eggId: "basic",
-        bonus: {
-          type: "clickPowerPercent",
-          name: "Griffes Ancestrales",
-          values: [1, 2, 3, 4, 5]
-        }
+        eggId: "basic"
       },
       {
         id: "vyrn",
@@ -30,12 +155,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon de base commun 2.png",
         icon: "🐉",
         zoneId: "sanctuary",
-        eggId: "basic",
-        bonus: {
-          type: "essenceProductionPercent",
-          name: "Souffle d'Essence",
-          values: [1, 2, 3, 4, 5]
-        }
+        eggId: "basic"
       },
       {
         id: "aeryx",
@@ -46,12 +166,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon de base rare.png",
         icon: "✨",
         zoneId: "sanctuary",
-        eggId: "basic",
-        bonus: {
-          type: "critChanceFlatPercent",
-          name: "Œil du Prédateur",
-          values: [0.25, 0.4, 0.55, 0.7, 0.9]
-        }
+        eggId: "basic"
       },
       {
         id: "vaelgor",
@@ -62,12 +177,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon de base legendaire.png",
         icon: "👑",
         zoneId: "sanctuary",
-        eggId: "basic",
-        bonus: {
-          type: "fragmentGainPercent",
-          name: "Instinct du Collectionneur",
-          values: [4, 6, 8, 11, 14]
-        }
+        eggId: "basic"
       },
       {
         id: "astralyon",
@@ -78,19 +188,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon de base mythique.png",
         icon: "🌌",
         zoneId: "sanctuary",
-        eggId: "basic",
-        bonuses: [
-          {
-            type: "essenceGlobalPercent",
-            name: "Héritage Céleste",
-            values: [7, 9, 11, 14, 17]
-          },
-          {
-            type: "critChanceFlatPercent",
-            name: "Héritage Céleste",
-            values: [0.15, 0.2, 0.3, 0.4, 0.5]
-          }
-        ]
+        eggId: "basic"
       },
       {
         id: "emberion",
@@ -101,12 +199,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon de base epic.png",
         icon: "🔥",
         zoneId: "sanctuary",
-        eggId: "basic",
-        bonus: {
-          type: "clickEssencePercent",
-          name: "Braises Fatidiques",
-          values: [3, 5, 7, 9, 11]
-        }
+        eggId: "basic"
       },
       {
         id: "scaldris",
@@ -117,12 +210,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon de base epic2.png",
         icon: "⚔️",
         zoneId: "sanctuary",
-        eggId: "basic",
-        bonus: {
-          type: "essenceProductionPercent",
-          name: "Lame d'Écaille",
-          values: [3, 5, 7, 9, 11]
-        }
+        eggId: "basic"
       },
       {
         id: "noctyron",
@@ -133,19 +221,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon de base mythique2.png",
         icon: "🌑",
         zoneId: "sanctuary",
-        eggId: "basic",
-        bonuses: [
-          {
-            type: "clickPowerPercent",
-            name: "Veille Nocturne",
-            values: [8, 10, 12, 15, 18]
-          },
-          {
-            type: "fragmentGainPercent",
-            name: "Veille Nocturne",
-            values: [2, 3, 4, 5, 7]
-          }
-        ]
+        eggId: "basic"
       },
       /* Zone 2 — Œuf Sylvestre (assets dragon plante *) */
       {
@@ -157,12 +233,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon plante de base.png",
         icon: "🌿",
         zoneId: "valley",
-        eggId: "plant",
-        bonus: {
-          type: "clickPowerPercent",
-          name: "Griffes de Liane",
-          values: [1.5, 2, 2.5, 3.5, 5]
-        }
+        eggId: "plant"
       },
       {
         id: "mossik",
@@ -173,12 +244,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon plante de base2.png",
         icon: "🌱",
         zoneId: "valley",
-        eggId: "plant",
-        bonus: {
-          type: "essenceProductionPercent",
-          name: "Sève d'Essence",
-          values: [1.5, 2, 2.5, 3.5, 5]
-        }
+        eggId: "plant"
       },
       {
         id: "florwyn",
@@ -189,12 +255,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon plante rare.png",
         icon: "🌸",
         zoneId: "valley",
-        eggId: "plant",
-        bonus: {
-          type: "critChanceFlatPercent",
-          name: "Regard Floral",
-          values: [0.3, 0.4, 0.55, 0.75, 1]
-        }
+        eggId: "plant"
       },
       {
         id: "sylvagor",
@@ -205,12 +266,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon plante legendaire.png",
         icon: "🌳",
         zoneId: "valley",
-        eggId: "plant",
-        bonus: {
-          type: "fragmentGainPercent",
-          name: "Racines du Collectionneur",
-          values: [2, 3, 4.5, 6, 8]
-        }
+        eggId: "plant"
       },
       {
         id: "gaiathis",
@@ -221,12 +277,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon plante mityque.png",
         icon: "🌍",
         zoneId: "valley",
-        eggId: "plant",
-        bonus: {
-          type: "duplicateBonusFragmentChance",
-          name: "Héritage Terrestre",
-          values: [6, 12, 18, 24, 30]
-        }
+        eggId: "plant"
       },
       /* Zone 2 — Œuf des Cascades (assets dragon cascade *) */
       {
@@ -238,12 +289,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon cascade commun.png",
         icon: "💧",
         zoneId: "valley",
-        eggId: "cascade",
-        bonus: {
-          type: "clickPowerPercent",
-          name: "Griffes d'Écume",
-          values: [1.5, 2, 2.5, 3.5, 5]
-        }
+        eggId: "cascade"
       },
       {
         id: "cascadeur",
@@ -254,12 +300,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon cascade commun2.png",
         icon: "🌊",
         zoneId: "valley",
-        eggId: "cascade",
-        bonus: {
-          type: "essenceProductionPercent",
-          name: "Courant d'Essence",
-          values: [1.5, 2, 2.5, 3.5, 5]
-        }
+        eggId: "cascade"
       },
       {
         id: "torrentis",
@@ -270,12 +311,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon cascade rare.png",
         icon: "🌀",
         zoneId: "valley",
-        eggId: "cascade",
-        bonus: {
-          type: "critChanceFlatPercent",
-          name: "Œil du Torrent",
-          values: [0.3, 0.4, 0.55, 0.75, 1]
-        }
+        eggId: "cascade"
       },
       {
         id: "spumara",
@@ -286,12 +322,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon cascade epic.png",
         icon: "🫧",
         zoneId: "valley",
-        eggId: "cascade",
-        bonus: {
-          type: "critChanceFlatPercent",
-          name: "Brume des Cascades",
-          values: [0.45, 0.6, 0.8, 1.1, 1.4]
-        }
+        eggId: "cascade"
       },
       {
         id: "abyssara",
@@ -302,12 +333,7 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon cascade legendaire.png",
         icon: "🧜",
         zoneId: "valley",
-        eggId: "cascade",
-        bonus: {
-          type: "fragmentGainPercent",
-          name: "Trésor des Cascades",
-          values: [2, 3, 4.5, 6, 8]
-        }
+        eggId: "cascade"
       },
       {
         id: "naiadryn",
@@ -318,14 +344,9 @@ var DRAGON_DEFS = [
         image: "assets/dragons/dragon cascade legendaire2.png",
         icon: "💠",
         zoneId: "valley",
-        eggId: "cascade",
-        bonus: {
-          type: "duplicateBonusFragmentChance",
-          name: "Écho des Abysses",
-          values: [5, 10, 15, 20, 25]
-        }
+        eggId: "cascade"
       },
-      /* Zone 3 — Œuf de Granit (assets dragon granite *) — bonus économiques à définir plus tard */
+      /* Zone 3 — Œuf de Granit (assets dragon granite *) */
       {
         id: "petrak",
         name: "Pétrak",
@@ -392,7 +413,7 @@ var DRAGON_DEFS = [
         zoneId: "mountains",
         eggId: "granite"
       },
-      /* Zone 3 — Œuf des Tempêtes (assets dragon tempete *) — bonus économiques à définir plus tard */
+      /* Zone 3 — Œuf des Tempêtes (assets dragon tempete *) */
       {
         id: "galeon",
         name: "Galéon",
@@ -460,6 +481,19 @@ var DRAGON_DEFS = [
         eggId: "storm"
       }
     ];
+
+/* Attache les bonus de famille (rareté × zone) — remplace tout ancien bonus inline. */
+DRAGON_DEFS.forEach(function (def) {
+  var zoneTable = DRAGON_ZONE_RARITY_BONUSES[def.zoneId || "sanctuary"];
+  if (!zoneTable) return;
+  var curve = zoneTable[def.rarity];
+  if (!curve) return;
+  delete def.bonus;
+  delete def.bonuses;
+  var cloned = cloneDragonBonusCurve(curve);
+  if (Array.isArray(cloned)) def.bonuses = cloned;
+  else def.bonus = cloned;
+});
 
 var EGG_DEFS = [
       {

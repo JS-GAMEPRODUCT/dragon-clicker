@@ -24,11 +24,11 @@ var ZONE_DEFS = [
         description: "Collines fertiles où de nouveaux producteurs plus puissants apparaissent.",
         background: "valley",
         startUnlocked: false,
-        unlockCost: 100000,
+        unlockCost: 70000,
         unlockPortalName: "Portail vers la Vallée",
-        /* Ticket d'accès : 300K investis en Zone 1, puis 100K pour acheter. */
+        /* Ticket d'accès : ~72 % économie Z1 (~360K), puis 70K pour ouvrir. */
         unlockRequirements: [
-          { type: "zoneSpent", zoneId: "sanctuary", value: 300000 }
+          { type: "zoneSpent", zoneId: "sanctuary", value: 360000 }
         ],
         eggIds: ["plant", "cascade"],
         producerIds: ["valleyCub", "valleyNest", "valleySpire", "valleyKeep", "valleyCitadel"]
@@ -40,14 +40,14 @@ var ZONE_DEFS = [
         description: "Pics venteux et sentiers perdus dans la brume — refuge des lignées de Granit et de Tempête.",
         background: "mountains",
         startUnlocked: false,
-        /* Gate économique uniquement : 5,5M investis en Vallée, puis 1M pour ouvrir. */
-        unlockCost: 1000000,
+        /* Gate économique : ~72 % économie Z2 (~4,45M), puis 400K pour ouvrir. */
+        unlockCost: 400000,
         unlockPortalName: "Portail vers la Montagne",
         unlockRequirements: [
-          { type: "zoneSpent", zoneId: "valley", value: 5500000 }
+          { type: "zoneSpent", zoneId: "valley", value: 4450000 }
         ],
         eggIds: ["granite", "storm"],
-        producerIds: []
+        producerIds: ["graniteNest", "amberRefuge", "cliffSanctuary", "peakTower", "stormBastion"]
       },
       {
         id: "forgotten",

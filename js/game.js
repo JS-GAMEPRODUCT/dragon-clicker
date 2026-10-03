@@ -23,6 +23,7 @@
     const ZONE_RANK_META = window.ZONE_RANK_META;
     const FAMILY_META = window.FAMILY_META;
     const ACTIVE_UPGRADE_DEFS = window.ACTIVE_UPGRADE_DEFS;
+    const EVENT_DEFS = Array.isArray(window.EVENT_DEFS) ? window.EVENT_DEFS : [];
 
 
     /* -------------------------------------------------------
@@ -31,6 +32,8 @@
     const SAVE_KEY = "dragonClicker_save_v1";
     const SAVE_VERSION = 15;
     const AUTO_SAVE_MS = 10000;
+    /* Empêche un autre onglet (autosave) d’écraser un reset / nouvelle partie. */
+    let progressRevision = 0;
     /* Hard safety cap — le vrai plafond joueur vient de getOfflineCapMs (max 4 h). */
     const MAX_OFFLINE_MS = 4 * 60 * 60 * 1000;
     /* Valeurs TOTALES par niveau (pas cumulatives). Index = niveau passif. */
@@ -184,119 +187,76 @@
       "steadyCrit", "temperedStrike"
     ];
 
+    const ACHIEVEMENT_CATEGORIES = [
+      { id: "all", label: "Tous" },
+      { id: "clicks", label: "Clics" },
+      { id: "hatches", label: "Éclosions" },
+      { id: "collection", label: "Collection" },
+      { id: "stars", label: "Étoiles" },
+      { id: "economy", label: "Économie" },
+      { id: "crits", label: "Critiques" },
+      { id: "expeditions", label: "Expéditions" },
+      { id: "progress", label: "Progression" }
+    ];
+
+    /* Anciens IDs → nouveaux (sauvegardes pré-refonte) */
+    const LEGACY_ACHIEVEMENT_UNLOCK_MAP = {
+      beginning: "clicks_100",
+      clickAddict: "clicks_1000",
+      goldMountain: "essence_100k",
+      birth: "hatch_1",
+      hatchTen: "hatch_10",
+      discoverThree: "collection_3",
+      fiveStar: "stars_5",
+      explorer: "progress_zone2",
+      critHunter: "crits_25"
+    };
+
     const ACHIEVEMENT_DEFS = [
-      {
-        id: "firstBreath",
-        name: "Premier Souffle",
-        icon: "🏆",
-        description: "Effectuer 1 clic.",
-        check: (s) => s.totalClicks >= 1,
-        reward: null
-      },
-      {
-        id: "beginning",
-        name: "Ça commence…",
-        icon: "🏆",
-        description: "Effectuer 100 clics.",
-        check: (s) => s.totalClicks >= 100,
-        reward: { type: "clickPct", value: 0.01 }
-      },
-      {
-        id: "clickAddict",
-        name: "Accro au clic",
-        icon: "🏆",
-        description: "Effectuer 1 000 clics.",
-        check: (s) => s.totalClicks >= 1000,
-        reward: { type: "clickPct", value: 0.02 }
-      },
-      {
-        id: "smallTreasure",
-        name: "Petit Trésor",
-        icon: "🏆",
-        description: "Posséder 1 000 Essence Draconique.",
-        check: (s) => safeNumber(s.dragonEssence, 0) >= 1000,
-        reward: { type: "globalProdPct", value: 0.01 }
-      },
-      {
-        id: "goldMountain",
-        name: "Montagne d'Or",
-        icon: "🏆",
-        description: "Gagner 100 000 Essence Draconique au total.",
-        check: (s) => safeNumber(s.totalEssenceEarned, s.totalPowerEarned) >= 100000,
-        reward: { type: "globalProdPct", value: 0.02 }
-      },
-      {
-        id: "breeder",
-        name: "Éleveur",
-        icon: "🏆",
-        description: "Posséder 10 producteurs au total.",
-        check: (s) => getTotalProducers(s) >= 10,
-        reward: { type: "globalProdPct", value: 0.01 }
-      },
-      {
-        id: "dragonArmy",
-        name: "Armée Draconique",
-        icon: "🏆",
-        description: "Posséder 50 producteurs au total.",
-        check: (s) => getTotalProducers(s) >= 50,
-        reward: { type: "globalProdPct", value: 0.02 }
-      },
-      {
-        id: "birth",
-        name: "Premier Œuf",
-        icon: "🥚",
-        description: "Faire éclore 1 œuf.",
-        check: (s) => safeNumber(s.totalEggsHatched, 0) >= 1 || s.eggHatched === true,
-        reward: { type: "clickPct", value: 0.01 }
-      },
-      {
-        id: "hatchTen",
-        name: "Incubateur",
-        icon: "🐣",
-        description: "Faire éclore 10 œufs.",
-        check: (s) => safeNumber(s.totalEggsHatched, 0) >= 10,
-        reward: { type: "fragmentMult", value: 0.02 }
-      },
-      {
-        id: "discoverThree",
-        name: "Éleveur Novice",
-        icon: "🐲",
-        description: "Découvrir 3 dragons différents.",
-        check: (s) => countOwnedDragons(s) >= 3,
-        reward: { type: "clickPct", value: 0.01 }
-      },
-      {
-        id: "zone1Complete",
-        name: "Collectionneur",
-        icon: "📚",
-        description: "Compléter le pool de l'Œuf Draconique (5/5).",
-        check: (s) => countZonePoolDiscovered(s, "sanctuary") >= 5,
-        reward: { type: "globalProdPct", value: 0.03 }
-      },
-      {
-        id: "fiveStar",
-        name: "Maître des Étoiles",
-        icon: "⭐",
-        description: "Obtenir un dragon 5★.",
-        check: (s) => hasDragonAtStars(s, 5),
-        reward: { type: "fragmentMult", value: 0.03 }
-      },
-      {
-        id: "explorer",
-        name: "Explorateur",
-        icon: "🗺️",
-        description: "Débloquer la Zone 2.",
-        check: (s) => isZoneUnlocked(s, "valley"),
-        reward: { type: "clickPct", value: 0.02 }
-      },
-      {
-        id: "critHunter",
-        name: "Chasseur de Critiques",
-        icon: "💥",
-        description: "Réussir 50 clics critiques.",
-        check: (s) => safeNumber(s.totalCriticalClicks, 0) >= 50,
-        reward: { type: "critChance", value: 0.01 }
-      }
+      /* CLICS */
+      { id: "clicks_100", category: "clicks", name: "Premier contact", icon: "👆", description: "Effectuer 100 clics", target: 100, progressKey: "totalClicks", rewardEssence: 250 },
+      { id: "clicks_1000", category: "clicks", name: "Apprenti du clic", icon: "👆", description: "Effectuer 1 000 clics", target: 1000, progressKey: "totalClicks", rewardEssence: 1000 },
+      { id: "clicks_5000", category: "clicks", name: "Griffes rapides", icon: "⚡", description: "Effectuer 5 000 clics", target: 5000, progressKey: "totalClicks", rewardEssence: 5000 },
+      { id: "clicks_15000", category: "clicks", name: "Maître du clic", icon: "🔥", description: "Effectuer 15 000 clics", target: 15000, progressKey: "totalClicks", rewardEssence: 15000 },
+      { id: "clicks_50000", category: "clicks", name: "Frénésie draconique", icon: "💥", description: "Effectuer 50 000 clics", target: 50000, progressKey: "totalClicks", rewardEssence: 75000 },
+      /* ÉCLOSIONS */
+      { id: "hatch_1", category: "hatches", name: "Première naissance", icon: "🥚", description: "Faire éclore 1 dragon", target: 1, progressKey: "totalEggsHatched", rewardEssence: 250 },
+      { id: "hatch_10", category: "hatches", name: "Petit éleveur", icon: "🐣", description: "Faire éclore 10 dragons", target: 10, progressKey: "totalEggsHatched", rewardEssence: 1500 },
+      { id: "hatch_50", category: "hatches", name: "Éleveur confirmé", icon: "🐉", description: "Faire éclore 50 dragons", target: 50, progressKey: "totalEggsHatched", rewardEssence: 7500 },
+      { id: "hatch_100", category: "hatches", name: "Maître éleveur", icon: "🐉", description: "Faire éclore 100 dragons", target: 100, progressKey: "totalEggsHatched", rewardEssence: 20000 },
+      { id: "hatch_250", category: "hatches", name: "Lignée infinie", icon: "✨", description: "Faire éclore 250 dragons", target: 250, progressKey: "totalEggsHatched", rewardEssence: 75000 },
+      /* COLLECTION (31 dragons non-secrets) */
+      { id: "collection_3", category: "collection", name: "Première rencontre", icon: "🐲", description: "Découvrir 3 dragons différents", target: 3, progressKey: "ownedDragons", rewardEssence: 500 },
+      { id: "collection_6", category: "collection", name: "Collection naissante", icon: "📚", description: "Découvrir 6 dragons différents", target: 6, progressKey: "ownedDragons", rewardEssence: 2000 },
+      { id: "collection_12", category: "collection", name: "Dracologue", icon: "📖", description: "Découvrir 12 dragons différents", target: 12, progressKey: "ownedDragons", rewardEssence: 10000 },
+      { id: "collection_20", category: "collection", name: "Grand collectionneur", icon: "🏅", description: "Découvrir 20 dragons différents", target: 20, progressKey: "ownedDragons", rewardEssence: 40000 },
+      { id: "collection_30", category: "collection", name: "Encyclopédie vivante", icon: "👑", description: "Découvrir 30 dragons différents", target: 30, progressKey: "ownedDragons", rewardEssence: 150000 },
+      /* ÉTOILES */
+      { id: "stars_2", category: "stars", name: "Première évolution", icon: "⭐", description: "Faire atteindre ★2 à un dragon", target: 1, progressKey: "hasStars2", rewardEssence: 1000 },
+      { id: "stars_5", category: "stars", name: "Dragon accompli", icon: "⭐", description: "Faire atteindre ★5 à un dragon", target: 1, progressKey: "hasStars5", rewardEssence: 10000 },
+      { id: "stars_total_10", category: "stars", name: "Constellation", icon: "🌟", description: "Posséder 10 étoiles cumulées", target: 10, progressKey: "totalStars", rewardEssence: 5000 },
+      { id: "stars_total_25", category: "stars", name: "Ciel draconique", icon: "🌌", description: "Posséder 25 étoiles cumulées", target: 25, progressKey: "totalStars", rewardEssence: 30000 },
+      { id: "stars_total_50", category: "stars", name: "Maître des étoiles", icon: "💫", description: "Posséder 50 étoiles cumulées", target: 50, progressKey: "totalStars", rewardEssence: 125000 },
+      /* ÉCONOMIE — Essence totale gagnée */
+      { id: "essence_10k", category: "economy", name: "Première fortune", icon: "✨", description: "Gagner au total 10 000 Essence", target: 10000, progressKey: "totalEssenceEarned", rewardEssence: 500 },
+      { id: "essence_100k", category: "economy", name: "Trésor draconique", icon: "💎", description: "Gagner au total 100 000 Essence", target: 100000, progressKey: "totalEssenceEarned", rewardEssence: 3000 },
+      { id: "essence_1m", category: "economy", name: "Millionnaire draconique", icon: "💰", description: "Gagner au total 1 000 000 Essence", target: 1000000, progressKey: "totalEssenceEarned", rewardEssence: 15000 },
+      { id: "essence_10m", category: "economy", name: "Grand trésor", icon: "🏦", description: "Gagner au total 10 000 000 Essence", target: 10000000, progressKey: "totalEssenceEarned", rewardEssence: 75000 },
+      { id: "essence_50m", category: "economy", name: "Fortune légendaire", icon: "🏆", description: "Gagner au total 50 000 000 Essence", target: 50000000, progressKey: "totalEssenceEarned", rewardEssence: 300000 },
+      /* CRITIQUES */
+      { id: "crits_25", category: "crits", name: "Coup précis", icon: "🎯", description: "Effectuer 25 critiques", target: 25, progressKey: "totalCriticalClicks", rewardEssence: 500 },
+      { id: "crits_250", category: "crits", name: "Instinct draconique", icon: "🗡️", description: "Effectuer 250 critiques", target: 250, progressKey: "totalCriticalClicks", rewardEssence: 3000 },
+      { id: "crits_1000", category: "crits", name: "Prédateur", icon: "🦅", description: "Effectuer 1 000 critiques", target: 1000, progressKey: "totalCriticalClicks", rewardEssence: 15000 },
+      { id: "crits_5000", category: "crits", name: "Tempête critique", icon: "⛈️", description: "Effectuer 5 000 critiques", target: 5000, progressKey: "totalCriticalClicks", rewardEssence: 75000 },
+      /* EXPÉDITIONS */
+      { id: "exp_1", category: "expeditions", name: "Premier voyage", icon: "🧭", description: "Terminer 1 expédition", target: 1, progressKey: "totalExpeditionsCompleted", rewardEssence: 1000 },
+      { id: "exp_10", category: "expeditions", name: "Explorateur", icon: "🗺️", description: "Terminer 10 expéditions", target: 10, progressKey: "totalExpeditionsCompleted", rewardEssence: 10000 },
+      { id: "exp_25", category: "expeditions", name: "Aventurier", icon: "⛺", description: "Terminer 25 expéditions", target: 25, progressKey: "totalExpeditionsCompleted", rewardEssence: 30000 },
+      { id: "exp_50", category: "expeditions", name: "Maître explorateur", icon: "🏔️", description: "Terminer 50 expéditions", target: 50, progressKey: "totalExpeditionsCompleted", rewardEssence: 100000 },
+      { id: "exp_100", category: "expeditions", name: "Légende des terres sauvages", icon: "🌄", description: "Terminer 100 expéditions", target: 100, progressKey: "totalExpeditionsCompleted", rewardEssence: 300000 },
+      /* PROGRESSION — déblocage zones */
+      { id: "progress_zone2", category: "progress", name: "Nouveau Royaume", icon: "🚪", description: "Débloquer Zone 2", target: 1, progressKey: "zoneValley", rewardEssence: 10000 },
+      { id: "progress_zone3", category: "progress", name: "Vers les sommets", icon: "⛰️", description: "Débloquer Zone 3", target: 1, progressKey: "zoneMountains", rewardEssence: 75000 }
     ];
 
     /**
@@ -607,23 +567,33 @@
         fragmentMult: "fragmentGainPercent",
         clickGainPercent: "clickEssencePercent",
         gainsAuClic: "clickEssencePercent",
-        essenceGlobal: "essenceGlobalPercent"
+        essenceGlobal: "essenceGlobalPercent",
+        clickFlat: "clickPowerFlat",
+        essenceFlat: "essenceProductionFlat",
+        essencePerSecFlat: "essenceProductionFlat"
       };
       return map[type] || type;
     }
 
+    function isDragonBonusFlatType(type) {
+      const t = normalizeDragonBonusType(type);
+      return t === "clickPowerFlat" || t === "essenceProductionFlat";
+    }
+
     function getDragonBonusDisplayLabel(type) {
       const labels = {
-        clickPowerPercent: "PUISSANCE DE CLIC",
-        clickEssencePercent: "GAINS AU CLIC",
-        essenceProductionPercent: "PRODUCTION D'ESSENCE",
-        essenceGlobalPercent: "ESSENCE GLOBALE",
-        critChanceFlatPercent: "CHANCE CRITIQUE",
-        fragmentGainPercent: "FRAGMENTS OBTENUS",
-        duplicateBonusFragmentChance: "FRAGMENT SUPPLÉMENTAIRE À L'ÉCLOSION D'UN DOUBLON",
-        expeditionReward: "RÉCOMPENSES D'EXPÉDITION",
-        rarityLuck: "CHANCE DRACONIQUE",
-        offlineMult: "RENDEMENT HORS LIGNE"
+        clickPowerPercent: "Puissance de clic",
+        clickPowerFlat: "Puissance de clic",
+        clickEssencePercent: "Gains au clic",
+        essenceProductionPercent: "Essence/sec",
+        essenceProductionFlat: "Essence/sec",
+        essenceGlobalPercent: "Essence globale",
+        critChanceFlatPercent: "Chance critique",
+        fragmentGainPercent: "Fragments obtenus",
+        duplicateBonusFragmentChance: "Fragment supplémentaire à l'éclosion d'un doublon",
+        expeditionReward: "Récompenses d'expédition",
+        rarityLuck: "Chance Draconique",
+        offlineMult: "Rendement hors ligne"
       };
       return labels[normalizeDragonBonusType(type)] || "";
     }
@@ -637,15 +607,18 @@
     }
 
     /**
-     * Returns the gameplay fraction for a single bonus entry at a given star level.
-     * Prefers data-driven `values` (percent points for stars 1..5).
+     * Valeur gameplay d'un bonus à N étoiles.
+     * *Percent : values[] en points de % → fraction ( / 100 ).
+     * *Flat : values[] brutes (click flat ou Essence/sec).
      */
     function getDragonBonusEntryValue(bonusEntry, stars) {
       const b = bonusEntry;
       if (!b) return 0;
       const s = Math.max(1, Math.min(MAX_DRAGON_STARS, Math.floor(safeNumber(stars, 1))));
+      const flat = isDragonBonusFlatType(b.type);
       if (Array.isArray(b.values) && b.values.length) {
-        return safeNumber(b.values[s - 1], 0) / 100;
+        const raw = safeNumber(b.values[s - 1], 0);
+        return flat ? raw : raw / 100;
       }
       if (Array.isArray(b.valuesByStars)) return safeNumber(b.valuesByStars[s], 0);
       return safeNumber(b.base, 0) + Math.max(0, s - 1) * safeNumber(b.perStar, 0);
@@ -698,20 +671,28 @@
       return text.replace(".", ",");
     }
 
+    function formatDragonBonusAmount(type, value) {
+      const t = normalizeDragonBonusType(type);
+      if (t === "clickPowerFlat") return "+" + formatNumber(value);
+      if (t === "essenceProductionFlat") return "+" + formatNumber(value) + "/s";
+      return "+" + formatBonusPercent(value) + " %";
+    }
+
     function formatOneDragonBonusLine(bonusEntry, stars, opts) {
       opts = opts || {};
       const value = getDragonBonusEntryValue(bonusEntry, stars);
       if (value <= 0) return "";
       const type = normalizeDragonBonusType(bonusEntry.type);
-      const pct = formatBonusPercent(value);
       if (type === "duplicateBonusFragmentChance") {
+        const pct = formatBonusPercent(value);
         return opts.compact
-          ? pct + " % CHANCE +1 FRAGMENT DOUBLON"
-          : pct + " % DE CHANCE D'OBTENIR +1 FRAGMENT À L'ÉCLOSION D'UN DOUBLON";
+          ? pct + " % chance +1 fragment doublon"
+          : pct + " % de chance d'obtenir +1 fragment à l'éclosion d'un doublon";
       }
       const label = getDragonBonusDisplayLabel(type);
-      if (label) return "+" + pct + " % " + label;
-      return "+" + pct + " %";
+      const amount = formatDragonBonusAmount(type, value);
+      if (label) return label + " " + amount;
+      return amount;
     }
 
     function formatDragonBonusNextLine(def, nextStars) {
@@ -719,11 +700,9 @@
         .map((b) => {
           const value = getDragonBonusEntryValue(b, nextStars);
           if (value <= 0) return "";
-          const pct = formatBonusPercent(value);
           const type = normalizeDragonBonusType(b.type);
-          if (type === "duplicateBonusFragmentChance") return pct + " %";
-          const label = getDragonBonusDisplayLabel(type);
-          return label ? ("+" + pct + " % " + label) : ("+" + pct + " %");
+          if (type === "duplicateBonusFragmentChance") return formatBonusPercent(value) + " %";
+          return formatOneDragonBonusLine(b, nextStars);
         })
         .filter(Boolean);
       if (!lines.length) return "";
@@ -1471,7 +1450,7 @@
 
       const achievements = {};
       ACHIEVEMENT_DEFS.forEach((a) => {
-        achievements[a.id] = { unlocked: false };
+        achievements[a.id] = { unlocked: false, rewardClaimed: false };
       });
 
       return {
@@ -1506,6 +1485,7 @@
         equippedEggId: "basic",
         zoneEggSelection: {},
         totalEggsHatched: 0,
+        totalExpeditionsCompleted: 0,
         totalDragonsObtained: 0,
         rarityStats: createEmptyRarityStats(),
         hatchHistory: [],
@@ -1516,7 +1496,8 @@
         musicEnabled: true,
         masterVolume: 1,
         sfxVolume: 1,
-        musicVolume: 0.18,
+        /* Intensité relative 0–1 ; volume réel = musicVolume × AudioManager.musicBaseVolume */
+        musicVolume: 1,
         playTimeMs: 0,
         lastSaveTime: Date.now(),
         lastTickTime: Date.now(),
@@ -1550,6 +1531,8 @@
         team: [null, null, null],
         redeemedCodes: [],
         chests: createEmptyChestInventory(),
+        /* 0 = coffre régulier Royaume prêt (timestamp ms absolu sinon) */
+        nextFreeChestAt: 0,
         expeditions: {
           unlockedSlots: DEFAULT_EXPEDITION_SLOTS,
           slots: [null],
@@ -1719,6 +1702,7 @@
         clickPct: 0,
         clickEssencePct: 0,
         click: 1,
+        essenceFlat: 0,
         globalProduction: 1,
         autoProduction: 1,
         globalPower: 1,
@@ -1813,10 +1797,7 @@
         applyBonus(def.effect);
       });
 
-      ACHIEVEMENT_DEFS.forEach((def) => {
-        if (!gameState.achievements[def.id] || !gameState.achievements[def.id].unlocked) return;
-        if (def.reward) applyBonus(def.reward);
-      });
+      /* Succès : plus de bonus permanents (récompenses Essence uniques via claim). */
 
       /* Active team dragons only (not owned collection, not on expedition). */
       for (let ti = 0; ti < TEAM_SIZE; ti++) {
@@ -1828,8 +1809,10 @@
           if (value <= 0) return;
           const t = normalizeDragonBonusType(bonusEntry.type);
           if (t === "clickPowerPercent") m.clickPct += value;
+          else if (t === "clickPowerFlat") m.clickFlat += value;
           else if (t === "clickEssencePercent") m.clickEssencePct += value;
           else if (t === "essenceProductionPercent") m.globalProduction *= (1 + value);
+          else if (t === "essenceProductionFlat") m.essenceFlat += value;
           else if (t === "essenceGlobalPercent") {
             m.clickEssencePct += value;
             m.globalProduction *= (1 + value);
@@ -1859,6 +1842,7 @@
       if (!Number.isFinite(m.expeditionReward) || m.expeditionReward < 0) m.expeditionReward = 0;
       if (!Number.isFinite(m.rarityLuck) || m.rarityLuck < 0) m.rarityLuck = 0;
       if (!Number.isFinite(m.clickEssencePct) || m.clickEssencePct < 0) m.clickEssencePct = 0;
+      if (!Number.isFinite(m.essenceFlat) || m.essenceFlat < 0) m.essenceFlat = 0;
       if (!Number.isFinite(m.duplicateFragmentChance) || m.duplicateFragmentChance < 0) {
         m.duplicateFragmentChance = 0;
       }
@@ -1984,6 +1968,11 @@
         if (!unlockedSet.has(zid)) return;
         essencePerSecond += getProducerProduction(def, safeNumber(state.producers[def.id]?.owned, 0));
       });
+      /* Flat Essence/sec dragons (Legendary / Mythic) — brute puis × mults globaux existants. */
+      const essenceFlat = safeNumber(m.essenceFlat, 0);
+      if (essenceFlat > 0) {
+        essencePerSecond += essenceFlat * m.globalProduction * m.autoProduction;
+      }
       if (!Number.isFinite(essencePerSecond) || essencePerSecond < 0) essencePerSecond = 0;
 
       const clickPower = Number.isFinite(gameState.powerPerClick) && gameState.powerPerClick > 0
@@ -2931,7 +2920,9 @@
        ------------------------------------------------------- */
     /* Codes bonus (extensible) — un seul redeem par code / sauvegarde */
     const BONUS_CODES = {
-      "1234": { type: "essence", amount: 1000000 }
+      "1234": { type: "essence", amount: 1000000 },
+      /* Bypass temporaire accès Zone 3 (anciennes saves Z2 terminées). Pas d'Essence / zoneSpent. */
+      "LEGACY-Z3-2026": { type: "unlockZone", zoneId: "mountains" }
     };
 
     function setBonusCodeFeedback(message, kind) {
@@ -2945,19 +2936,60 @@
     }
 
     function redeemBonusCode(rawCode) {
-      const code = String(rawCode == null ? "" : rawCode).trim();
+      const code = String(rawCode == null ? "" : rawCode).trim().toUpperCase();
       if (!code) {
-        setBonusCodeFeedback("CODE INVALIDE", "error");
-        showNotification("CODES BONUS", "CODE INVALIDE");
+        setBonusCodeFeedback("Code invalide.", "error");
+        showNotification("CODES BONUS", "Code invalide.");
         return false;
       }
       const reward = BONUS_CODES[code];
       if (!reward) {
-        setBonusCodeFeedback("CODE INVALIDE", "error");
-        showNotification("CODES BONUS", "CODE INVALIDE");
+        setBonusCodeFeedback("Code invalide.", "error");
+        showNotification("CODES BONUS", "Code invalide.");
         return false;
       }
       if (!Array.isArray(gameState.redeemedCodes)) gameState.redeemedCodes = [];
+
+      if (reward.type === "unlockZone") {
+        const zoneId = reward.zoneId || "mountains";
+        const zone = getZoneDef(zoneId);
+        const zoneName = zone && zone.name ? zone.name : "Zone 3";
+        if (isZoneUnlocked(gameState, zoneId)) {
+          if (gameState.redeemedCodes.indexOf(code) === -1) {
+            gameState.redeemedCodes.push(code);
+            saveGame(true);
+          }
+          setBonusCodeFeedback(zoneName + " déjà débloquée.", "ok");
+          showNotification("CODES BONUS", zoneName + " déjà débloquée.");
+          return true;
+        }
+        /* Accès permanent via unlockedZones — sans Essence ni zoneSpent. */
+        if (!gameState.unlockedZones) gameState.unlockedZones = ["sanctuary"];
+        if (gameState.unlockedZones.indexOf(zoneId) === -1) {
+          gameState.unlockedZones.push(zoneId);
+        }
+        if (!gameState.meta) gameState.meta = {};
+        gameState.meta.unlockedZones = gameState.unlockedZones.slice();
+        unlockZoneEggs(zoneId);
+        if (gameState.redeemedCodes.indexOf(code) === -1) {
+          gameState.redeemedCodes.push(code);
+        }
+        shopDirty = true;
+        zonesDirty = true;
+        eggsDirty = true;
+        dragonsDirty = true;
+        uiDirty = true;
+        saveGame(true);
+        renderZones();
+        renderDragons();
+        playSound("zoneUnlock");
+        setBonusCodeFeedback(zoneName + " débloquée !", "ok");
+        showNotification("CODE VALIDÉ !", zoneName + " débloquée !");
+        const inputUnlock = document.getElementById("bonus-code-input");
+        if (inputUnlock) inputUnlock.value = "";
+        return true;
+      }
+
       if (gameState.redeemedCodes.indexOf(code) !== -1) {
         setBonusCodeFeedback("CODE DÉJÀ UTILISÉ", "error");
         showNotification("CODES BONUS", "CODE DÉJÀ UTILISÉ");
@@ -2979,8 +3011,8 @@
         return true;
       }
 
-      setBonusCodeFeedback("CODE INVALIDE", "error");
-      showNotification("CODES BONUS", "CODE INVALIDE");
+      setBonusCodeFeedback("Code invalide.", "error");
+      showNotification("CODES BONUS", "Code invalide.");
       return false;
     }
 
@@ -3802,6 +3834,14 @@
       refreshDragonCollectionUI();
 
       primary.twinReveal = twinReveal;
+      /* Twin : un seul popup audio = rareté la plus haute des deux reveals. */
+      if (twinReveal && twinReveal.dragonDef) {
+        primary.popupSoundRarity = pickHighestRevealRarity(
+          primary.dragonDef && primary.dragonDef.rarity,
+          twinReveal.dragonDef.rarity
+        );
+        twinReveal.skipPopupSound = true;
+      }
       return primary;
     }
 
@@ -4271,15 +4311,24 @@
         function (entries) {
           entries.forEach(function (entry) {
             if (!entry.isIntersecting) return;
-            const img = entry.target;
-            const src = img && img.dataset ? img.dataset.assetSrc : "";
+            /*
+              Observer le conteneur (.dt-art) : l’<img hidden> a une boîte 0×0
+              et ne déclenche jamais l’IO — cause des portraits jamais chargés.
+            */
+            const host = entry.target;
+            const img = host && host.tagName === "IMG"
+              ? host
+              : (host ? host.querySelector("img") : null);
+            if (!img || !img.dataset) return;
+            const src = img.dataset.assetSrc || "";
             if (!src) return;
             delete img.dataset.assetSrc;
             try {
-              portraitNearObserver.unobserve(img);
+              portraitNearObserver.unobserve(host);
             } catch (e) { /* ignore */ }
-            const host = img.parentElement;
-            const emoji = host ? host.querySelector(".dc-emoji") : null;
+            const emoji = host.querySelector
+              ? host.querySelector(".dc-emoji")
+              : (img.parentElement && img.parentElement.querySelector(".dc-emoji"));
             const sil = img.classList.contains("silhouette");
             const fb = img.dataset.fallbackSrc || null;
             delete img.dataset.fallbackSrc;
@@ -4316,7 +4365,9 @@
       imgEl.decoding = "async";
       const obs = ensurePortraitNearObserver();
       if (obs) {
-        obs.observe(imgEl);
+        /* Conteneur dimensionné (pas l’img hidden) pour un IO fiable au scroll */
+        const observeRoot = imgEl.closest(".dt-art, .ds-art, .ps-art, .dc-art") || imgEl.parentElement || imgEl;
+        obs.observe(observeRoot);
       } else {
         loadAssetImage(imgEl, emojiEl, src, opts);
       }
@@ -4427,11 +4478,26 @@
       modal.classList.add("reveal-animating");
       modal.classList.remove("hidden");
       /* Await full materialize — sole reveal path after hatch sequence */
-      return playDragonRevealAppear(dragonDef.rarity, !!reveal.isNew);
+      return playDragonRevealAppear(dragonDef.rarity, !!reveal.isNew, {
+        soundRarity: reveal.popupSoundRarity || dragonDef.rarity,
+        skipPopupSound: !!reveal.skipPopupSound
+      });
       });
     }
 
-    function playDragonRevealAppear(rarity, isNew) {
+    /** Ordre Twin Hatch popup : Mythic > Legendary > Epic > Rare > Common */
+    function pickHighestRevealRarity(a, b) {
+      const rank = { common: 1, rare: 2, epic: 3, legendary: 4, mythic: 5, divine: 6 };
+      const ra = rank[a] || 0;
+      const rb = rank[b] || 0;
+      if (rb > ra) return b || "common";
+      return a || "common";
+    }
+
+    function playDragonRevealAppear(rarity, isNew, opts) {
+      opts = opts || {};
+      const soundRarity = opts.soundRarity || rarity;
+      const skipPopupSound = !!opts.skipPopupSound;
       const reduce = prefersReducedMotion();
       const timing = (window.DCAnim && DCAnim.revealTiming)
         ? DCAnim.revealTiming(rarity, !!isNew)
@@ -4490,7 +4556,7 @@
       };
 
       if (reduce) {
-        playDragonRevealSound(rarity);
+        if (!skipPopupSound) playDragonRevealSound(soundRarity);
         const tasks = [];
         if (art && typeof art.animate === "function") {
           tasks.push(waitAnimation(art.animate(
@@ -4616,9 +4682,9 @@
         });
       }
 
-      /* Rarity SFX ~250ms into materialize — not at magic start */
+      /* Rarity SFX ~180ms into materialize — dragon becomes visible, not magic start */
       const soundPromise = hatchDelay(soundAt, hatchFxToken).then((ok) => {
-        if (ok) playDragonRevealSound(rarity);
+        if (ok && !skipPopupSound) playDragonRevealSound(soundRarity);
       });
 
       if (art && typeof art.animate === "function") {
@@ -4812,12 +4878,27 @@
       return short.replace(/\n/g, " · ");
     }
 
+    /**
+     * Affichage bestiaire (visuel central uniquement) :
+     * - "portrait"    : dragon découvert → image réelle
+     * - "silhouette"  : zone débloquée, non découvert → silhouette noire
+     * - "unknown"     : zone verrouillée → point d’interrogation
+     */
+    function getDragonBestiaryVisualMode(def, state) {
+      state = state || gameState;
+      if (!def) return "unknown";
+      const entry = state.dragons ? state.dragons[def.id] : null;
+      if (isDragonDiscovered(entry, def.id, state)) return "portrait";
+      const zoneId = def.zoneId || "sanctuary";
+      if (isZoneUnlocked(state, zoneId)) return "silhouette";
+      return "unknown";
+    }
+
     function getDragonsForFilter(filterZoneId) {
       return DRAGON_DEFS.filter((d) => {
         if (d.secret) return false;
-        if (!filterZoneId || filterZoneId === "all") {
-          return isZoneUnlocked(gameState, d.zoneId || "sanctuary");
-        }
+        /* TOUS : zones débloquées + verrouillées (visuel différencié ensuite) */
+        if (!filterZoneId || filterZoneId === "all") return true;
         if (!isZoneUnlocked(gameState, filterZoneId)) return false;
         return d.zoneId === filterZoneId;
       });
@@ -4979,7 +5060,8 @@
       const frag = document.createDocumentFragment();
       visibleDefs.forEach((def, index) => {
         const entry = ensureDragonEntry(def.id, gameState);
-        const owned = isDragonDiscovered(entry, def.id, gameState);
+        const visualMode = getDragonBestiaryVisualMode(def, gameState);
+        const owned = visualMode === "portrait";
         if (owned) markDragonDiscovered(def.id, gameState);
         const rarity = RARITIES[def.rarity] || RARITIES.common;
         const stars = owned ? Math.max(1, safeNumber(entry.stars, 1)) : 0;
@@ -4991,8 +5073,10 @@
         const tile = document.createElement("article");
         tile.className = "dragon-tile " + rarity.css +
           (owned ? "" : " undiscovered") +
+          (visualMode === "unknown" ? " unknown-zone" : "") +
           (selectedId === def.id ? " selected" : "");
         tile.dataset.dragonId = def.id;
+        tile.dataset.visualMode = visualMode;
         tile.tabIndex = 0;
         tile.setAttribute("role", "button");
         tile.setAttribute("aria-label", owned
@@ -5013,12 +5097,26 @@
 
         tile.querySelector(".dt-band").textContent = rarity.label;
         const emoji = tile.querySelector(".dc-emoji");
-        emoji.textContent = owned ? (def.icon || "🐲") : "?";
         const imgEl = tile.querySelector("img");
-        bindDragonPortrait(imgEl, emoji, getDragonAsset(def, "thumb"), {
-          silhouette: !owned,
-          fallbackSrc: def.image
-        }, index);
+        if (visualMode === "unknown") {
+          /* Zone verrouillée : pas de chargement d’asset (évite silhouette révélatrice) */
+          emoji.textContent = "?";
+          emoji.style.display = "";
+          imgEl.hidden = true;
+          imgEl.removeAttribute("src");
+          imgEl.classList.remove("silhouette");
+        } else {
+          emoji.textContent = owned ? (def.icon || "🐲") : "?";
+          /*
+            Bestiaire — perf scroll :
+            - thumb WebP uniquement (pas de fallback HD sur silhouette)
+            - eager seulement pour le 1er viewport (index), reste via IO existant
+          */
+          bindDragonPortrait(imgEl, emoji, getDragonAsset(def, "thumb"), {
+            silhouette: visualMode === "silhouette",
+            fallbackSrc: visualMode === "portrait" ? def.image : null
+          }, index);
+        }
 
         tile.querySelector(".dt-name").textContent = owned ? def.name : "???";
         if (owned) {
@@ -5039,7 +5137,8 @@
       const box = document.getElementById("dragon-detail-body");
       if (!def || !box) return;
       const entry = ensureDragonEntry(def.id, gameState);
-      const owned = isDragonDiscovered(entry, def.id, gameState);
+      const visualMode = getDragonBestiaryVisualMode(def, gameState);
+      const owned = visualMode === "portrait";
       const rarity = RARITIES[def.rarity] || RARITIES.common;
       const stars = owned ? Math.max(1, safeNumber(entry.stars, 1)) : 0;
       const frags = safeNumber(entry.fragments, 0);
@@ -5048,7 +5147,8 @@
       const onExpedition = owned && isDragonOnExpedition(def.id);
 
       const sheet = document.getElementById("dragon-detail-sheet");
-      sheet.className = "modal dragon-sheet " + (owned ? rarity.css : "undiscovered");
+      sheet.className = "modal dragon-sheet " + (owned ? rarity.css : "undiscovered") +
+        (visualMode === "unknown" ? " unknown-zone" : "");
 
       box.innerHTML =
         '<div class="ds-hero">' +
@@ -5066,8 +5166,19 @@
         '<div class="ds-date"></div>';
 
       const emoji = box.querySelector(".dc-emoji");
-      emoji.textContent = owned ? (def.icon || "🐲") : "❔";
-      loadAssetImage(box.querySelector("img"), emoji, getDragonAsset(def, "detail"), { silhouette: !owned });
+      const detailImg = box.querySelector("img");
+      if (visualMode === "unknown") {
+        emoji.textContent = "❔";
+        emoji.style.display = "";
+        detailImg.hidden = true;
+        detailImg.removeAttribute("src");
+        detailImg.classList.remove("silhouette");
+      } else {
+        emoji.textContent = owned ? (def.icon || "🐲") : "❔";
+        loadAssetImage(detailImg, emoji, getDragonAsset(def, "detail"), {
+          silhouette: visualMode === "silhouette"
+        });
+      }
 
       box.querySelector(".ds-rarity").textContent = rarity.label;
       box.querySelector(".ds-rarity").className = "ds-rarity " + rarity.css;
@@ -5233,29 +5344,33 @@
        TEAM MODULE — bonuses recalculated from equipped dragons.
        ------------------------------------------------------- */
     const TEAM_BONUS_SHORT = {
-      clickPowerPercent: "puissance de clic",
-      clickEssencePercent: "gains au clic",
-      essenceProductionPercent: "production d'Essence",
+      clickPowerPercent: "Puissance de clic",
+      clickPowerFlat: "Puissance de clic",
+      clickEssencePercent: "Gains au clic",
+      essenceProductionPercent: "Essence/sec",
+      essenceProductionFlat: "Essence/sec",
       essenceGlobalPercent: "Essence globale",
-      critChanceFlatPercent: "chance critique",
-      fragmentGainPercent: "fragments obtenus",
-      duplicateBonusFragmentChance: "fragment doublon",
-      manualClick: "puissance de clic",
-      clickPct: "puissance de clic",
-      fragmentYield: "fragments obtenus",
-      fragmentMult: "fragments obtenus",
-      criticalChance: "chance critique",
-      critChance: "chance critique",
-      expeditionReward: "expéditions",
+      critChanceFlatPercent: "Chance critique",
+      fragmentGainPercent: "Fragments obtenus",
+      duplicateBonusFragmentChance: "Fragment doublon",
+      manualClick: "Puissance de clic",
+      clickPct: "Puissance de clic",
+      fragmentYield: "Fragments obtenus",
+      fragmentMult: "Fragments obtenus",
+      criticalChance: "Chance critique",
+      critChance: "Chance critique",
+      expeditionReward: "Expéditions",
       rarityLuck: "Chance Draconique",
-      globalProdPct: "production d'Essence",
-      offlineMult: "hors ligne"
+      globalProdPct: "Essence/sec",
+      offlineMult: "Hors ligne"
     };
 
     const TEAM_BONUS_ICON = {
       clickPowerPercent: "⚔",
+      clickPowerFlat: "⚔",
       clickEssencePercent: "✧",
       essenceProductionPercent: "✧",
+      essenceProductionFlat: "✧",
       essenceGlobalPercent: "✧",
       critChanceFlatPercent: "✦",
       fragmentGainPercent: "◆",
@@ -5909,10 +6024,13 @@
         }
 
         exp.slots[slotIndex] = null;
+        gameState.totalExpeditionsCompleted = safeNumber(gameState.totalExpeditionsCompleted, 0) + 1;
 
         expeditionsDirty = true;
         dragonsDirty = true;
         uiDirty = true;
+        achievementsDirty = true;
+        checkAchievements();
         saveGame(true);
 
         const def = getExpeditionDef(run.expeditionId);
@@ -6198,19 +6316,133 @@
     }
 
     function updateChestButtonBadge() {
+      /* Inventaire stocké encore mis à jour en interne (expéditions) ;
+         le rail Royaume n'affiche plus le compteur — coffre régulier à la place. */
       const badge = document.getElementById("chests-btn-badge");
-      const btn = document.getElementById("btn-open-chests");
-      const n = getTotalChestCount();
       if (badge) {
-        badge.hidden = false;
-        badge.textContent = "x" + (n > 99 ? "99+" : String(n));
-        /* Desktop CSS masque .is-empty ; mobile continue d'afficher x0 */
-        badge.classList.toggle("is-empty", n <= 0);
+        badge.hidden = true;
+        badge.classList.add("is-empty");
       }
-      if (btn) {
-        btn.classList.toggle("has-chests", n > 0);
-        btn.setAttribute("aria-label", n > 0 ? ("Coffres · " + n) : "Coffres");
+      updateRegularChestUI();
+    }
+
+    /* -------------------------------------------------------
+       COFFRE RÉGULIER ROYAUME — claim direct, cooldown 15 min
+       ------------------------------------------------------- */
+    const FREE_CHEST_COOLDOWN_MS = 15 * 60 * 1000;
+    const FREE_CHEST_TYPE = "draconic";
+    let regularChestTickerId = null;
+    let regularChestWasReady = null;
+
+    function getRegularChestRemainingMs() {
+      const until = Math.max(0, Math.floor(safeNumber(gameState.nextFreeChestAt, 0)));
+      if (until <= 0) return 0;
+      return Math.max(0, until - Date.now());
+    }
+
+    function isRegularChestReady() {
+      return getRegularChestRemainingMs() <= 0;
+    }
+
+    function formatChestCountdown(ms) {
+      const total = Math.max(0, Math.ceil(ms / 1000));
+      const m = Math.floor(total / 60);
+      const s = total % 60;
+      return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+    }
+
+    /** Zone avec table coffre de base ; fallback zones débloquées puis sanctuary. */
+    function getFreeChestZoneId() {
+      const cur = gameState.currentZoneId || "sanctuary";
+      if (isValidChest(cur, FREE_CHEST_TYPE)) return cur;
+      const unlocked = Array.isArray(gameState.unlockedZones) ? gameState.unlockedZones : ["sanctuary"];
+      for (let i = unlocked.length - 1; i >= 0; i--) {
+        if (isValidChest(unlocked[i], FREE_CHEST_TYPE)) return unlocked[i];
       }
+      return "sanctuary";
+    }
+
+    function updateRegularChestUI() {
+      const btn = document.getElementById("btn-open-chests");
+      if (!btn) return;
+      const timerEl = document.getElementById("regular-chest-timer");
+      const readyEl = document.getElementById("regular-chest-ready");
+      const remaining = getRegularChestRemainingMs();
+      const ready = remaining <= 0;
+
+      btn.classList.toggle("is-cooldown", !ready);
+      btn.classList.toggle("is-ready", ready);
+      btn.classList.remove("has-chests");
+
+      if (ready) {
+        if (timerEl) {
+          timerEl.hidden = true;
+          timerEl.setAttribute("aria-hidden", "true");
+          timerEl.textContent = "";
+        }
+        if (readyEl) {
+          readyEl.hidden = false;
+          readyEl.setAttribute("aria-hidden", "false");
+        }
+        btn.setAttribute("aria-label", "Coffre prêt — récupérer");
+        btn.title = "Coffre prêt";
+        if (regularChestWasReady === false) {
+          btn.classList.add("just-became-ready");
+          setTimeout(function () {
+            btn.classList.remove("just-became-ready");
+          }, 900);
+        }
+      } else {
+        if (timerEl) {
+          timerEl.hidden = false;
+          timerEl.setAttribute("aria-hidden", "false");
+          timerEl.textContent = formatChestCountdown(remaining);
+        }
+        if (readyEl) {
+          readyEl.hidden = true;
+          readyEl.setAttribute("aria-hidden", "true");
+        }
+        btn.setAttribute("aria-label", "Coffre — disponible dans " + formatChestCountdown(remaining));
+        btn.title = formatChestCountdown(remaining);
+      }
+      regularChestWasReady = ready;
+    }
+
+    function startRegularChestTicker() {
+      if (regularChestTickerId != null) return;
+      updateRegularChestUI();
+      regularChestTickerId = setInterval(updateRegularChestUI, 1000);
+    }
+
+    function stopRegularChestTicker() {
+      if (regularChestTickerId == null) return;
+      clearInterval(regularChestTickerId);
+      regularChestTickerId = null;
+    }
+
+    function nudgeCooldownChest() {
+      const btn = document.getElementById("btn-open-chests");
+      if (!btn || btn.classList.contains("is-nudge")) return;
+      btn.classList.add("is-nudge");
+      setTimeout(function () {
+        btn.classList.remove("is-nudge");
+      }, 220);
+    }
+
+    /** Claim coffre régulier — timestamp d'abord (anti double-claim), puis reveal existant. */
+    function onRegularChestClick() {
+      if (isOpeningChest) return;
+      if (!isRegularChestReady()) {
+        nudgeCooldownChest();
+        return;
+      }
+      /* Lock immédiat avant roll / anim */
+      gameState.nextFreeChestAt = Date.now() + FREE_CHEST_COOLDOWN_MS;
+      saveGame(true);
+      updateRegularChestUI();
+
+      const zoneId = getFreeChestZoneId();
+      startChestOpening(zoneId, FREE_CHEST_TYPE, { skipInventory: true });
     }
 
     function getChestMenuZones() {
@@ -6388,8 +6620,9 @@
       if (halo) halo.className = "chest-reveal-halo";
       modal.classList.add("hidden");
       lastChestOpen = null;
+      /* Plus de retour auto vers le menu inventaire (coffre régulier Royaume). */
       if (isChestModalOpen()) refreshChestInventoryCounts();
-      else openChestModal();
+      updateRegularChestUI();
     }
 
     function refreshChestInventoryCounts() {
@@ -6551,11 +6784,13 @@
       startChestOpening(selectedChestZoneId, selectedChestType);
     }
 
-    function startChestOpening(zoneId, chestType) {
+    function startChestOpening(zoneId, chestType, options) {
+      options = options || {};
       if (isOpeningChest) return;
       const modal = document.getElementById("chest-reveal-modal");
       const def = CHEST_TYPES[chestType];
-      if (!modal || !def || getChestCount(zoneId, chestType) <= 0) return;
+      if (!modal || !def) return;
+      if (!options.skipInventory && getChestCount(zoneId, chestType) <= 0) return;
 
       isOpeningChest = true;
       const menuOpenBtn = document.getElementById("btn-chest-open");
@@ -6564,19 +6799,31 @@
       if (againBtn) againBtn.disabled = true;
 
       /* Un seul roll — récompense créditée tout de suite, affichée après l'anim. */
-      const result = openChest(zoneId, chestType);
+      let result = null;
+      if (options.skipInventory) {
+        const reward = rollChestReward(zoneId, chestType);
+        const granted = grantChestRewards(reward);
+        if (granted) {
+          calculateProduction();
+          saveGame(true);
+          result = Object.assign({ zoneId: zoneId, chestType: chestType }, granted);
+        }
+      } else {
+        result = openChest(zoneId, chestType);
+      }
       if (!result) {
         isOpeningChest = false;
         if (againBtn) againBtn.disabled = false;
         updateChestActionPanel();
         return;
       }
-      clearChestNew(zoneId, chestType);
-      lastChestOpen = { zoneId: zoneId, chestType: chestType };
+      if (!options.skipInventory) clearChestNew(zoneId, chestType);
+      /* Pas de « Ouvrir encore » pour le coffre régulier (pas d'inventaire). */
+      lastChestOpen = options.skipInventory ? null : { zoneId: zoneId, chestType: chestType };
       selectedChestZoneId = zoneId;
       selectedChestType = chestType;
       updateChestButtonBadge();
-      if (isChestModalOpen()) refreshChestInventoryCounts();
+      if (!options.skipInventory && isChestModalOpen()) refreshChestInventoryCounts();
 
       const art = document.getElementById("chest-reveal-art");
       const img = document.getElementById("chest-reveal-img");
@@ -7729,7 +7976,9 @@
       const totals = getTeamBonusTotals();
       const preferred = [
         "clickPowerPercent",
+        "clickPowerFlat",
         "essenceProductionPercent",
+        "essenceProductionFlat",
         "critChanceFlatPercent",
         "fragmentGainPercent",
         "duplicateBonusFragmentChance",
@@ -7739,9 +7988,9 @@
         "clickPct",
         "critChance"
       ];
-      const types = preferred.filter((t) => totals[t] > 0).slice(0, 3);
+      const types = preferred.filter((t) => totals[t] > 0).slice(0, 4);
       Object.keys(totals).forEach((t) => {
-        if (types.indexOf(t) === -1 && totals[t] > 0 && types.length < 3) types.push(t);
+        if (types.indexOf(t) === -1 && totals[t] > 0 && types.length < 4) types.push(t);
       });
       if (!types.length) {
         const li = document.createElement("li");
@@ -7754,7 +8003,7 @@
         const li = document.createElement("li");
         li.innerHTML = '<span class="tb-ico" aria-hidden="true"></span><strong></strong><span class="tb-label"></span>';
         li.querySelector(".tb-ico").textContent = TEAM_BONUS_ICON[t] || "•";
-        li.querySelector("strong").textContent = "+" + formatTeamBonusPct(totals[t]) + " %";
+        li.querySelector("strong").textContent = formatDragonBonusAmount(t, totals[t]);
         li.querySelector(".tb-label").textContent = TEAM_BONUS_SHORT[t] || t;
         list.appendChild(li);
       });
@@ -8750,21 +8999,97 @@
     }
 
     /* -------------------------------------------------------
-       ACHIEVEMENTS
+       ACHIEVEMENTS — récompenses Essence uniques (claim manuel)
        ------------------------------------------------------- */
+    let achievementsFilter = "all";
+    let selectedAchievementId = null;
+    let achievementsUiBound = false;
+    let achievementClaimLock = false;
+
+    function countTotalDragonStars(state) {
+      const s = state || gameState;
+      let n = 0;
+      const dragons = s.dragons || {};
+      Object.keys(dragons).forEach((id) => {
+        const e = dragons[id];
+        if (!isDragonDiscovered(e, id, s)) return;
+        n += Math.max(0, Math.floor(safeNumber(e.stars, 0)));
+      });
+      return n;
+    }
+
+    function getAchievementProgressValue(def, state) {
+      const s = state || gameState;
+      const key = def.progressKey;
+      if (key === "totalClicks") return safeNumber(s.totalClicks, 0);
+      if (key === "totalEggsHatched") return Math.max(safeNumber(s.totalEggsHatched, 0), s.eggHatched ? 1 : 0);
+      if (key === "ownedDragons") return countOwnedDragons(s);
+      if (key === "totalStars") return countTotalDragonStars(s);
+      if (key === "hasStars2") return hasDragonAtStars(s, 2) ? 1 : 0;
+      if (key === "hasStars5") return hasDragonAtStars(s, 5) ? 1 : 0;
+      if (key === "totalEssenceEarned") return safeNumber(s.totalEssenceEarned, s.totalPowerEarned);
+      if (key === "totalCriticalClicks") return safeNumber(s.totalCriticalClicks, 0);
+      if (key === "totalExpeditionsCompleted") return safeNumber(s.totalExpeditionsCompleted, 0);
+      if (key === "zoneValley") return isZoneUnlocked(s, "valley") ? 1 : 0;
+      if (key === "zoneMountains") return isZoneUnlocked(s, "mountains") ? 1 : 0;
+      return 0;
+    }
+
+    function isAchievementComplete(def, state) {
+      const target = Math.max(1, safeNumber(def.target, 1));
+      return getAchievementProgressValue(def, state) >= target;
+    }
+
+    function ensureAchievementEntry(id) {
+      if (!gameState.achievements) gameState.achievements = {};
+      if (!gameState.achievements[id] || typeof gameState.achievements[id] !== "object") {
+        gameState.achievements[id] = { unlocked: false, rewardClaimed: false };
+      }
+      if (gameState.achievements[id].rewardClaimed == null) {
+        gameState.achievements[id].rewardClaimed = false;
+      }
+      return gameState.achievements[id];
+    }
+
+    function getAchievementState(def) {
+      const entry = ensureAchievementEntry(def.id);
+      const complete = !!entry.unlocked || isAchievementComplete(def, gameState);
+      const claimed = !!entry.rewardClaimed;
+      if (claimed) return "claimed";
+      if (complete) return "claimable";
+      return "progress";
+    }
+
+    function countClaimableAchievements() {
+      let n = 0;
+      ACHIEVEMENT_DEFS.forEach((def) => {
+        if (getAchievementState(def) === "claimable") n += 1;
+      });
+      return n;
+    }
+
+    function updateAchievementsNavBadge() {
+      const badge = document.getElementById("nav-achievements-badge");
+      const btn = document.querySelector('.nav-btn[data-nav="trophies"]');
+      const n = countClaimableAchievements();
+      if (badge) {
+        badge.hidden = n <= 0;
+        badge.textContent = n > 9 ? "!" : String(n);
+      }
+      if (btn) btn.classList.toggle("has-ach-claim", n > 0);
+    }
+
     function checkAchievements() {
       let changed = false;
       ACHIEVEMENT_DEFS.forEach((def) => {
-        const entry = gameState.achievements[def.id];
-        if (!entry || entry.unlocked) return;
+        const entry = ensureAchievementEntry(def.id);
+        if (entry.unlocked) return;
         try {
-          if (def.check(gameState)) {
+          if (isAchievementComplete(def, gameState)) {
             entry.unlocked = true;
+            if (entry.rewardClaimed == null) entry.rewardClaimed = false;
             changed = true;
-            const rewardTxt = def.reward
-              ? " (+bonus)"
-              : "";
-            showNotification("🏆 SUCCÈS DÉBLOQUÉ", def.name + rewardTxt);
+            showNotification("🏆 SUCCÈS TERMINÉ", def.name + " — récompense disponible");
             playSound("achievement");
           }
         } catch (e) {
@@ -8773,9 +9098,215 @@
       });
       if (changed) {
         achievementsDirty = true;
-        calculateProduction();
         uiDirty = true;
       }
+      updateAchievementsNavBadge();
+    }
+
+    function claimAchievementReward(achievementId, opts) {
+      opts = opts || {};
+      if (achievementClaimLock) return { ok: false, reason: "busy" };
+      const def = ACHIEVEMENT_DEFS.find((d) => d.id === achievementId);
+      if (!def) return { ok: false, reason: "missing" };
+      const entry = ensureAchievementEntry(achievementId);
+      if (entry.rewardClaimed) return { ok: false, reason: "claimed" };
+      if (!entry.unlocked && !isAchievementComplete(def, gameState)) {
+        return { ok: false, reason: "locked" };
+      }
+      achievementClaimLock = true;
+      try {
+        entry.unlocked = true;
+        entry.rewardClaimed = true;
+        const amount = Math.max(0, Math.floor(safeNumber(def.rewardEssence, 0)));
+        if (amount > 0) addEssence(amount, "achievement");
+        achievementsDirty = true;
+        uiDirty = true;
+        if (!opts.silent) {
+          showNotification("✨ RÉCOMPENSE", def.name + " — +" + formatNumber(amount) + " Essence");
+          playSound("achievement");
+        }
+        if (!opts.skipSave) saveGame(true);
+        updateAchievementsNavBadge();
+        return { ok: true, amount: amount };
+      } finally {
+        achievementClaimLock = false;
+      }
+    }
+
+    function claimAllAchievementRewards() {
+      if (achievementClaimLock) return { ok: false, reason: "busy" };
+      const ids = ACHIEVEMENT_DEFS.filter((d) => getAchievementState(d) === "claimable").map((d) => d.id);
+      if (ids.length < 2) return { ok: false, reason: "few" };
+      achievementClaimLock = true;
+      let total = 0;
+      try {
+        ids.forEach((id) => {
+          const def = ACHIEVEMENT_DEFS.find((d) => d.id === id);
+          const entry = ensureAchievementEntry(id);
+          if (!def || entry.rewardClaimed) return;
+          entry.unlocked = true;
+          entry.rewardClaimed = true;
+          const amount = Math.max(0, Math.floor(safeNumber(def.rewardEssence, 0)));
+          if (amount > 0) {
+            addEssence(amount, "achievement");
+            total += amount;
+          }
+        });
+        achievementsDirty = true;
+        uiDirty = true;
+        saveGame(true);
+        updateAchievementsNavBadge();
+        showNotification("✨ TOUT RÉCUPÉRÉ", "+" + formatNumber(total) + " Essence");
+        playSound("achievement");
+        return { ok: true, amount: total, count: ids.length };
+      } finally {
+        achievementClaimLock = false;
+      }
+    }
+
+    function getFilteredAchievementDefs() {
+      return ACHIEVEMENT_DEFS.filter((d) => achievementsFilter === "all" || d.category === achievementsFilter);
+    }
+
+    function clearAchievementSelection() {
+      selectedAchievementId = null;
+      const list = document.getElementById("achievements-list");
+      if (list) {
+        list.querySelectorAll(".ach-tile.is-selected").forEach((el) => el.classList.remove("is-selected"));
+      }
+      renderAchievementDetail();
+    }
+
+    function selectAchievement(id) {
+      if (!id) {
+        clearAchievementSelection();
+        return;
+      }
+      const def = ACHIEVEMENT_DEFS.find((d) => d.id === id);
+      if (!def) {
+        clearAchievementSelection();
+        return;
+      }
+      if (achievementsFilter !== "all" && def.category !== achievementsFilter) {
+        clearAchievementSelection();
+        return;
+      }
+      selectedAchievementId = id;
+      const list = document.getElementById("achievements-list");
+      if (list) {
+        list.querySelectorAll(".ach-tile").forEach((el) => {
+          el.classList.toggle("is-selected", el.getAttribute("data-ach-select") === id);
+        });
+      }
+      renderAchievementDetail();
+    }
+
+    function renderAchievementDetail() {
+      const detail = document.getElementById("achievements-detail");
+      if (!detail) return;
+      const body = detail.querySelector(".ach-detail-body");
+      const progText = detail.querySelector(".ach-detail-progress-text");
+      const progFill = detail.querySelector(".ach-detail-bar-fill");
+      const claimBtn = detail.querySelector("#btn-ach-claim");
+      if (!body || !progText || !progFill || !claimBtn) return;
+
+      const def = selectedAchievementId
+        ? ACHIEVEMENT_DEFS.find((d) => d.id === selectedAchievementId)
+        : null;
+
+      if (!def) {
+        body.innerHTML = '<p class="ach-detail-empty">Choisi un succès</p>';
+        progText.textContent = "0 / 0";
+        progFill.style.width = "0%";
+        claimBtn.disabled = true;
+        claimBtn.className = "ach-claim-btn is-disabled";
+        claimBtn.removeAttribute("data-ach-claim");
+        claimBtn.textContent = "RÉCLAMER";
+        return;
+      }
+
+      const state = getAchievementState(def);
+      const current = Math.min(getAchievementProgressValue(def, gameState), def.target);
+      const pct = def.target > 0 ? Math.min(100, (current / def.target) * 100) : 0;
+      const cat = ACHIEVEMENT_CATEGORIES.find((c) => c.id === def.category);
+      const stateLabel = state === "claimed" ? "Récupéré" : state === "claimable" ? "À récupérer" : "En cours";
+
+      body.innerHTML =
+        '<div class="ach-detail-icon" aria-hidden="true"></div>' +
+        '<h4 class="ach-detail-name"></h4>' +
+        '<p class="ach-detail-desc"></p>' +
+        '<p class="ach-detail-meta"></p>' +
+        '<p class="ach-detail-reward"></p>';
+      body.querySelector(".ach-detail-icon").textContent = def.icon || "🏆";
+      body.querySelector(".ach-detail-name").textContent = def.name;
+      body.querySelector(".ach-detail-desc").textContent = def.description;
+      body.querySelector(".ach-detail-meta").textContent =
+        (cat ? cat.label : "") + (cat ? " · " : "") + stateLabel;
+      body.querySelector(".ach-detail-reward").textContent =
+        "Récompense : " + formatNumber(def.rewardEssence) + " Essence";
+
+      progText.textContent = formatNumber(current) + " / " + formatNumber(def.target);
+      progFill.style.width = pct + "%";
+      progFill.classList.toggle("is-complete", state !== "progress");
+
+      claimBtn.setAttribute("data-ach-claim", def.id);
+      if (state === "claimable") {
+        claimBtn.disabled = false;
+        claimBtn.className = "ach-claim-btn is-ready";
+        claimBtn.textContent = "RÉCLAMER";
+      } else if (state === "claimed") {
+        claimBtn.disabled = true;
+        claimBtn.className = "ach-claim-btn is-claimed";
+        claimBtn.textContent = "RÉCUPÉRÉ";
+      } else {
+        claimBtn.disabled = true;
+        claimBtn.className = "ach-claim-btn is-disabled";
+        claimBtn.textContent = "RÉCLAMER";
+      }
+    }
+
+    function bindAchievementsUi() {
+      if (achievementsUiBound) return;
+      achievementsUiBound = true;
+      const panel = document.getElementById("panel-achievements");
+      if (!panel) return;
+      panel.addEventListener("click", (e) => {
+        const chip = e.target.closest("[data-ach-filter]");
+        if (chip && panel.contains(chip)) {
+          const id = chip.getAttribute("data-ach-filter");
+          if (!id || achievementsFilter === id) return;
+          achievementsFilter = id;
+          if (selectedAchievementId) {
+            const sel = ACHIEVEMENT_DEFS.find((d) => d.id === selectedAchievementId);
+            if (!sel || (id !== "all" && sel.category !== id)) selectedAchievementId = null;
+          }
+          achievementsDirty = true;
+          renderAchievements();
+          return;
+        }
+        const tile = e.target.closest("[data-ach-select]");
+        if (tile && panel.contains(tile)) {
+          const id = tile.getAttribute("data-ach-select");
+          if (!id) return;
+          selectAchievement(id);
+          return;
+        }
+        const claimAll = e.target.closest("#btn-claim-all-achievements");
+        if (claimAll && panel.contains(claimAll)) {
+          claimAllAchievementRewards();
+          renderAchievements();
+          renderHeader();
+          return;
+        }
+        const claimBtn = e.target.closest("[data-ach-claim]");
+        if (claimBtn && panel.contains(claimBtn) && !claimBtn.disabled) {
+          const id = claimBtn.getAttribute("data-ach-claim");
+          if (!id) return;
+          claimAchievementReward(id);
+          renderAchievements();
+          renderHeader();
+        }
+      });
     }
 
     function clearHatchFxTimers() {
@@ -8965,7 +9496,8 @@
       ft.style.top = jitterY + "px";
       zone.appendChild(ft);
       activeClickFloats.push(ft);
-      scheduleFxRemove(activeClickFloats, ft, both ? 620 : isCrit || isCharged ? 560 : 480);
+      /* Cleanup aligné sur CSS floatUp / floatUpCrit / floatUpLabel (~+30 %). */
+      scheduleFxRemove(activeClickFloats, ft, both ? 820 : isCrit || isCharged ? 730 : 650);
 
       if ((isCrit || isCharged) && !reduce) {
         pruneFxList(activeClickFloats, MAX_CLICK_FLOATS);
@@ -8977,7 +9509,7 @@
         label.style.top = (jitterY - 22) + "px";
         zone.appendChild(label);
         activeClickFloats.push(label);
-        scheduleFxRemove(activeClickFloats, label, both ? 680 : 600);
+        scheduleFxRemove(activeClickFloats, label, both ? 880 : 780);
       }
 
       if (!reduce) {
@@ -9077,6 +9609,12 @@
       musicFadeActive: false,
       musicGestureBound: false,
       musicSrc: "assets/sound/Celestial%20Exploration.mp3",
+      /**
+       * Plafond réel de la musique (source unique).
+       * Volume HTML = master × musicVolume(user 0–1) × musicBaseVolume.
+       * À 100 % utilisateur → ~30 % du max HTML (piste moins agressive).
+       */
+      musicBaseVolume: 0.30,
 
       /* File-based SFX — real asset: assets/sound/egg crack.mp3 */
       eggCrackEl: null,
@@ -9084,21 +9622,20 @@
       eggCrackBaseVolume: 0.55,
 
       /**
-       * Dragon reveal SFX by rarity — real files in assets/sound/
-       * Association (intensité ≈ taille fichier) :
-       *   common    → popup dragon2.mp3  (le plus léger)
-       *   rare      → popup dragon.mp3
-       *   legendary → popup dragon4.mp3
-       *   mythic    → popup dragon3.mp3  (le plus long / impressionnant)
-       * epic → rare (TEMPORAIRE) : aucun fichier Epic dédié dans assets/sound/
-       *   (seulement 4 popup dragon*.mp3 pour 5 raretés). Ne pas inventer de chemin.
+       * Dragon reveal SFX by rarity — noms EXACTS de assets/sound/
+       *   common    → popup dragon commun 1.mp3  (commun 2.mp3 aussi présent, non utilisé)
+       *   rare      → popup dragon rare.mp3
+       *   epic      → popoup dragon epic.mp3     (typo fichier d'origine conservée)
+       *   legendary → popup dragon legendaire.mp3
+       *   mythic    → popup dragon mythique.mp3
        * divine → mythic ; inconnu → common
        */
       dragonRevealSoundSrc: {
-        common: "assets/sound/popup%20dragon2.mp3",
-        rare: "assets/sound/popup%20dragon.mp3",
-        legendary: "assets/sound/popup%20dragon4.mp3",
-        mythic: "assets/sound/popup%20dragon3.mp3"
+        common: "assets/sound/popup%20dragon%20commun%201.mp3",
+        rare: "assets/sound/popup%20dragon%20rare.mp3",
+        epic: "assets/sound/popoup%20dragon%20epic.mp3",
+        legendary: "assets/sound/popup%20dragon%20legendaire.mp3",
+        mythic: "assets/sound/popup%20dragon%20mythique.mp3"
       },
       dragonRevealSoundEls: Object.create(null),
       dragonPopupBaseVolume: 0.6,
@@ -9135,13 +9672,13 @@
         return el;
       },
 
-      /** Map game rarity → sound key (common / rare / legendary / mythic).
-       *  epic : pas d'asset dédié → rare tant qu'un popup epic n'est pas ajouté. */
+      /** Map game rarity → sound key (common / rare / epic / legendary / mythic). */
       resolveDragonRevealSoundKey(rarity) {
         const r = rarity || "common";
         if (r === "mythic" || r === "divine") return "mythic";
         if (r === "legendary") return "legendary";
-        if (r === "rare" || r === "epic") return "rare";
+        if (r === "epic") return "epic";
+        if (r === "rare") return "rare";
         return "common";
       },
 
@@ -9164,7 +9701,7 @@
         return this.dragonRevealSoundEls;
       },
 
-      /* Legacy alias — précharge les 4 sons de rareté */
+      /* Legacy alias — précharge les sons de rareté */
       ensureDragonPopup() {
         return this.ensureDragonRevealSounds();
       },
@@ -9221,7 +9758,23 @@
       },
       music() {
         if (!gameState.musicEnabled) return 0;
-        return this.master() * Math.max(0, Math.min(1, safeNumber(gameState.musicVolume, 0.18)));
+        const user = Math.max(0, Math.min(1, safeNumber(gameState.musicVolume, 1)));
+        const base = Math.max(0, Math.min(1, safeNumber(this.musicBaseVolume, 0.30)));
+        return this.master() * user * base;
+      },
+
+      /** Met à jour le volume des HTMLAudio SFX déjà créés (lecture en cours / caches). */
+      applySfxVolume() {
+        const level = this.sfx();
+        if (this.eggCrackEl) {
+          this.eggCrackEl.volume = Math.max(0, Math.min(1, this.eggCrackBaseVolume * level));
+        }
+        const els = this.dragonRevealSoundEls || {};
+        const keys = Object.keys(els);
+        for (let i = 0; i < keys.length; i++) {
+          const el = els[keys[i]];
+          if (el) el.volume = Math.max(0, Math.min(1, this.dragonPopupBaseVolume * level));
+        }
       },
 
       ensureMusic() {
@@ -9548,6 +10101,34 @@
       document.documentElement.classList.toggle("mobile-performance", isMobileFx());
     }
 
+    /**
+     * Paramètres (#btn-open-settings) : home DOM = HUD (.header-right-cluster).
+     * Mobile : replace en tête du rail (#scene-left-stack), au-dessus d'Événement.
+     * Desktop : reste / revient dans le cluster HUD (clic fiable, hors stacking du rail).
+     * appendChild conserve le même nœud — pas de clone, un seul id.
+     */
+    function syncSettingsButtonPlacement() {
+      const gear = document.getElementById("btn-open-settings");
+      const stack = document.getElementById("scene-left-stack");
+      const cluster = document.querySelector(".header-right-cluster");
+      if (!gear || !stack || !cluster) return;
+      const mobile = window.matchMedia("(max-width: 768px)").matches;
+      if (mobile) {
+        if (gear.parentElement !== stack) {
+          stack.insertBefore(gear, stack.firstChild);
+        }
+      } else if (gear.parentElement !== cluster) {
+        cluster.appendChild(gear);
+      }
+    }
+
+    function onSettingsButtonClick(e) {
+      const gear = e.target && e.target.closest ? e.target.closest("#btn-open-settings") : null;
+      if (!gear) return;
+      const onSettings = getActiveOverlayPanelId() === "settings";
+      switchPanel(onSettings ? "kingdom" : "settings");
+    }
+
     /** Pause décor scène derrière Équipe / Coffres (mobile) — pas la logique gameplay. */
     function syncMobileModalOpenClass() {
       const teamOpen = !!(document.getElementById("team-module") &&
@@ -9559,7 +10140,8 @@
       const any = isMobileFx() && (teamOpen || chestOpen || pickerOpen);
       const root = document.documentElement;
       root.classList.toggle("mobile-modal-open", any);
-      root.classList.toggle("mobile-team-open", isMobileFx() && teamOpen);
+      /* État html distinct du bouton .mobile-team-open (évite width:26px sur <html>). */
+      root.classList.toggle("is-mobile-team-open", isMobileFx() && teamOpen);
       root.classList.toggle("mobile-chest-open", isMobileFx() && chestOpen);
     }
 
@@ -9640,6 +10222,7 @@
     function serializeState() {
       return {
         version: SAVE_VERSION,
+        progressRevision: progressRevision,
         dragonEssence: gameState.dragonEssence,
         dragonPower: gameState.dragonPower,
         totalClicks: gameState.totalClicks,
@@ -9666,6 +10249,7 @@
         equippedEggId: gameState.equippedEggId,
         zoneEggSelection: gameState.zoneEggSelection || {},
         totalEggsHatched: gameState.totalEggsHatched,
+        totalExpeditionsCompleted: gameState.totalExpeditionsCompleted,
         totalDragonsObtained: gameState.totalDragonsObtained,
         rarityStats: gameState.rarityStats,
         hatchHistory: gameState.hatchHistory,
@@ -9676,7 +10260,7 @@
         musicEnabled: gameState.musicEnabled,
         masterVolume: safeNumber(gameState.masterVolume, 1),
         sfxVolume: safeNumber(gameState.sfxVolume, 1),
-        musicVolume: safeNumber(gameState.musicVolume, 0.18),
+        musicVolume: safeNumber(gameState.musicVolume, 1),
         playTimeMs: gameState.playTimeMs,
         lastSaveTime: Date.now(),
         currentZoneId: gameState.currentZoneId || "sanctuary",
@@ -9686,6 +10270,7 @@
         team: gameState.team,
         redeemedCodes: Array.isArray(gameState.redeemedCodes) ? gameState.redeemedCodes.slice() : [],
         chests: sanitizeChestInventory(gameState.chests),
+        nextFreeChestAt: Math.max(0, Math.floor(safeNumber(gameState.nextFreeChestAt, 0))),
         fragmentBonusAccumulator: safeNumber(gameState.fragmentBonusAccumulator, 0),
         eggProgressAccumulator: safeNumber(gameState.eggProgressAccumulator, 0),
         expeditions: gameState.expeditions,
@@ -9695,8 +10280,22 @@
 
     function saveGame(silent) {
       try {
+        /* Ne pas écraser une sauvegarde plus récente écrite par un autre onglet
+           (ex. après Réinitialiser / nouvelle partie). */
+        try {
+          const rawExisting = localStorage.getItem(SAVE_KEY);
+          if (rawExisting) {
+            const existing = JSON.parse(rawExisting);
+            const existingRev = safeNumber(existing && existing.progressRevision, 0);
+            if (existingRev > progressRevision) {
+              return false;
+            }
+          }
+        } catch (eGuard) { /* ignore parse errors — on tente l’écriture */ }
+
         calculateProduction();
         const data = serializeState();
+        data.progressRevision = progressRevision;
         localStorage.setItem(SAVE_KEY, JSON.stringify(data));
         gameState.lastSaveTime = data.lastSaveTime;
         if (!silent) showNotification("💾 Partie sauvegardée", "Progression enregistrée.");
@@ -9741,6 +10340,7 @@
       );
       fresh.peakCps = Math.max(0, Math.floor(safeNumber(data.peakCps, 0)));
       fresh.totalEggsHatched = Math.max(0, safeNumber(data.totalEggsHatched, 0));
+      fresh.totalExpeditionsCompleted = Math.max(0, safeNumber(data.totalExpeditionsCompleted, 0));
       fresh.totalDragonsObtained = Math.max(0, safeNumber(data.totalDragonsObtained, 0));
       fresh.eggHatched = !!data.eggHatched || fresh.totalEggsHatched > 0;
       fresh.eggStage = safeNumber(data.eggStage, 1);
@@ -9749,7 +10349,7 @@
       fresh.musicEnabled = data.musicEnabled !== false;
       fresh.masterVolume = Math.max(0, Math.min(1, Number(data.masterVolume != null ? data.masterVolume : 1)));
       fresh.sfxVolume = Math.max(0, Math.min(1, Number(data.sfxVolume != null ? data.sfxVolume : 1)));
-      fresh.musicVolume = Math.max(0, Math.min(1, Number(data.musicVolume != null ? data.musicVolume : 0.18)));
+      fresh.musicVolume = Math.max(0, Math.min(1, Number(data.musicVolume != null ? data.musicVolume : 1)));
       fresh.playTimeMs = Math.max(0, safeNumber(data.playTimeMs, 0));
       fresh.lastSaveTime = safeNumber(data.lastSaveTime, Date.now());
       fresh.lastTickTime = Date.now();
@@ -9865,6 +10465,8 @@
             bought: !!(data.specialUpgrades[u.id] && data.specialUpgrades[u.id].bought)
           };
         });
+        /* Anciennes saves : critAwakening (Éveil Critique) peut encore être présent —
+           non recopié (retiré des defs), effet non appliqué. */
       }
 
       if (data.upgrades && typeof data.upgrades === "object") {
@@ -9913,9 +10515,18 @@
 
       if (data.achievements && typeof data.achievements === "object") {
         ACHIEVEMENT_DEFS.forEach((a) => {
+          const src = data.achievements[a.id];
           fresh.achievements[a.id] = {
-            unlocked: !!(data.achievements[a.id] && data.achievements[a.id].unlocked)
+            unlocked: !!(src && src.unlocked),
+            rewardClaimed: !!(src && src.rewardClaimed)
           };
+        });
+        /* Migration : anciens succès terminés → nouveaux IDs (rewardClaimed reste false) */
+        Object.keys(LEGACY_ACHIEVEMENT_UNLOCK_MAP).forEach((oldId) => {
+          const src = data.achievements[oldId];
+          if (!src || !src.unlocked) return;
+          const newId = LEGACY_ACHIEVEMENT_UNLOCK_MAP[oldId];
+          if (fresh.achievements[newId]) fresh.achievements[newId].unlocked = true;
         });
       }
 
@@ -10122,6 +10733,8 @@
       }
 
       fresh.chests = sanitizeChestInventory(data.chests);
+      /* Legacy sans champ : coffre régulier immédiatement disponible */
+      fresh.nextFreeChestAt = Math.max(0, Math.floor(safeNumber(data.nextFreeChestAt, 0)));
 
       fresh.fragmentBonusAccumulator = Math.max(0, safeNumber(data.fragmentBonusAccumulator, 0));
       fresh.eggProgressAccumulator = Math.max(0, safeNumber(data.eggProgressAccumulator, 0));
@@ -10222,6 +10835,11 @@
       }
 
       gameState = fresh;
+      /* Adopter la révision de la save chargée (sync multi-onglets). */
+      progressRevision = Math.max(
+        safeNumber(data.progressRevision, 0),
+        progressRevision
+      );
       normalizeAllDragonDiscoveries(gameState);
       calculateProduction();
       updateEggStage();
@@ -10249,8 +10867,38 @@
     }
 
     /**
+     * Remet l’état zones / codes à un vrai nouveau joueur (Z1 only).
+     * Appelé uniquement par hardResetProgress — pas au load.
+     */
+    function applyFreshZoneProgressState(state) {
+      const s = state || gameState;
+      s.currentZoneId = "sanctuary";
+      s.unlockedZones = ["sanctuary"];
+      s.visitedZones = ["sanctuary"];
+      s.redeemedCodes = [];
+      if (!s.meta || typeof s.meta !== "object") s.meta = {};
+      s.meta.unlockedZones = ["sanctuary"];
+      if (!s.meta.flags || typeof s.meta.flags !== "object") s.meta.flags = {};
+      ensureZoneSpent(s);
+      ZONE_DEFS.forEach((z) => {
+        s.zoneSpent[z.id] = 0;
+      });
+      /* Œufs : seuls ceux startUnlocked restent ouverts (createEmptyEggProgress). */
+      if (s.eggs) {
+        EGG_DEFS.forEach((e) => {
+          if (!s.eggs[e.id]) return;
+          if (!e.startUnlocked) s.eggs[e.id].unlocked = false;
+        });
+        if (s.eggs.basic) s.eggs.basic.unlocked = true;
+      }
+      s.equippedEggId = "basic";
+      s.zoneEggSelection = {};
+    }
+
+    /**
      * Full progress wipe for testing a fresh player.
      * Does NOT run automatically on page load.
+     * Invalide les autosaves d’autres onglets via progressRevision.
      */
     function hardResetProgress(opts) {
       opts = opts || {};
@@ -10258,7 +10906,7 @@
       let musicEnabled = true;
       let masterVolume = 1;
       let sfxVolume = 1;
-      let musicVolume = 0.18;
+      let musicVolume = 1;
       if (opts.keepAudio !== false) {
         try {
           const raw = localStorage.getItem(SAVE_KEY);
@@ -10274,11 +10922,43 @@
           }
         } catch (e) { /* ignore */ }
       }
+
+      /* Nouvelle révision AVANT écriture — tout onglet plus ancien ne peut plus écraser. */
+      progressRevision = Date.now();
+
       try {
         localStorage.removeItem(SAVE_KEY);
       } catch (e) { /* ignore */ }
 
+      /* Verrou immédiat : réduit la fenêtre où un autre onglet réécrit Z3 / LEGACY. */
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({
+          version: SAVE_VERSION,
+          progressRevision: progressRevision,
+          currentZoneId: "sanctuary",
+          unlockedZones: ["sanctuary"],
+          visitedZones: ["sanctuary"],
+          redeemedCodes: [],
+          zoneSpent: {},
+          meta: {
+            prestigeLevel: 0,
+            dragonSouls: 0,
+            unlockedZones: ["sanctuary"],
+            collectedDragons: [],
+            flags: {}
+          },
+          soundEnabled: soundEnabled,
+          musicEnabled: musicEnabled,
+          masterVolume: masterVolume,
+          sfxVolume: sfxVolume,
+          musicVolume: musicVolume,
+          introSeen: opts.skipIntro !== false,
+          lastSaveTime: Date.now()
+        }));
+      } catch (eLock) { /* ignore */ }
+
       gameState = createDefaultState();
+      applyFreshZoneProgressState(gameState);
       gameState.soundEnabled = soundEnabled;
       gameState.musicEnabled = musicEnabled;
       gameState.masterVolume = Math.max(0, Math.min(1, masterVolume));
@@ -10454,7 +11134,7 @@
       if (powerEl) powerEl.textContent = formatNumber(powerNow);
       if (lastHudDragonPower != null && powerNow !== lastHudDragonPower) {
         if (window.DCAnim && DCAnim.pulseHudPower) DCAnim.pulseHudPower();
-        else if (powerEl) triggerAnim(powerEl.closest(".stat-pill") || powerEl, "anim-pulse", 180);
+        else if (powerEl) triggerAnim(powerEl.closest(".hud-resource-card, .stat-pill") || powerEl, "anim-pulse", 180);
       }
       lastHudDragonPower = powerNow;
       updateExpeditionButtonIndicator();
@@ -10482,33 +11162,33 @@
       if (opts.title) row.title = opts.title;
 
       const showLevel = opts.showLevel !== false && opts.level != null && opts.maxLevel != null;
+      const tipParts = [];
+      if (opts.totalText) tipParts.push(opts.totalText);
+      if (opts.descText) tipParts.push(opts.descText);
+      if (tipParts.length && !row.title) row.title = tipParts.join(" · ");
+      else if (tipParts.length && row.title) row.title = row.title + " — " + tipParts.join(" · ");
 
+      /* Zone droite = colonne centrée : titre → bonus → niveau → bouton */
       row.innerHTML =
-        '<div class="item-card-head">' +
-          '<div class="item-icon"><span class="item-icon-glyph"></span></div>' +
+        '<div class="item-icon"><span class="item-icon-glyph"></span></div>' +
+        '<div class="item-main">' +
           '<div class="item-name"></div>' +
-        "</div>" +
-        (showLevel ? '<div class="item-level"></div>' : "") +
-        (opts.effectHtml != null || opts.effectText != null
-          ? '<div class="item-effect"></div>'
-          : "") +
-        (opts.totalText ? '<div class="item-total"></div>' : "") +
-        (opts.descText ? '<div class="item-desc"></div>' : "") +
-        '<div class="item-card-foot"></div>';
+          ((opts.effectHtml != null || opts.effectText != null)
+            ? '<div class="item-effect"></div>'
+            : "") +
+          (showLevel ? '<div class="item-level"></div>' : "") +
+          '<div class="item-card-foot"></div>' +
+        "</div>";
 
       row.querySelector(".item-icon-glyph").textContent = opts.icon || "";
       row.querySelector(".item-name").textContent = opts.name || "";
       const levelEl = row.querySelector(".item-level");
-      if (levelEl) levelEl.textContent = "Niveau " + opts.level + " / " + opts.maxLevel;
+      if (levelEl) levelEl.textContent = opts.level + " / " + opts.maxLevel;
       const effectEl = row.querySelector(".item-effect");
       if (effectEl) {
         if (opts.effectHtml != null) effectEl.innerHTML = opts.effectHtml;
         else effectEl.textContent = opts.effectText || "";
       }
-      const totalEl = row.querySelector(".item-total");
-      if (totalEl) totalEl.textContent = opts.totalText;
-      const descEl = row.querySelector(".item-desc");
-      if (descEl) descEl.textContent = opts.descText;
 
       fillShopItemFooter(row.querySelector(".item-card-foot"), opts);
       return row;
@@ -10524,15 +11204,16 @@
         foot.appendChild(maxEl);
         return;
       }
-      const costEl = document.createElement("div");
-      costEl.className = "item-progress-cost item-cost";
-      costEl.textContent = formatNumber(opts.cost) + " ✨";
-      foot.appendChild(costEl);
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "btn gold-action-btn buy-btn" + (opts.upgradeBtn ? " buy-upgrade-btn" : "");
+      btn.className = "btn gold-action-btn buy-btn item-buy-compact" + (opts.upgradeBtn ? " buy-upgrade-btn" : "");
       btn.setAttribute("data-action-label", opts.actionLabel || "Acheter");
-      btn.textContent = opts.actionLabel || "Acheter";
+      btn.setAttribute("aria-label", (opts.actionLabel || "Acheter") + " — " + formatNumber(opts.cost) + " Essence");
+      /* Bouton = logo Essence + prix, groupe centré */
+      btn.innerHTML =
+        '<img class="item-buy-essence" src="assets/contenant/essence%20logo.png" alt="" draggable="false" decoding="async" />' +
+        '<span class="item-progress-cost item-cost"></span>';
+      btn.querySelector(".item-progress-cost").textContent = formatNumber(opts.cost);
       btn.disabled = !opts.canBuy;
       btn.addEventListener("click", opts.onClick);
       foot.appendChild(btn);
@@ -10649,22 +11330,30 @@
         const canBuy = gameState.dragonEssence >= cost;
         card.classList.toggle("disabled", !canBuy);
         const costEl = card.querySelector(".item-progress-cost");
-        if (costEl) costEl.textContent = formatNumber(cost) + " ✨";
+        if (costEl) costEl.textContent = formatNumber(cost);
         const btn = card.querySelector(".buy-btn");
-        if (btn) btn.disabled = !canBuy;
+        if (btn) {
+          btn.disabled = !canBuy;
+          btn.setAttribute("aria-label", "Acheter — " + formatNumber(cost) + " Essence");
+        }
       });
       getVisibleShopPassives().forEach((def) => {
         const card = list.querySelector('[data-passive-id="' + def.id + '"]');
         if (!card || gameState.shopPassives[def.id]?.bought) return;
         const canBuy = gameState.dragonEssence >= def.cost;
         card.classList.toggle("disabled", !canBuy);
+        const costEl = card.querySelector(".item-progress-cost");
+        if (costEl) costEl.textContent = formatNumber(def.cost);
         const btn = card.querySelector(".buy-btn");
-        if (btn) btn.disabled = !canBuy;
+        if (btn) {
+          btn.disabled = !canBuy;
+          btn.setAttribute("aria-label", "Acheter — " + formatNumber(def.cost) + " Essence");
+        }
       });
     }
 
     function formatGoldActionPrice(cost) {
-      return formatNumber(cost) + " ✨";
+      return formatNumber(cost);
     }
 
     function renderUpgrades() {
@@ -10864,49 +11553,97 @@
     }
 
     function renderAchievements() {
+      bindAchievementsUi();
       const list = document.getElementById("achievements-list");
+      if (!list) return;
       list.innerHTML = "";
+      list.className = "card-list achievements-shell";
 
-      const unlockedCount = ACHIEVEMENT_DEFS.filter((d) => gameState.achievements[d.id]?.unlocked).length;
-      const summary = document.createElement("div");
-      summary.className = "list-summary";
-      summary.innerHTML =
-        '<div class="list-summary-row"><span>Succès débloqués</span><strong></strong></div>' +
-        '<div class="list-summary-bar"><div class="list-summary-fill"></div></div>';
-      summary.querySelector("strong").textContent = unlockedCount + " / " + ACHIEVEMENT_DEFS.length;
-      summary.querySelector(".list-summary-fill").style.width =
-        (ACHIEVEMENT_DEFS.length ? (unlockedCount / ACHIEVEMENT_DEFS.length) * 100 : 0) + "%";
-      list.appendChild(summary);
-
-      ACHIEVEMENT_DEFS.forEach((def) => {
-        const unlocked = !!(gameState.achievements[def.id]?.unlocked);
-        const card = document.createElement("div");
-        card.className = "card" + (unlocked ? " unlocked" : " locked");
-        card.innerHTML =
-          '<div class="card-icon"></div>' +
-          '<div class="card-info">' +
-            '<div class="card-name"></div>' +
-            '<div class="card-desc"></div>' +
-          "</div>" +
-          '<div class="card-action"></div>';
-
-        card.querySelector(".card-icon").textContent = unlocked ? def.icon : "❓";
-        card.querySelector(".card-name").textContent = unlocked ? def.name : "???";
-        let desc = def.description;
-        if (def.reward && def.reward.type) {
-          const rv = def.reward.value;
-          if (rv) desc += " · Bonus : " + (def.reward.type.includes("Pct") || def.reward.type === "critChance" || def.reward.type === "fragmentMult"
-            ? "+" + (rv * 100).toFixed(0) + "%"
-            : def.reward.type);
-        }
-        card.querySelector(".card-desc").textContent = desc;
-        card.querySelector(".card-action").innerHTML = unlocked
-          ? '<span class="state-dot ok" title="Débloqué">✓</span>'
-          : '<span class="state-dot" title="Verrouillé">🔒</span>';
-
-        list.appendChild(card);
+      const unlockedCount = ACHIEVEMENT_DEFS.filter((d) => {
+        const e = ensureAchievementEntry(d.id);
+        return e.unlocked || isAchievementComplete(d, gameState);
+      }).length;
+      const claimable = countClaimableAchievements();
+      let claimableEssence = 0;
+      ACHIEVEMENT_DEFS.forEach((d) => {
+        if (getAchievementState(d) === "claimable") claimableEssence += safeNumber(d.rewardEssence, 0);
       });
+
+      const head = document.createElement("div");
+      head.className = "achievements-head";
+      head.innerHTML =
+        '<div class="list-summary ach-summary">' +
+          '<div class="list-summary-row"><span>Succès</span><strong></strong></div>' +
+          '<div class="list-summary-bar"><div class="list-summary-fill"></div></div>' +
+        "</div>" +
+        '<button type="button" class="ach-claim-all" id="btn-claim-all-achievements" hidden></button>' +
+        '<div class="achievements-filters" id="achievements-filters" role="toolbar" aria-label="Filtres succès"></div>';
+      head.querySelector("strong").textContent = unlockedCount + " / " + ACHIEVEMENT_DEFS.length;
+      head.querySelector(".list-summary-fill").style.width =
+        (ACHIEVEMENT_DEFS.length ? (unlockedCount / ACHIEVEMENT_DEFS.length) * 100 : 0) + "%";
+      const claimAllBtn = head.querySelector("#btn-claim-all-achievements");
+      if (claimable >= 2) {
+        claimAllBtn.hidden = false;
+        claimAllBtn.textContent = "Tout récupérer · +" + formatNumber(claimableEssence) + " Essence";
+      }
+      const filters = head.querySelector("#achievements-filters");
+      ACHIEVEMENT_CATEGORIES.forEach((cat) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "ach-filter-chip" + (achievementsFilter === cat.id ? " active" : "");
+        chip.setAttribute("data-ach-filter", cat.id);
+        chip.textContent = cat.label;
+        filters.appendChild(chip);
+      });
+      list.appendChild(head);
+
+      const split = document.createElement("div");
+      split.className = "achievements-split";
+      split.innerHTML =
+        '<div class="achievements-grid" id="achievements-grid" role="list" aria-label="Liste des succès"></div>' +
+        '<div class="achievements-divider" aria-hidden="true"><span class="achievements-divider-gem"></span></div>' +
+        '<aside class="achievements-detail" id="achievements-detail">' +
+          '<h3 class="ach-detail-heading">Description</h3>' +
+          '<div class="ach-detail-body"></div>' +
+          '<div class="ach-detail-foot">' +
+            '<div class="ach-detail-progress">' +
+              '<div class="ach-detail-bar"><div class="ach-detail-bar-fill"></div></div>' +
+              '<div class="ach-detail-progress-text">0 / 0</div>' +
+            "</div>" +
+            '<button type="button" class="ach-claim-btn is-disabled" id="btn-ach-claim" disabled>RÉCLAMER</button>' +
+          "</div>" +
+        "</aside>";
+      list.appendChild(split);
+
+      const grid = split.querySelector("#achievements-grid");
+      const defs = getFilteredAchievementDefs();
+      if (selectedAchievementId && !defs.some((d) => d.id === selectedAchievementId)) {
+        selectedAchievementId = null;
+      }
+
+      defs.forEach((def) => {
+        const state = getAchievementState(def);
+        const tile = document.createElement("button");
+        tile.type = "button";
+        tile.className =
+          "ach-tile state-" + state + (selectedAchievementId === def.id ? " is-selected" : "");
+        tile.setAttribute("data-ach-select", def.id);
+        tile.setAttribute("role", "listitem");
+        tile.setAttribute("aria-label", def.name);
+        tile.title = def.name;
+        tile.innerHTML =
+          '<span class="ach-tile-icon" aria-hidden="true"></span>' +
+          '<span class="ach-tile-mark" aria-hidden="true"></span>';
+        tile.querySelector(".ach-tile-icon").textContent = def.icon || "🏆";
+        const mark = tile.querySelector(".ach-tile-mark");
+        if (state === "claimed") mark.textContent = "✓";
+        else if (state === "claimable") mark.classList.add("is-dot");
+        grid.appendChild(tile);
+      });
+
+      renderAchievementDetail();
       achievementsDirty = false;
+      updateAchievementsNavBadge();
     }
 
     function renderStats() {
@@ -11019,7 +11756,7 @@
       };
       setVol("vol-master", "vol-master-val", safeNumber(gameState.masterVolume, 1));
       setVol("vol-sfx", "vol-sfx-val", safeNumber(gameState.sfxVolume, 1));
-      setVol("vol-music", "vol-music-val", safeNumber(gameState.musicVolume, 0.18));
+      setVol("vol-music", "vol-music-val", safeNumber(gameState.musicVolume, 1));
     }
 
     function getActiveOverlayPanelId() {
@@ -11099,14 +11836,246 @@
     }
 
     /* -------------------------------------------------------
+       EVENTS MENU — accès + countdown (pas de gameplay événement)
+       ------------------------------------------------------- */
+    let eventsCountdownTimer = null;
+
+    function getEventDefs() {
+      return Array.isArray(EVENT_DEFS) ? EVENT_DEFS : [];
+    }
+
+    function getEventStatusClass(status) {
+      if (status === "active") return "status-active";
+      if (status === "ended") return "status-ended";
+      return "status-upcoming";
+    }
+
+    function getEventStatusLabel(ev) {
+      if (!ev) return "Bientôt";
+      if (ev.statusLabel) return ev.statusLabel;
+      if (ev.status === "active") return "En cours";
+      if (ev.status === "ended") return "Terminé";
+      return "Bientôt";
+    }
+
+    /* Date locale robuste (month 1–12) — évite Date.parse / chaînes ambiguës */
+    function getEventStartDate(ev) {
+      const p = ev && ev.startsAtLocal;
+      if (!p || p.year == null || p.month == null || p.day == null) return null;
+      const monthIndex = safeNumber(p.month, 0) - 1;
+      if (monthIndex < 0 || monthIndex > 11) return null;
+      return new Date(
+        safeNumber(p.year, 0),
+        monthIndex,
+        safeNumber(p.day, 1),
+        safeNumber(p.hour, 0),
+        safeNumber(p.minute, 0),
+        safeNumber(p.second, 0),
+        0
+      );
+    }
+
+    function formatEventCountdown(msLeft) {
+      if (msLeft <= 0) return "";
+      const totalSec = Math.floor(msLeft / 1000);
+      const days = Math.floor(totalSec / 86400);
+      const hours = Math.floor((totalSec % 86400) / 3600);
+      const mins = Math.floor((totalSec % 3600) / 60);
+      const secs = totalSec % 60;
+      const pad = (n) => (n < 10 ? "0" + n : String(n));
+      return days + "j " + pad(hours) + "h " + pad(mins) + "m " + pad(secs) + "s";
+    }
+
+    function stopEventsCountdown() {
+      if (eventsCountdownTimer != null) {
+        clearInterval(eventsCountdownTimer);
+        eventsCountdownTimer = null;
+      }
+    }
+
+    function updateEventsCountdowns() {
+      const panel = document.getElementById("panel-events");
+      if (!panel || !panel.classList.contains("active")) {
+        stopEventsCountdown();
+        return;
+      }
+      const now = Date.now();
+      const nodes = panel.querySelectorAll("[data-event-countdown]");
+      nodes.forEach((wrap) => {
+        const id = wrap.getAttribute("data-event-countdown");
+        const ev = getEventDefs().find((e) => e && e.id === id);
+        const start = getEventStartDate(ev);
+        const valueEl = wrap.querySelector(".events-card-countdown-value");
+        const periodEl = wrap.parentElement
+          ? wrap.parentElement.querySelector(".events-card-period")
+          : null;
+        if (!start || !valueEl) return;
+        const msLeft = start.getTime() - now;
+        if (msLeft <= 0) {
+          wrap.hidden = true;
+          valueEl.textContent = "";
+          if (periodEl) periodEl.textContent = "Événement disponible";
+          return;
+        }
+        wrap.hidden = false;
+        if (periodEl && ev.periodLabel) periodEl.textContent = ev.periodLabel;
+        valueEl.textContent = formatEventCountdown(msLeft);
+      });
+    }
+
+    function startEventsCountdown() {
+      stopEventsCountdown();
+      updateEventsCountdowns();
+      const panel = document.getElementById("panel-events");
+      if (!panel || !panel.classList.contains("active")) return;
+      if (!panel.querySelector("[data-event-countdown]")) return;
+      eventsCountdownTimer = setInterval(updateEventsCountdowns, 1000);
+    }
+
+    function createEventCard(ev) {
+      const card = document.createElement("article");
+      card.className = "events-event-card theme-" + (ev.theme || "default");
+      card.dataset.eventId = ev.id || "";
+      card.setAttribute("role", "listitem");
+      card.setAttribute("tabindex", "0");
+      card.setAttribute("aria-label", (ev.name || "Événement") + " — " + getEventStatusLabel(ev));
+
+      const visual = document.createElement("div");
+      visual.className = "events-card-visual";
+      visual.setAttribute("aria-hidden", "true");
+
+      if (ev.image) {
+        card.classList.add("has-visual");
+        const img = document.createElement("img");
+        img.className = "events-card-visual-img";
+        img.src = ev.image;
+        img.alt = "";
+        img.draggable = false;
+        img.decoding = "async";
+        visual.appendChild(img);
+      }
+
+      const ico = document.createElement("span");
+      ico.className = "events-card-visual-icon";
+      ico.textContent = ev.icon || "✦";
+      visual.appendChild(ico);
+
+      const body = document.createElement("div");
+      body.className = "events-card-body";
+
+      const name = document.createElement("h3");
+      name.className = "events-card-name";
+      name.textContent = ev.name || "Événement";
+
+      const startDate = getEventStartDate(ev);
+      const startReached = !!(startDate && Date.now() >= startDate.getTime());
+
+      const period = document.createElement("p");
+      period.className = "events-card-period";
+      period.textContent = startReached
+        ? "Événement disponible"
+        : (ev.periodLabel || "");
+
+      const countdown = document.createElement("div");
+      countdown.className = "events-card-countdown";
+      countdown.setAttribute("data-event-countdown", ev.id || "");
+      countdown.hidden = !startDate || startReached;
+      const cdLabel = document.createElement("span");
+      cdLabel.className = "events-card-countdown-label";
+      cdLabel.textContent = "Débute dans";
+      const cdValue = document.createElement("span");
+      cdValue.className = "events-card-countdown-value";
+      cdValue.setAttribute("aria-live", "polite");
+      countdown.appendChild(cdLabel);
+      countdown.appendChild(cdValue);
+
+      const desc = document.createElement("p");
+      desc.className = "events-card-desc";
+      desc.textContent = ev.shortDescription || "";
+
+      const badge = document.createElement("span");
+      badge.className = "events-card-badge " + getEventStatusClass(ev.status);
+      badge.textContent = getEventStatusLabel(ev);
+
+      body.appendChild(name);
+      if (period.textContent) body.appendChild(period);
+      if (startDate) body.appendChild(countdown);
+      if (ev.shortDescription) body.appendChild(desc);
+      body.appendChild(badge);
+
+      card.appendChild(visual);
+      card.appendChild(body);
+
+      const onActivate = () => {
+        if (ev.accessible) {
+          /* Gameplay événement : étapes suivantes */
+          return;
+        }
+        showNotification(
+          (ev.icon ? ev.icon + " " : "") + (ev.name || "Événement"),
+          startReached ? "Événement disponible" : (ev.periodLabel || "Bientôt disponible")
+        );
+        playSound("button");
+      };
+      card.addEventListener("click", onActivate);
+      card.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onActivate();
+        }
+      });
+      return card;
+    }
+
+    /* Scroll Events — wheel→horizontal UNIQUEMENT si overflow-x (desktop).
+       Mobile : liste verticale native (overflow-y), pas de conversion. */
+    function bindEventsListScroll() {
+      const scroller = document.getElementById("events-list-scroll");
+      if (!scroller || scroller.dataset.boundScroll === "1") return;
+      scroller.dataset.boundScroll = "1";
+      scroller.addEventListener(
+        "wheel",
+        (e) => {
+          if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+          /* Pas de mode horizontal → laisser le scroll vertical natif */
+          if (scroller.scrollWidth <= scroller.clientWidth + 2) return;
+          e.preventDefault();
+          scroller.scrollLeft += e.deltaY;
+        },
+        { passive: false }
+      );
+    }
+
+    function renderEventsMenu() {
+      stopEventsCountdown();
+      const listEl = document.getElementById("events-list");
+      if (!listEl) return;
+      const list = getEventDefs();
+      listEl.innerHTML = "";
+      list.forEach((ev) => {
+        if (!ev) return;
+        listEl.appendChild(createEventCard(ev));
+      });
+      bindEventsListScroll();
+      const scroller = document.getElementById("events-list-scroll");
+      if (scroller) {
+        scroller.scrollLeft = 0;
+        scroller.scrollTop = 0;
+      }
+      startEventsCountdown();
+    }
+
+    /* -------------------------------------------------------
        NAVIGATION
        ------------------------------------------------------- */
     const NAV_GROUPS = {
       kingdom: { panels: [] },
       shop: { panels: [{ id: "shop", label: "Boutique" }] },
       dragons: { panels: [{ id: "dragons", label: "🐲 Bestiaire" }] },
+      events: { panels: [{ id: "events", label: "Événements" }] },
       world: { panels: [{ id: "zones", label: "Monde" }] },
-      trophies: { panels: [{ id: "achievements", label: "🏆 Succès" }, { id: "stats", label: "📊 Stats" }] },
+      trophies: { panels: [{ id: "achievements", label: "🏆 Succès" }] },
+      stats: { panels: [{ id: "stats", label: "📊 Statistiques" }] },
       settings: { panels: [{ id: "settings", label: "⚙️ Réglages" }] }
     };
     const lastPanelByGroup = {};
@@ -11140,8 +12109,8 @@
         bar.hidden = true;
         return;
       }
-      /* Boutique dual / Dragons : pas d’onglets, seulement le X */
-      if (group === "shop" || group === "dragons") {
+      /* Boutique / Dragons / Événements / Succès / Stats : pas d’onglets, seulement le X */
+      if (group === "shop" || group === "dragons" || group === "events" || group === "trophies" || group === "stats") {
         bar.hidden = false;
         bar.classList.add("is-shop-close-only");
         tabs.innerHTML = "";
@@ -11215,7 +12184,7 @@
         b.classList.toggle("active", b.dataset.nav === group);
       });
       const gear = document.getElementById("btn-open-settings");
-      if (gear) gear.classList.toggle("active", group === "settings");
+      if (gear) gear.classList.toggle("active", group === "settings" || name === "stats");
       /* Prioriser / attendre brièvement les portraits découverts du 1er viewport. */
       let dragonsWarmPending = false;
       if (name === "dragons") {
@@ -11255,12 +12224,20 @@
         shopDirty = true;
         upgradesDirty = true;
       }
-      if (name === "achievements") achievementsDirty = true;
+      if (name === "achievements") {
+        selectedAchievementId = null;
+        achievementsDirty = true;
+      }
       if (name === "dragons" && !dragonsWarmPending) dragonsDirty = true;
       if (name === "eggs") eggsDirty = true;
       if (name === "zones") {
         zonesDirty = true;
         closeZoneDetail();
+      }
+      if (name === "events") {
+        renderEventsMenu();
+      } else {
+        stopEventsCountdown();
       }
       if (name === "expeditions") expeditionsDirty = true;
       if (name === "kingdom" && !hatchSequenceActive) {
@@ -11386,10 +12363,12 @@
         }, { passive: true });
         btn.addEventListener("click", () => openNavGroup(btn.dataset.nav));
       });
-      document.getElementById("btn-open-settings").addEventListener("click", () => {
-        const onSettings = getActiveOverlayPanelId() === "settings";
-        switchPanel(onSettings ? "kingdom" : "settings");
-      });
+      /* Délégation : survit aux reparents mobile ↔ desktop (un seul handler). */
+      document.getElementById("app").addEventListener("click", onSettingsButtonClick);
+      const btnOpenStats = document.getElementById("btn-open-stats");
+      if (btnOpenStats) {
+        btnOpenStats.addEventListener("click", () => switchPanel("stats"));
+      }
       document.getElementById("sheet-close").addEventListener("click", () => switchPanel("kingdom"));
       const worldMenuClose = document.getElementById("world-menu-close");
       if (worldMenuClose) worldMenuClose.addEventListener("click", () => switchPanel("kingdom"));
@@ -11397,6 +12376,7 @@
         syncShopDividerToKingdomNav();
         syncMobilePerformanceClass();
         syncMobileModalOpenClass();
+        syncSettingsButtonPlacement();
         if (gameCenterAxisResizeTimer) clearTimeout(gameCenterAxisResizeTimer);
         gameCenterAxisResizeTimer = setTimeout(() => {
           gameCenterAxisResizeTimer = 0;
@@ -11523,6 +12503,7 @@
       bindChestUiDelegates();
       syncMobilePerformanceClass();
       syncMobileModalOpenClass();
+      syncSettingsButtonPlacement();
       const mobileTeamOpen = document.getElementById("btn-mobile-team-open");
       if (mobileTeamOpen) {
         mobileTeamOpen.addEventListener("click", () => toggleTeamDrawer(true));
@@ -11575,8 +12556,15 @@
       });
 
       document.getElementById("btn-save").addEventListener("click", () => saveGame(false));
+      const eventsBtn = document.getElementById("btn-open-events");
+      if (eventsBtn) {
+        eventsBtn.addEventListener("click", () => {
+          playSound("button");
+          switchPanel("events");
+        });
+      }
       const chestsBtn = document.getElementById("btn-open-chests");
-      if (chestsBtn) chestsBtn.addEventListener("click", openChestModal);
+      if (chestsBtn) chestsBtn.addEventListener("click", onRegularChestClick);
       const chestsClose = document.getElementById("btn-close-chests");
       if (chestsClose) chestsClose.addEventListener("click", closeChestModal);
       document.getElementById("chest-modal").addEventListener("click", (e) => {
@@ -11623,20 +12611,37 @@
       document.getElementById("toggle-sfx").addEventListener("click", () => {
         gameState.soundEnabled = !gameState.soundEnabled;
         updateAudioToggles();
+        AudioManager.applySfxVolume();
         saveGame(true);
       });
 
+      /**
+       * Sliders volume : appliquer sur `input` (mobile/tactile).
+       * Ne pas rappeler updateAudioToggles() pendant le drag —
+       * réécrire input.value casse le geste sur iOS/Android.
+       */
       const bindVol = (id, key) => {
         const el = document.getElementById(id);
         if (!el) return;
-        el.addEventListener("input", () => {
-          gameState[key] = Math.max(0, Math.min(1, Number(el.value) / 100));
-          updateAudioToggles();
+        const label = document.getElementById(id + "-val");
+        const applyFromSlider = () => {
+          const raw = Number(el.value);
+          const pct = Number.isFinite(raw) ? raw : 0;
+          const v = Math.max(0, Math.min(1, pct / 100));
+          gameState[key] = v;
+          if (label) label.textContent = String(Math.round(v * 100));
           if (key === "masterVolume" || key === "musicVolume") {
             AudioManager.applyMusicVolume({ fromUser: true });
           }
+          if (key === "masterVolume" || key === "sfxVolume") {
+            AudioManager.applySfxVolume();
+          }
+        };
+        el.addEventListener("input", applyFromSlider);
+        el.addEventListener("change", () => {
+          applyFromSlider();
+          saveGame(true);
         });
-        el.addEventListener("change", () => saveGame(true));
       };
       bindVol("vol-master", "masterVolume");
       bindVol("vol-sfx", "sfxVolume");
@@ -11658,6 +12663,7 @@
           saveGame(true);
         } else {
           lastFrameTime = performance.now();
+          updateRegularChestUI();
         }
       });
     }
@@ -11695,6 +12701,7 @@
       renderAllStatic();
       scheduleUpdateGameCenterAxis();
       updateAudioToggles();
+      startRegularChestTicker();
       AudioManager.ensureEggCrack();
       AudioManager.ensureDragonRevealSounds();
       AudioManager.startMusic({ fade: true });
@@ -11749,6 +12756,26 @@
 
       setInterval(() => saveGame(true), AUTO_SAVE_MS);
 
+      /* Autre onglet a reset / avancé la révision → resync (évite Z3 “fantôme”).
+         Si un onglet périmé réécrit une save plus ancienne (LEGACY / Z3),
+         on réaffirme immédiatement notre état plutôt que de laisser le poison. */
+      window.addEventListener("storage", (ev) => {
+        if (ev.key !== SAVE_KEY) return;
+        if (ev.newValue == null) {
+          location.reload();
+          return;
+        }
+        try {
+          const incoming = JSON.parse(ev.newValue);
+          const incomingRev = safeNumber(incoming && incoming.progressRevision, 0);
+          if (incomingRev > progressRevision) {
+            location.reload();
+          } else if (incomingRev < progressRevision) {
+            saveGame(true);
+          }
+        } catch (e) { /* ignore */ }
+      });
+
       lastFrameTime = performance.now();
       requestAnimationFrame(updateGame);
 
@@ -11775,6 +12802,7 @@
         LEVEL_PASSIVE_DEFS,
         SPECIAL_UPGRADE_DEFS,
         ACHIEVEMENT_DEFS,
+        ACHIEVEMENT_CATEGORIES,
         EGG_DEFS,
         DRAGON_DEFS,
         ZONE_DEFS,
