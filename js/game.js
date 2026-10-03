@@ -9404,11 +9404,12 @@
         ? DCAnim.eggPressKeyframes(kind, reduce)
         : {
             keyframes: [
-              { transform: "scale3d(1, 1, 1)" },
-              { transform: "scale3d(0.95, 0.95, 1)", offset: 0.4 },
-              { transform: "scale3d(1, 1, 1)" }
+              { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" },
+              { transform: "translate3d(0, 6px, 0) scale3d(0.91, 0.91, 1)", offset: 0.35 },
+              { transform: "translate3d(0, -2px, 0) scale3d(1.025, 1.025, 1)", offset: 0.7 },
+              { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" }
             ],
-            duration: 90
+            duration: 110
           };
 
       /* Fallback sans WAAPI — reflow + classe courte (dernier recours) */

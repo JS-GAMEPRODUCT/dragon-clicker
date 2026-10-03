@@ -1297,7 +1297,7 @@
     }
 
     .egg-visual.egg-press-active {
-      transform: scale3d(0.95, 0.95, 1);
+      transform: translate3d(0, 6px, 0) scale3d(0.91, 0.91, 1);
     }
 
     /* Correction visuelle PNG (marges transparentes) — n'affecte PAS le transform carrousel */

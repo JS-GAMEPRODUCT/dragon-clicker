@@ -8,50 +8,57 @@
   const DCAnim = global.DCAnim || (global.DCAnim = {});
 
   /**
-   * Click feedback keyframes — MUST stay ≤110ms so 7–8 CPS can retrigger every tap.
+   * Click feedback keyframes — amplitude marquée, durée courte (≤130ms) pour 7–8 CPS.
    * Applied on #egg-visual only (never carousel slot / hatch soft-pulse wrapper).
    */
   DCAnim.eggPressKeyframes = function eggPressKeyframes(kind, reduce) {
+    /* Mobile : dip un peu plus lisible (+1px), même durée */
+    const mobile = !!(DCAnim.isMobileFx && DCAnim.isMobileFx());
+    const dip = mobile ? 7 : 6;
+    const dipCrit = mobile ? 8 : 7;
+    const dipCombo = mobile ? 9 : 8;
+
     if (reduce) {
       return {
         keyframes: [
-          { transform: "scale3d(1, 1, 1)" },
-          { transform: "scale3d(0.97, 0.97, 1)", offset: 0.45 },
-          { transform: "scale3d(1, 1, 1)" }
+          { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" },
+          { transform: "translate3d(0, 4px, 0) scale3d(0.94, 0.94, 1)", offset: 0.45 },
+          { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" }
         ],
-        duration: 80
+        duration: 90
       };
     }
     if (kind === "chargedCrit") {
       return {
         keyframes: [
-          { transform: "scale3d(1, 1, 1)" },
-          { transform: "scale3d(0.92, 0.92, 1)", offset: 0.35 },
-          { transform: "scale3d(1.03, 1.03, 1)", offset: 0.7 },
-          { transform: "scale3d(1, 1, 1)" }
+          { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" },
+          { transform: "translate3d(0, " + dipCombo + "px, 0) scale3d(0.90, 0.90, 1)", offset: 0.35 },
+          { transform: "translate3d(0, -2px, 0) scale3d(1.035, 1.035, 1)", offset: 0.7 },
+          { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" }
         ],
-        duration: 105
+        duration: 125
       };
     }
     if (kind === "charged" || kind === "crit") {
       return {
         keyframes: [
-          { transform: "scale3d(1, 1, 1)" },
-          { transform: "scale3d(0.94, 0.94, 1)", offset: 0.35 },
-          { transform: "scale3d(1.025, 1.025, 1)", offset: 0.7 },
-          { transform: "scale3d(1, 1, 1)" }
+          { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" },
+          { transform: "translate3d(0, " + dipCrit + "px, 0) scale3d(0.91, 0.91, 1)", offset: 0.35 },
+          { transform: "translate3d(0, -2px, 0) scale3d(1.03, 1.03, 1)", offset: 0.7 },
+          { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" }
         ],
-        duration: 100
+        duration: 115
       };
     }
-    /* normal — squash + light rebound */
+    /* normal — squash + dip + rebound */
     return {
       keyframes: [
-        { transform: "scale3d(1, 1, 1)" },
-        { transform: "scale3d(0.95, 0.95, 1)", offset: 0.4 },
-        { transform: "scale3d(1, 1, 1)" }
+        { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" },
+        { transform: "translate3d(0, " + dip + "px, 0) scale3d(0.91, 0.91, 1)", offset: 0.35 },
+        { transform: "translate3d(0, -2px, 0) scale3d(1.025, 1.025, 1)", offset: 0.7 },
+        { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" }
       ],
-      duration: 90
+      duration: 110
     };
   };
 
