@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=chest-left-nudge-v3" />
+  <link rel="stylesheet" href="css/style.css?v=mobile-settings-rail-v1" />
 
 </head>
 <body>
@@ -126,7 +126,7 @@
               </div>
             </div>
           </div>
-          <!-- Home DOM = HUD desktop. Sur mobile, JS le replace en tête du rail gauche. -->
+          <!-- Home DOM = HUD. Mobile : CSS le place sous Puissance (colonne droite). -->
           <button type="button" class="header-gear" id="btn-open-settings" aria-label="Réglages" title="Réglages">⚙️</button>
         </div>
       </div>
@@ -396,15 +396,10 @@
       <section id="panel-shop" class="panel overlay-panel shop-panel menu-open-animation" data-panel="shop">
         <h2 class="panel-title" id="shop-panel-title">Boutique</h2>
         <div class="shop-menu" id="shop-menu">
-          <img
-            class="shop-menu-bg"
-            src="assets/menu/boutique/fond%20menu.png"
-            alt=""
-            width="1796"
-            height="876"
-            decoding="async"
-            draggable="false"
-          >
+          <span class="game-large-panel-corner game-large-panel-corner-tl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-tr" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-bl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-br" aria-hidden="true"></span>
           <div class="shop-menu-overlay">
             <div class="shop-dual-layout" id="shop-dual-layout">
               <div class="shop-column shop-column-boutique">
@@ -716,7 +711,7 @@
   <script src="js/animations/egg-animations.js"></script>
   <script src="js/animations/dragon-reveal.js"></script>
   <script src="js/animations/ui-animations.js"></script>
-  <script src="js/game.js?v=settings-click-fix-v1"></script>
+  <script src="js/game.js?v=mobile-settings-rail-v1"></script>
   <script src="js/main.js"></script>
 
 </body>

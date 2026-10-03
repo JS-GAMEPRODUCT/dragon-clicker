@@ -10102,22 +10102,16 @@
     }
 
     /**
-     * Paramètres (#btn-open-settings) : home DOM = HUD (.header-right-cluster).
-     * Mobile : replace en tête du rail (#scene-left-stack), au-dessus d'Événement.
-     * Desktop : reste / revient dans le cluster HUD (clic fiable, hors stacking du rail).
+     * Paramètres (#btn-open-settings) : toujours dans le HUD (.header-right-cluster).
+     * Desktop : à droite des badges Puissance/CPS.
+     * Mobile : CSS grille le place sous le badge Puissance (plus dans le rail gauche).
      * appendChild conserve le même nœud — pas de clone, un seul id.
      */
     function syncSettingsButtonPlacement() {
       const gear = document.getElementById("btn-open-settings");
-      const stack = document.getElementById("scene-left-stack");
       const cluster = document.querySelector(".header-right-cluster");
-      if (!gear || !stack || !cluster) return;
-      const mobile = window.matchMedia("(max-width: 768px)").matches;
-      if (mobile) {
-        if (gear.parentElement !== stack) {
-          stack.insertBefore(gear, stack.firstChild);
-        }
-      } else if (gear.parentElement !== cluster) {
+      if (!gear || !cluster) return;
+      if (gear.parentElement !== cluster) {
         cluster.appendChild(gear);
       }
     }
