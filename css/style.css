@@ -10308,6 +10308,16 @@ html {
     background-position: 50% 50% !important;
   }
 
+  /*
+    Zone 2 (valley) mobile uniquement :
+    cadrage un peu plus à gauche pour voir davantage la gauche de l’image.
+    Desktop / Zone 1 / Zone 3 inchangés.
+  */
+  #scene-bg[data-bg-id="valley"],
+  #scene-bg-fader[data-bg-id="valley"] {
+    background-position: 45% 50% !important;
+  }
+
   #app {
     --altar-y: 64%;
     /* Mobile : œuf un peu plus grand (~+10 %) — desktop inchangé */

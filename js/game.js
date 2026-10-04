@@ -2879,6 +2879,7 @@
 
       /* Crossfade: show current on fader, swap base, fade fader out */
       fader.style.backgroundImage = layer.style.backgroundImage;
+      fader.dataset.bgId = layer.dataset.bgId || currentSceneBgId || "";
       fader.style.opacity = "1";
       layer.style.backgroundImage = nextImage;
       layer.dataset.bgId = backgroundId;
