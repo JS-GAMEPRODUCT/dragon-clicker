@@ -9446,22 +9446,54 @@
 
       /*
         Pipeline impératif relançable sur #egg-click-wrapper :
-        - Mobile : CSS keyframes seulement (fiable Safari)
+        - Mobile Safari : CSS keyframes (!important) + WAAPI + inline animation
         - Desktop : WAAPI
         - cancel / restart immédiat — compatible 7–8 CPS
       */
       const mobilePress = isMobileFx();
+      const pressMs = mobilePress
+        ? Math.max(130, preset.duration || 110)
+        : (preset.duration || 110);
       safeCancelAnimation(eggClickAnimation);
       eggClickAnimation = null;
       clearTimeout(el._pressTimer);
+      el.style.removeProperty("animation");
+      el.style.removeProperty("-webkit-animation");
 
       if (mobilePress) {
         el.classList.remove("egg-press-active", "egg-press-animating");
         void el.offsetWidth;
         el.classList.add("egg-press-animating", "egg-press-active");
+        /* Force inline — redémarre même si Safari ignore le seul classList toggle */
+        el.style.setProperty(
+          "animation",
+          "eggPressCss " + pressMs + "ms ease-out 1 both",
+          "important"
+        );
+        el.style.setProperty(
+          "-webkit-animation",
+          "eggPressCss " + pressMs + "ms ease-out 1 both",
+          "important"
+        );
+        if (typeof el.animate === "function") {
+          try {
+            const anim = el.animate(preset.keyframes, {
+              duration: pressMs,
+              easing: "ease-out",
+              fill: "none",
+              composite: "replace"
+            });
+            eggClickAnimation = anim;
+            waitAnimation(anim).then(() => {
+              if (eggClickAnimation === anim) eggClickAnimation = null;
+            });
+          } catch (e) { /* CSS path remains */ }
+        }
         el._pressTimer = setTimeout(() => {
           el.classList.remove("egg-press-active", "egg-press-animating");
-        }, preset.duration || 110);
+          el.style.removeProperty("animation");
+          el.style.removeProperty("-webkit-animation");
+        }, pressMs + 20);
       } else if (typeof el.animate === "function") {
         if (el.getAnimations) {
           el.getAnimations().forEach((a) => {
@@ -9470,7 +9502,7 @@
         }
         el.classList.add("egg-press-animating");
         const anim = el.animate(preset.keyframes, {
-          duration: preset.duration,
+          duration: pressMs,
           easing: "ease-out",
           fill: "none",
           composite: "replace"
@@ -9486,7 +9518,7 @@
         el.classList.remove("egg-press-active");
         void el.offsetWidth;
         el.classList.add("egg-press-active");
-        el._pressTimer = setTimeout(() => el.classList.remove("egg-press-active"), preset.duration || 90);
+        el._pressTimer = setTimeout(() => el.classList.remove("egg-press-active"), pressMs);
       }
 
       if (kind !== "normal") playEggClickGlow(true);
@@ -12486,12 +12518,12 @@
     function bindEvents() {
       const zone = document.getElementById("click-zone");
 
-      zone.addEventListener("pointerdown", (e) => {
+      const onEggPointerDown = (e) => {
         /*
           Touch/pen : accepter même si button === -1 (certains WebKit).
           Souris : uniquement bouton principal (0).
         */
-        const isTouch = e.pointerType === "touch" || e.pointerType === "pen";
+        const isTouch = e.pointerType === "touch" || e.pointerType === "pen" || e.pointerType === "";
         if (!isTouch && e.button != null && e.button !== 0) return;
         if (e.target.closest && e.target.closest("#egg-carousel-peer, #egg-carousel-peer-prev, .egg-carousel-item:not(.is-active-slot)")) {
           e.preventDefault();
@@ -12501,7 +12533,18 @@
         /* Hors ellipse #egg-hitbox : ignorer (pas de press fantôme) */
         if (!isEggGameplayHit(e.clientX, e.clientY)) return;
         handleEggPointerDown(e.clientX, e.clientY);
-      });
+      };
+      /* Hitbox en capture : fiable sur Safari (click-zone a pointer-events:none) */
+      const eggHit = document.getElementById("egg-hitbox");
+      if (eggHit) {
+        eggHit.addEventListener("pointerdown", onEggPointerDown);
+        eggHit.addEventListener("touchstart", (e) => {
+          const t = e.changedTouches && e.changedTouches[0];
+          if (!t) return;
+          handleEggPointerDown(t.clientX, t.clientY);
+        }, { passive: true });
+      }
+      zone.addEventListener("pointerdown", onEggPointerDown);
 
       zone.addEventListener("click", (e) => {
         const peer = e.target.closest && e.target.closest("#egg-carousel-peer, #egg-carousel-peer-prev, .egg-carousel-item:not(.is-active-slot)");

@@ -20,16 +20,16 @@
     */
     const amp = mobile
       ? {
-          dip: 7,
-          dipCrit: 8,
-          dipCombo: 9,
-          reboundY: -2,
-          minScale: 0.91,
-          minScaleCrit: 0.91,
-          minScaleCombo: 0.90,
-          bounce: 1.025,
-          bounceCrit: 1.03,
-          bounceCombo: 1.035
+          dip: 10,
+          dipCrit: 11,
+          dipCombo: 12,
+          reboundY: -3,
+          minScale: 0.86,
+          minScaleCrit: 0.85,
+          minScaleCombo: 0.84,
+          bounce: 1.05,
+          bounceCrit: 1.055,
+          bounceCombo: 1.06
         }
       : {
           dip: 3,
@@ -44,6 +44,7 @@
           bounceCombo: 1.02
         };
 
+    const dur = mobile ? 130 : 110;
     if (reduce) {
       return {
         keyframes: [
@@ -51,7 +52,7 @@
           { transform: "translate3d(0, " + (mobile ? 4 : 2) + "px, 0) scale3d(" + (mobile ? 0.94 : 0.97) + ", " + (mobile ? 0.94 : 0.97) + ", 1)", offset: 0.45 },
           { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" }
         ],
-        duration: 90
+        duration: mobile ? 100 : 90
       };
     }
     if (kind === "chargedCrit") {
@@ -62,7 +63,7 @@
           { transform: "translate3d(0, " + amp.reboundY + "px, 0) scale3d(" + amp.bounceCombo + ", " + amp.bounceCombo + ", 1)", offset: 0.7 },
           { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" }
         ],
-        duration: 125
+        duration: mobile ? 145 : 125
       };
     }
     if (kind === "charged" || kind === "crit") {
@@ -73,7 +74,7 @@
           { transform: "translate3d(0, " + amp.reboundY + "px, 0) scale3d(" + amp.bounceCrit + ", " + amp.bounceCrit + ", 1)", offset: 0.7 },
           { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" }
         ],
-        duration: 115
+        duration: mobile ? 135 : 115
       };
     }
     /* normal — squash + dip + rebound */
@@ -84,7 +85,7 @@
         { transform: "translate3d(0, " + amp.reboundY + "px, 0) scale3d(" + amp.bounce + ", " + amp.bounce + ", 1)", offset: 0.7 },
         { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" }
       ],
-      duration: 110
+      duration: dur
     };
   };
 

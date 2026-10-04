@@ -1063,32 +1063,45 @@
       width: 100%;
       transform-origin: center bottom;
       transition: none !important;
-      animation: none;
       will-change: auto;
       /* Isolation : évite que les filter parents mangent le squash (Safari) */
       -webkit-backface-visibility: hidden;
       backface-visibility: hidden;
     }
 
+    /* Ne pas forcer animation:none pendant .egg-press-active (Safari mobile) */
+    .egg-click-wrapper:not(.egg-press-active) {
+      animation: none;
+    }
+
     .egg-click-wrapper.egg-press-animating {
       will-change: transform;
     }
 
-    /* Fallback / renfort CSS (surtout mobile Safari si WAAPI flanche) */
+    /* Desktop fallback si pas de WAAPI */
     .egg-click-wrapper.egg-press-active {
       transform: translate3d(0, 3px, 0) scale3d(0.95, 0.95, 1);
     }
-    /* Même critère que DCAnim.isMobileFx → html.mobile-performance */
+
+    /*
+      Mobile / tactile : keyframes en !important.
+      NE PAS mettre transform:none !important ici — ça écrase les keyframes
+      (WebKit : author !important > animation → squash invisible).
+    */
     html.mobile-performance .egg-click-wrapper.egg-press-active {
-      transform: none;
-      animation: eggPressCss 110ms ease-out 1 both;
-      -webkit-animation: eggPressCss 110ms ease-out 1 both;
+      animation: eggPressCss 130ms ease-out 1 both !important;
+      -webkit-animation: eggPressCss 130ms ease-out 1 both !important;
     }
     @media (max-width: 768px) {
       .egg-click-wrapper.egg-press-active {
-        transform: none;
-        animation: eggPressCss 110ms ease-out 1 both;
-        -webkit-animation: eggPressCss 110ms ease-out 1 both;
+        animation: eggPressCss 130ms ease-out 1 both !important;
+        -webkit-animation: eggPressCss 130ms ease-out 1 both !important;
+      }
+    }
+    @media (hover: none) and (pointer: coarse) {
+      .egg-click-wrapper.egg-press-active {
+        animation: eggPressCss 130ms ease-out 1 both !important;
+        -webkit-animation: eggPressCss 130ms ease-out 1 both !important;
       }
     }
 
@@ -1098,14 +1111,14 @@
 
     @keyframes eggPressCss {
       0%   { transform: translate3d(0, 0, 0) scale3d(1, 1, 1); }
-      35%  { transform: translate3d(0, 8px, 0) scale3d(0.88, 0.88, 1); }
-      70%  { transform: translate3d(0, -3px, 0) scale3d(1.04, 1.04, 1); }
+      35%  { transform: translate3d(0, 10px, 0) scale3d(0.86, 0.86, 1); }
+      70%  { transform: translate3d(0, -3px, 0) scale3d(1.05, 1.05, 1); }
       100% { transform: translate3d(0, 0, 0) scale3d(1, 1, 1); }
     }
     @-webkit-keyframes eggPressCss {
       0%   { -webkit-transform: translate3d(0, 0, 0) scale3d(1, 1, 1); }
-      35%  { -webkit-transform: translate3d(0, 8px, 0) scale3d(0.88, 0.88, 1); }
-      70%  { -webkit-transform: translate3d(0, -3px, 0) scale3d(1.04, 1.04, 1); }
+      35%  { -webkit-transform: translate3d(0, 10px, 0) scale3d(0.86, 0.86, 1); }
+      70%  { -webkit-transform: translate3d(0, -3px, 0) scale3d(1.05, 1.05, 1); }
       100% { -webkit-transform: translate3d(0, 0, 0) scale3d(1, 1, 1); }
     }
 
@@ -10310,12 +10323,13 @@ html {
 
   /*
     Zone 2 (valley) mobile uniquement :
-    cadrage un peu plus à gauche pour voir davantage la gauche de l’image.
+    position-x > 50% pour glisser VISUELLEMENT le décor vers la GAUCHE
+    (cover : 45% l’avait poussé à droite — corrigé à 55%).
     Desktop / Zone 1 / Zone 3 inchangés.
   */
   #scene-bg[data-bg-id="valley"],
   #scene-bg-fader[data-bg-id="valley"] {
-    background-position: 45% 50% !important;
+    background-position: 55% 50% !important;
   }
 
   #app {
