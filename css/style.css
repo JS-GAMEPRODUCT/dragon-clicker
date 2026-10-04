@@ -194,6 +194,12 @@
       background: transparent;
       box-shadow: none;
       overflow: visible;
+      /*
+        Cause réelle bug ÉVÉNEMENT mobile : le header (z:30–40, pleine largeur)
+        capturait les taps au-dessus du rail gauche (piégé dans .main z:20).
+        Le conteneur ne doit pas être une hitbox — seuls les contrôles HUD le sont.
+      */
+      pointer-events: none;
     }
 
     .game-header-inner {
@@ -213,6 +219,7 @@
       box-shadow: none;
       transform: scale(var(--hud-scale));
       transform-origin: top center;
+      pointer-events: none;
     }
 
     .game-header-inner::before,
@@ -525,6 +532,8 @@
         inset 0 1px 0 rgba(240, 208, 120, 0.12);
       transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
       z-index: 2;
+      pointer-events: auto;
+      cursor: pointer;
     }
 
     .header-gear:hover {
@@ -833,7 +842,8 @@
       display: flex;
       align-items: flex-end;
       justify-content: center;
-      pointer-events: auto;
+      /* Ne capture plus toute la surface — seul #egg-hitbox / peers restent cliquables */
+      pointer-events: none;
       width: var(--egg-main-width);
       min-height: min(46vh, 320px);
       overflow: visible;
@@ -947,7 +957,7 @@
     .click-zone {
       position: relative;
       width: 100%;
-      cursor: pointer;
+      cursor: default;
       touch-action: manipulation;
       -webkit-user-select: none;
       user-select: none;
@@ -956,13 +966,35 @@
       /* visible : Ã©viter de couper les glows en carrÃ© jaune autour de l'Å“uf */
       overflow: visible;
       background: transparent;
+      /* Zone pleine = plus de hitbox gameplay ; enfants (#egg-hitbox, peers) réactivent */
+      pointer-events: none;
     }
 
     .click-zone:focus { outline: none; }
 
-    .click-zone:hover .entity-wrap:not(.hatching) .egg-position-wrapper {
+    .entity-wrap:not(.hatching):has(#egg-hitbox:hover) .egg-position-wrapper {
       transform: scale(1.03);
       transition: transform 0.18s ease;
+    }
+
+    /*
+      Hitbox gameplay œuf — ellipse centrée sur le PNG visible.
+      Ignore les marges transparentes / coins du rectangle image.
+    */
+    .egg-hitbox {
+      position: absolute;
+      left: 50%;
+      top: 52%;
+      width: 74%;
+      height: 90%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      pointer-events: auto;
+      cursor: pointer;
+      z-index: 6;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      background: transparent;
     }
 
     .egg-position-wrapper,
@@ -1296,8 +1328,14 @@
       will-change: transform;
     }
 
+    /* Fallback sans WAAPI — desktop discret ; mobile plus marqué */
     .egg-visual.egg-press-active {
-      transform: translate3d(0, 6px, 0) scale3d(0.91, 0.91, 1);
+      transform: translate3d(0, 3px, 0) scale3d(0.95, 0.95, 1);
+    }
+    @media (max-width: 768px) {
+      .egg-visual.egg-press-active {
+        transform: translate3d(0, 7px, 0) scale3d(0.91, 0.91, 1);
+      }
     }
 
     /* Correction visuelle PNG (marges transparentes) — n'affecte PAS le transform carrousel */
@@ -3421,8 +3459,8 @@
         width: 94vw;
       }
       #app {
-        --egg-main-width: clamp(210px, 60vw, 300px);
-        --egg-main-max-height: 38vh;
+        --egg-main-width: clamp(230px, 66vw, 330px);
+        --egg-main-max-height: 42vh;
       }
       .egg-hero {
         min-height: 0;
@@ -10144,8 +10182,9 @@ html {
 
   #app {
     --altar-y: 64%;
-    --egg-main-width: clamp(190px, 52vw, 280px);
-    --egg-main-max-height: 36vh;
+    /* Mobile : œuf un peu plus grand (~+10 %) — desktop inchangé */
+    --egg-main-width: clamp(210px, 57vw, 308px);
+    --egg-main-max-height: 40vh;
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
   }
@@ -10306,6 +10345,8 @@ html {
     --egg-stage-lift: 24px;
   }
   .egg-stage {
+    /* Centrage horizontal vrai (viewport), indépendant des rails latéraux */
+    left: 50%;
     width: min(96vw, 560px);
     transform: translate(-50%, calc(-58% - var(--egg-stage-lift, 24px)));
     gap: 0;
@@ -10338,8 +10379,9 @@ html {
 
   .egg-stage.is-egg-carousel .egg-hero {
     width: min(100vw, 640px);
-    height: max(min(38vh, 300px), 240px);
-    min-height: max(min(38vh, 300px), 240px);
+    /* Un peu plus haut pour l’œuf +10 % sans clipping carousel */
+    height: max(min(42vh, 330px), 260px);
+    min-height: max(min(42vh, 330px), 260px);
     --carousel-offset-x: 0px;
   }
 
@@ -10842,8 +10884,8 @@ html {
 @media (max-width: 600px) {
   #app {
     --altar-y: 60%;
-    --egg-main-width: clamp(176px, 58vw, 250px);
-    --egg-main-max-height: 34vh;
+    --egg-main-width: clamp(194px, 64vw, 275px);
+    --egg-main-max-height: 37vh;
   }
 
   .header,
@@ -11043,8 +11085,9 @@ html {
 @media (max-width: 480px) {
   #app {
     --altar-y: 58%;
-    --egg-main-width: clamp(160px, 62vw, 220px);
-    --egg-main-max-height: 32vh;
+    /* ~+10 % vs ancien clamp(160px, 62vw, 220px) / 32vh */
+    --egg-main-width: clamp(176px, 68vw, 242px);
+    --egg-main-max-height: 35vh;
   }
 
   .header-stats-left,

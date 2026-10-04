@@ -3178,6 +3178,7 @@
 
     function handleClick(clientX, clientY) {
       if (clicksLocked || hatchSequenceActive || isEggCarouselAnimating) return;
+      if (!isEggGameplayHit(clientX, clientY)) return;
 
       const now = performance.now();
       clickTimestamps.push(now);
@@ -3229,9 +3230,27 @@
       eggsDirty = true;
     }
 
+    /**
+     * Hit-test gameplay œuf : ellipse de #egg-hitbox (pas le rectangle PNG / click-zone).
+     * Clic hors ellipse = aucun press, aucune Essence, aucune progression.
+     */
+    function isEggGameplayHit(clientX, clientY) {
+      const hit = document.getElementById("egg-hitbox");
+      const el = hit || document.getElementById("egg-visual");
+      if (!el || clientX == null || clientY == null) return false;
+      const r = el.getBoundingClientRect();
+      if (!(r.width > 0) || !(r.height > 0)) return false;
+      const rx = r.width * 0.5;
+      const ry = r.height * 0.5;
+      const dx = (clientX - (r.left + rx)) / rx;
+      const dy = (clientY - (r.top + ry)) / ry;
+      return (dx * dx + dy * dy) <= 1;
+    }
+
     /** Visual-only press feedback — never grants resources */
     function handleEggPointerDown(clientX, clientY) {
       if (clicksLocked || hatchSequenceActive || isEggCarouselAnimating) return;
+      if (!isEggGameplayHit(clientX, clientY)) return;
       AudioManager.unlock();
       eggPressPrimedAt = performance.now();
       playEggClickPress(false);
@@ -9402,15 +9421,23 @@
       const reduce = prefersReducedMotion();
       const preset = (window.DCAnim && DCAnim.eggPressKeyframes)
         ? DCAnim.eggPressKeyframes(kind, reduce)
-        : {
-            keyframes: [
-              { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" },
-              { transform: "translate3d(0, 6px, 0) scale3d(0.91, 0.91, 1)", offset: 0.35 },
-              { transform: "translate3d(0, -2px, 0) scale3d(1.025, 1.025, 1)", offset: 0.7 },
-              { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" }
-            ],
-            duration: 110
-          };
+        : (function () {
+            /* Fallback miroir desktop doux / mobile marqué */
+            const m = isMobileFx();
+            const dip = m ? 7 : 3;
+            const minS = m ? 0.91 : 0.95;
+            const bounce = m ? 1.025 : 1.01;
+            const reboundY = m ? -2 : -1;
+            return {
+              keyframes: [
+                { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" },
+                { transform: "translate3d(0, " + dip + "px, 0) scale3d(" + minS + ", " + minS + ", 1)", offset: 0.35 },
+                { transform: "translate3d(0, " + reboundY + "px, 0) scale3d(" + bounce + ", " + bounce + ", 1)", offset: 0.7 },
+                { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" }
+              ],
+              duration: 110
+            };
+          })();
 
       /* Fallback sans WAAPI — reflow + classe courte (dernier recours) */
       if (typeof el.animate !== "function") {
@@ -12460,6 +12487,8 @@
           e.stopPropagation();
           return;
         }
+        /* Hors ellipse #egg-hitbox : ignorer (pas de press fantôme) */
+        if (!isEggGameplayHit(e.clientX, e.clientY)) return;
         handleEggPointerDown(e.clientX, e.clientY);
       });
 
@@ -12473,6 +12502,7 @@
           return;
         }
         if (isEggCarouselAnimating) return;
+        if (!isEggGameplayHit(e.clientX, e.clientY)) return;
         handleClick(e.clientX, e.clientY);
       });
 
