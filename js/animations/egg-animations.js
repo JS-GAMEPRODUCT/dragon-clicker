@@ -10,7 +10,7 @@
   /**
    * Click feedback keyframes — durée courte (≤130ms) pour 7–8 CPS.
    * Desktop : amplitude douce. Mobile : amplitude marquée (inchangée).
-   * Applied on #egg-visual only (never carousel slot / hatch soft-pulse wrapper).
+   * Applied on #egg-click-wrapper only (never carousel / size / visual-inner).
    */
   DCAnim.eggPressKeyframes = function eggPressKeyframes(kind, reduce) {
     const mobile = !!(DCAnim.isMobileFx && DCAnim.isMobileFx());

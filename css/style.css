@@ -154,6 +154,40 @@
       will-change: opacity;
     }
 
+    /* Mobile : centrage viewport stable (axe 50% / 50%), cover sans offset fragile */
+    @media (max-width: 768px) {
+      .scene-backdrop {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        width: 100vw;
+        height: 100%;
+        height: 100dvh;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        margin: 0;
+        transform: none;
+      }
+      .scene-bg-layer,
+      #scene-bg,
+      #scene-bg-fader {
+        inset: 0;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        transform: none;
+        background-size: cover;
+        background-position: 50% 50%;
+        background-repeat: no-repeat;
+      }
+    }
+
     #scene-bg-fader {
       opacity: 0;
       z-index: 1;
@@ -1006,9 +1040,32 @@
       transform-origin: center bottom;
     }
 
+    /* Soft-pulse parent : pas de transition transform qui amortit le press enfant */
+    .egg-hatch-wrapper {
+      transition: filter 0.2s ease;
+    }
+
     .egg-click-wrapper {
-      /* Press WAAPI déplacé sur #egg-visual — ce wrapper ne porte plus le squash */
+      /* Couche EXCLUSIVE du press WAAPI — pas de taille permanente ici */
+      position: relative;
+      display: block;
+      width: 100%;
+      transform-origin: center bottom;
       transition: none;
+      will-change: auto;
+    }
+
+    .egg-click-wrapper.egg-press-animating {
+      will-change: transform;
+    }
+
+    .egg-click-wrapper.egg-press-active {
+      transform: translate3d(0, 3px, 0) scale3d(0.95, 0.95, 1);
+    }
+    @media (max-width: 768px) {
+      .egg-click-wrapper.egg-press-active {
+        transform: translate3d(0, 7px, 0) scale3d(0.91, 0.91, 1);
+      }
     }
 
     .egg-click-wrapper.egg-press-fallback {
@@ -1319,32 +1376,19 @@
       border-radius: 0;
       overflow: visible;
       background: transparent;
-      /* Cible WAAPI du press — pas de transition CSS sur transform (conflit Safari) */
-      transform-origin: center bottom;
+      /* Pas de press ici — press = #egg-click-wrapper ; taille = width / inner */
+      transform: none;
       transition: none;
     }
 
-    .egg-visual.egg-press-animating {
-      will-change: transform;
-    }
-
-    /* Fallback sans WAAPI — desktop discret ; mobile plus marqué */
-    .egg-visual.egg-press-active {
-      transform: translate3d(0, 3px, 0) scale3d(0.95, 0.95, 1);
-    }
-    @media (max-width: 768px) {
-      .egg-visual.egg-press-active {
-        transform: translate3d(0, 7px, 0) scale3d(0.91, 0.91, 1);
-      }
-    }
-
-    /* Correction visuelle PNG (marges transparentes) — n'affecte PAS le transform carrousel */
+    /* Correction visuelle PNG + scale permanent (Zone 3) — jamais le press */
     .egg-visual-inner {
       position: relative;
       display: block;
       width: 100%;
       transform: translateX(var(--egg-visual-ox, 0%)) scale(var(--egg-visual-scale, 1));
-      /* will-change retiré en permanent : réservé au press sur .egg-visual */
+      transform-origin: center bottom;
+      transition: none;
     }
 
     .egg-visual img {
@@ -3452,7 +3496,8 @@
         --egg-stage-lift: 22px;
       }
       .scene-bg-layer {
-        background-position: center 55%;
+        /* Aligné sur la règle mobile globale : centre viewport */
+        background-position: 50% 50%;
       }
       .egg-stage {
         transform: translate(-50%, calc(-58% - var(--egg-stage-lift, 22px)));
@@ -3671,6 +3716,7 @@
       filter: brightness(1.14);
     }
     .egg-hatch-wrapper.egg-soft-pulse {
+      /* filter only — NE PAS animer transform (conflit avec press WAAPI enfant) */
       animation: eggSoftPulse 3.4s ease-in-out infinite;
     }
 
@@ -3710,8 +3756,8 @@
     }
 
     @keyframes eggSoftPulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.02); }
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.07); }
     }
     @keyframes eggCriticalPulse {
       0%, 100% { filter: brightness(1); }

@@ -9401,9 +9401,13 @@
       return document.getElementById("egg-hatch-wrapper");
     }
 
-    /** Visuel œuf actif — cible WAAPI du press (jamais le slot carousel). */
+    /**
+     * Cible WAAPI du press = #egg-click-wrapper uniquement.
+     * Taille permanente / ox / carousel restent sur d'autres wrappers
+     * (#egg-visual-inner width/scale, .egg-carousel-item).
+     */
     function getEggClickVisual() {
-      return document.getElementById("egg-visual") || getEggClickWrapper();
+      return getEggClickWrapper() || document.getElementById("egg-visual");
     }
 
     function playEggClickPress(isCrit, opts) {
@@ -9451,8 +9455,9 @@
 
       /*
         Pipeline impératif relançable :
-        - annule TOUTE anim transform sur #egg-visual
+        - annule TOUTE anim transform sur #egg-click-wrapper
         - relance immédiatement (≤110ms) — compatible 7–8 CPS
+        - taille permanente (#egg-visual-inner / --egg-main-width) intacte
         - carousel reste sur .egg-carousel-item (transform séparé)
       */
       safeCancelAnimation(eggClickAnimation);
