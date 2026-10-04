@@ -9443,45 +9443,50 @@
             };
           })();
 
-      /* Fallback sans WAAPI — reflow + classe courte (dernier recours) */
-      if (typeof el.animate !== "function") {
+      /*
+        Pipeline impératif relançable sur #egg-click-wrapper :
+        - Mobile : CSS keyframes seulement (fiable Safari)
+        - Desktop : WAAPI
+        - cancel / restart immédiat — compatible 7–8 CPS
+      */
+      const mobilePress = isMobileFx();
+      safeCancelAnimation(eggClickAnimation);
+      eggClickAnimation = null;
+      clearTimeout(el._pressTimer);
+
+      if (mobilePress) {
+        el.classList.remove("egg-press-active", "egg-press-animating");
+        void el.offsetWidth;
+        el.classList.add("egg-press-animating", "egg-press-active");
+        el._pressTimer = setTimeout(() => {
+          el.classList.remove("egg-press-active", "egg-press-animating");
+        }, preset.duration || 110);
+      } else if (typeof el.animate === "function") {
+        if (el.getAnimations) {
+          el.getAnimations().forEach((a) => {
+            try { a.cancel(); } catch (e) { /* ignore */ }
+          });
+        }
+        el.classList.add("egg-press-animating");
+        const anim = el.animate(preset.keyframes, {
+          duration: preset.duration,
+          easing: "ease-out",
+          fill: "none",
+          composite: "replace"
+        });
+        eggClickAnimation = anim;
+        waitAnimation(anim).then(() => {
+          if (eggClickAnimation === anim) {
+            eggClickAnimation = null;
+            el.classList.remove("egg-press-animating");
+          }
+        });
+      } else {
         el.classList.remove("egg-press-active");
         void el.offsetWidth;
         el.classList.add("egg-press-active");
-        clearTimeout(el._pressTimer);
         el._pressTimer = setTimeout(() => el.classList.remove("egg-press-active"), preset.duration || 90);
-        return;
       }
-
-      /*
-        Pipeline impératif relançable :
-        - annule TOUTE anim transform sur #egg-click-wrapper
-        - relance immédiatement (≤110ms) — compatible 7–8 CPS
-        - taille permanente (#egg-visual-inner / --egg-main-width) intacte
-        - carousel reste sur .egg-carousel-item (transform séparé)
-      */
-      safeCancelAnimation(eggClickAnimation);
-      eggClickAnimation = null;
-      if (el.getAnimations) {
-        el.getAnimations().forEach((a) => {
-          try { a.cancel(); } catch (e) { /* ignore */ }
-        });
-      }
-      el.classList.add("egg-press-animating");
-
-      const anim = el.animate(preset.keyframes, {
-        duration: preset.duration,
-        easing: "ease-out",
-        fill: "none",
-        composite: "replace"
-      });
-      eggClickAnimation = anim;
-      waitAnimation(anim).then(() => {
-        if (eggClickAnimation === anim) {
-          eggClickAnimation = null;
-          el.classList.remove("egg-press-animating");
-        }
-      });
 
       if (kind !== "normal") playEggClickGlow(true);
     }

@@ -154,37 +154,48 @@
       will-change: opacity;
     }
 
-    /* Mobile : centrage viewport stable (axe 50% / 50%), cover sans offset fragile */
+    /*
+      Mobile : fond calé sur le VIEWPORT (pas 100vw — évite décalage iOS).
+      Centre horizontal/vertical géométrique de l’écran.
+    */
     @media (max-width: 768px) {
-      .scene-backdrop {
-        position: fixed;
-        inset: 0;
+      html,
+      body {
         width: 100%;
-        width: 100vw;
-        height: 100%;
-        height: 100dvh;
-        left: 0;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        margin: 0;
-        transform: none;
+        max-width: 100%;
+        overflow-x: hidden;
+        position: relative;
+      }
+      .scene-backdrop {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: auto !important;
+        height: auto !important;
+        margin: 0 !important;
+        transform: none !important;
+        inset: 0 !important;
       }
       .scene-bg-layer,
       #scene-bg,
       #scene-bg-fader {
-        inset: 0;
-        left: 0;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        transform: none;
-        background-size: cover;
-        background-position: 50% 50%;
-        background-repeat: no-repeat;
+        position: absolute !important;
+        inset: 0 !important;
+        width: auto !important;
+        height: auto !important;
+        margin: 0 !important;
+        transform: none !important;
+        background-repeat: no-repeat !important;
+        background-size: cover !important;
+        /* Centre réel du viewport — horizontal critique */
+        background-position: 50% 50% !important;
+      }
+      .scene-vignette {
+        background:
+          radial-gradient(ellipse 62% 48% at 50% 50%, transparent 28%, rgba(4, 8, 12, 0.32) 100%),
+          linear-gradient(180deg, rgba(4, 10, 18, 0.58) 0%, rgba(4, 10, 18, 0.18) 14%, transparent 26%, transparent 68%, rgba(4, 8, 14, 0.62) 100%);
       }
     }
 
@@ -1046,30 +1057,56 @@
     }
 
     .egg-click-wrapper {
-      /* Couche EXCLUSIVE du press WAAPI — pas de taille permanente ici */
+      /* Couche EXCLUSIVE du press — pas de taille permanente / pas de filter ici */
       position: relative;
       display: block;
       width: 100%;
       transform-origin: center bottom;
-      transition: none;
+      transition: none !important;
+      animation: none;
       will-change: auto;
+      /* Isolation : évite que les filter parents mangent le squash (Safari) */
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
     }
 
     .egg-click-wrapper.egg-press-animating {
       will-change: transform;
     }
 
+    /* Fallback / renfort CSS (surtout mobile Safari si WAAPI flanche) */
     .egg-click-wrapper.egg-press-active {
       transform: translate3d(0, 3px, 0) scale3d(0.95, 0.95, 1);
     }
+    /* Même critère que DCAnim.isMobileFx → html.mobile-performance */
+    html.mobile-performance .egg-click-wrapper.egg-press-active {
+      transform: none;
+      animation: eggPressCss 110ms ease-out 1 both;
+      -webkit-animation: eggPressCss 110ms ease-out 1 both;
+    }
     @media (max-width: 768px) {
       .egg-click-wrapper.egg-press-active {
-        transform: translate3d(0, 7px, 0) scale3d(0.91, 0.91, 1);
+        transform: none;
+        animation: eggPressCss 110ms ease-out 1 both;
+        -webkit-animation: eggPressCss 110ms ease-out 1 both;
       }
     }
 
     .egg-click-wrapper.egg-press-fallback {
       transform: scale(0.945);
+    }
+
+    @keyframes eggPressCss {
+      0%   { transform: translate3d(0, 0, 0) scale3d(1, 1, 1); }
+      35%  { transform: translate3d(0, 8px, 0) scale3d(0.88, 0.88, 1); }
+      70%  { transform: translate3d(0, -3px, 0) scale3d(1.04, 1.04, 1); }
+      100% { transform: translate3d(0, 0, 0) scale3d(1, 1, 1); }
+    }
+    @-webkit-keyframes eggPressCss {
+      0%   { -webkit-transform: translate3d(0, 0, 0) scale3d(1, 1, 1); }
+      35%  { -webkit-transform: translate3d(0, 8px, 0) scale3d(0.88, 0.88, 1); }
+      70%  { -webkit-transform: translate3d(0, -3px, 0) scale3d(1.04, 1.04, 1); }
+      100% { -webkit-transform: translate3d(0, 0, 0) scale3d(1, 1, 1); }
     }
 
     .egg-ground-shadow {
@@ -1111,10 +1148,9 @@
       position: relative;
       width: 100%;
       z-index: 3;
-      transition: transform 0.18s ease, filter 0.25s ease, opacity 0.25s ease;
-      filter:
-        drop-shadow(0 0 12px rgba(255, 190, 80, 0.18))
-        drop-shadow(0 14px 22px rgba(0, 0, 0, 0.4));
+      /* Pas de filter ici — ancêtre de #egg-click-wrapper (casse le squash Safari) */
+      transition: transform 0.18s ease, opacity 0.25s ease;
+      filter: none;
       pointer-events: none;
       background: transparent;
     }
@@ -1378,7 +1414,11 @@
       background: transparent;
       /* Pas de press ici — press = #egg-click-wrapper ; taille = width / inner */
       transform: none;
-      transition: none;
+      transition: filter 0.25s ease;
+      /* Ombre portée sur l’enfant (pas sur entity-wrap) pour préserver le squash mobile */
+      filter:
+        drop-shadow(0 0 12px rgba(255, 190, 80, 0.18))
+        drop-shadow(0 14px 22px rgba(0, 0, 0, 0.4));
     }
 
     /* Correction visuelle PNG + scale permanent (Zone 3) — jamais le press */
@@ -3496,8 +3536,7 @@
         --egg-stage-lift: 22px;
       }
       .scene-bg-layer {
-        /* Aligné sur la règle mobile globale : centre viewport */
-        background-position: 50% 50%;
+        background-position: 50% 50% !important;
       }
       .egg-stage {
         transform: translate(-50%, calc(-58% - var(--egg-stage-lift, 22px)));
@@ -3705,8 +3744,14 @@
       transform-origin: center bottom;
     }
 
-    /* 35â€“74 % : soft glow + slow pulse on hatch wrapper */
+    /*
+      Glow / soft-pulse : filter UNIQUEMENT sur .egg-glow ou .egg-visual (enfants),
+      JAMAIS sur un ancêtre de #egg-click-wrapper — sinon Safari mange le squash WAAPI.
+    */
     .entity-wrap.egg-stage-awakening {
+      filter: none;
+    }
+    .entity-wrap.egg-stage-awakening .egg-visual {
       filter:
         drop-shadow(0 0 14px rgba(255, 190, 80, 0.28))
         drop-shadow(0 14px 22px rgba(0, 0, 0, 0.4));
@@ -3716,12 +3761,17 @@
       filter: brightness(1.14);
     }
     .egg-hatch-wrapper.egg-soft-pulse {
-      /* filter only — NE PAS animer transform (conflit avec press WAAPI enfant) */
+      animation: none;
+    }
+    .egg-hatch-wrapper.egg-soft-pulse .egg-glow,
+    .entity-wrap.egg-stage-awakening.egg-soft-pulse .egg-glow {
       animation: eggSoftPulse 3.4s ease-in-out infinite;
     }
 
-    /* 75â€“89 % : stronger glow â€” occasional nudge via JS, not constant shake */
     .entity-wrap.egg-stage-hatching {
+      filter: none;
+    }
+    .entity-wrap.egg-stage-hatching .egg-visual {
       filter:
         drop-shadow(0 0 14px rgba(255, 190, 80, 0.32))
         drop-shadow(0 0 28px rgba(255, 150, 40, 0.14))
@@ -3733,15 +3783,18 @@
       animation: glowPulse 2.4s ease-in-out infinite;
     }
     .egg-hatch-wrapper.egg-soft-pulse-mid {
-      animation: eggSoftPulse 2.8s ease-in-out infinite;
+      animation: none;
     }
 
-    /* 90â€“99 % : brighter glow + slightly faster pulse â€” JS impulses for shake */
     .entity-wrap.egg-stage-critical {
+      filter: none;
+    }
+    .entity-wrap.egg-stage-critical .egg-visual {
       filter:
         drop-shadow(0 0 16px rgba(255, 200, 90, 0.38))
         drop-shadow(0 0 32px rgba(255, 150, 40, 0.18))
         drop-shadow(0 14px 22px rgba(0, 0, 0, 0.4));
+      animation: eggCriticalPulse 2.2s ease-in-out infinite;
     }
     .entity-wrap.egg-stage-critical .egg-glow {
       opacity: 1;
@@ -3749,19 +3802,28 @@
       animation: glowPulse 1.7s ease-in-out infinite;
     }
     .egg-hatch-wrapper.egg-soft-pulse-fast {
-      animation: eggSoftPulse 2.1s ease-in-out infinite;
-    }
-    .entity-wrap.egg-stage-critical .egg-visual {
-      animation: eggCriticalPulse 2.2s ease-in-out infinite;
+      animation: none;
     }
 
     @keyframes eggSoftPulse {
-      0%, 100% { filter: brightness(1); }
-      50% { filter: brightness(1.07); }
+      0%, 100% { opacity: 0.55; }
+      50% { opacity: 1; }
     }
     @keyframes eggCriticalPulse {
-      0%, 100% { filter: brightness(1); }
-      50% { filter: brightness(1.08); }
+      0%, 100% {
+        filter:
+          brightness(1)
+          drop-shadow(0 0 16px rgba(255, 200, 90, 0.38))
+          drop-shadow(0 0 32px rgba(255, 150, 40, 0.18))
+          drop-shadow(0 14px 22px rgba(0, 0, 0, 0.4));
+      }
+      50% {
+        filter:
+          brightness(1.08)
+          drop-shadow(0 0 16px rgba(255, 200, 90, 0.38))
+          drop-shadow(0 0 32px rgba(255, 150, 40, 0.18))
+          drop-shadow(0 14px 22px rgba(0, 0, 0, 0.4));
+      }
     }
 
     /* Hatch sequence */
@@ -10223,7 +10285,27 @@ html {
   body,
   #app {
     overflow-x: hidden;
-    max-width: 100vw;
+    max-width: 100%;
+  }
+
+  /* Renfort centrage fond (après les media tablet / landscape) */
+  .scene-backdrop {
+    position: fixed !important;
+    inset: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    transform: none !important;
+  }
+  .scene-bg-layer,
+  #scene-bg,
+  #scene-bg-fader {
+    inset: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    transform: none !important;
+    background-repeat: no-repeat !important;
+    background-size: cover !important;
+    background-position: 50% 50% !important;
   }
 
   #app {
