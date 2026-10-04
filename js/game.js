@@ -9419,108 +9419,42 @@
       else if (isCharged) kind = "charged";
       else if (isCrit) kind = "crit";
 
-      /* Toujours résoudre le DOM courant (changement d'œuf / zone / éclosion). */
-      const el = getEggClickVisual();
-      if (!el) return;
+      /* Cible exclusive du press — jamais la taille permanente (#egg-visual-inner). */
+      const el = getEggClickWrapper();
+      if (!el || typeof el.animate !== "function") return;
 
       const reduce = prefersReducedMotion();
       const preset = (window.DCAnim && DCAnim.eggPressKeyframes)
         ? DCAnim.eggPressKeyframes(kind, reduce)
-        : (function () {
-            /* Fallback miroir desktop doux / mobile marqué */
-            const m = isMobileFx();
-            const dip = m ? 7 : 3;
-            const minS = m ? 0.91 : 0.95;
-            const bounce = m ? 1.025 : 1.01;
-            const reboundY = m ? -2 : -1;
-            return {
-              keyframes: [
-                { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" },
-                { transform: "translate3d(0, " + dip + "px, 0) scale3d(" + minS + ", " + minS + ", 1)", offset: 0.35 },
-                { transform: "translate3d(0, " + reboundY + "px, 0) scale3d(" + bounce + ", " + bounce + ", 1)", offset: 0.7 },
-                { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" }
-              ],
-              duration: 110
-            };
-          })();
+        : {
+            keyframes: [
+              { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" },
+              { transform: "translate3d(0, 10px, 0) scale3d(0.86, 0.86, 1)", offset: 0.35 },
+              { transform: "translate3d(0, -3px, 0) scale3d(1.05, 1.05, 1)", offset: 0.7 },
+              { transform: "translate3d(0, 0, 0) scale3d(1, 1, 1)" }
+            ],
+            duration: 130
+          };
 
-      /*
-        Pipeline impératif relançable sur #egg-click-wrapper :
-        - Mobile Safari : CSS keyframes (!important) + WAAPI + inline animation
-        - Desktop : WAAPI
-        - cancel / restart immédiat — compatible 7–8 CPS
-      */
-      const mobilePress = isMobileFx();
-      const pressMs = mobilePress
-        ? Math.max(130, preset.duration || 110)
-        : (preset.duration || 110);
+      /* Un seul moteur : WAAPI. Cancel / restart immédiat. */
       safeCancelAnimation(eggClickAnimation);
       eggClickAnimation = null;
-      clearTimeout(el._pressTimer);
-      el.style.removeProperty("animation");
-      el.style.removeProperty("-webkit-animation");
-
-      if (mobilePress) {
-        el.classList.remove("egg-press-active", "egg-press-animating");
-        void el.offsetWidth;
-        el.classList.add("egg-press-animating", "egg-press-active");
-        /* Force inline — fill none : aucun scale résiduel après le press */
-        el.style.setProperty(
-          "animation",
-          "eggPressCss " + pressMs + "ms ease-out 1 none",
-          "important"
-        );
-        el.style.setProperty(
-          "-webkit-animation",
-          "eggPressCss " + pressMs + "ms ease-out 1 none",
-          "important"
-        );
-        if (typeof el.animate === "function") {
-          try {
-            const anim = el.animate(preset.keyframes, {
-              duration: pressMs,
-              easing: "ease-out",
-              fill: "none",
-              composite: "replace"
-            });
-            eggClickAnimation = anim;
-            waitAnimation(anim).then(() => {
-              if (eggClickAnimation === anim) eggClickAnimation = null;
-            });
-          } catch (e) { /* CSS path remains */ }
-        }
-        el._pressTimer = setTimeout(() => {
-          el.classList.remove("egg-press-active", "egg-press-animating");
-          el.style.removeProperty("animation");
-          el.style.removeProperty("-webkit-animation");
-          el.style.removeProperty("transform");
-        }, pressMs + 20);
-      } else if (typeof el.animate === "function") {
-        if (el.getAnimations) {
-          el.getAnimations().forEach((a) => {
-            try { a.cancel(); } catch (e) { /* ignore */ }
-          });
-        }
-        el.classList.add("egg-press-animating");
-        const anim = el.animate(preset.keyframes, {
-          duration: pressMs,
-          easing: "ease-out",
-          fill: "none",
-          composite: "replace"
+      if (el.getAnimations) {
+        el.getAnimations().forEach((a) => {
+          try { a.cancel(); } catch (e) { /* ignore */ }
         });
-        eggClickAnimation = anim;
-        waitAnimation(anim).then(() => {
-          if (eggClickAnimation === anim) {
-            eggClickAnimation = null;
-            el.classList.remove("egg-press-animating");
-          }
-        });
-      } else {
-        el.classList.remove("egg-press-active");
-        void el.offsetWidth;
-        el.classList.add("egg-press-active");
-        el._pressTimer = setTimeout(() => el.classList.remove("egg-press-active"), pressMs);
       }
+
+      const anim = el.animate(preset.keyframes, {
+        duration: preset.duration || 130,
+        easing: "ease-out",
+        fill: "none",
+        composite: "replace"
+      });
+      eggClickAnimation = anim;
+      waitAnimation(anim).then(() => {
+        if (eggClickAnimation === anim) eggClickAnimation = null;
+      });
 
       if (kind !== "normal") playEggClickGlow(true);
     }
@@ -12519,33 +12453,32 @@
     function bindEvents() {
       const zone = document.getElementById("click-zone");
 
+      /*
+        Press visuel : UNE seule source — #egg-hitbox + pointerdown.
+        Pas de listener sur #click-zone (bubbling = double press).
+        Pas de touchstart en parallèle si PointerEvent existe.
+      */
+      const eggHit = document.getElementById("egg-hitbox");
       const onEggPointerDown = (e) => {
-        /*
-          Touch/pen : accepter même si button === -1 (certains WebKit).
-          Souris : uniquement bouton principal (0).
-        */
         const isTouch = e.pointerType === "touch" || e.pointerType === "pen" || e.pointerType === "";
         if (!isTouch && e.button != null && e.button !== 0) return;
         if (e.target.closest && e.target.closest("#egg-carousel-peer, #egg-carousel-peer-prev, .egg-carousel-item:not(.is-active-slot)")) {
-          e.preventDefault();
-          e.stopPropagation();
           return;
         }
-        /* Hors ellipse #egg-hitbox : ignorer (pas de press fantôme) */
         if (!isEggGameplayHit(e.clientX, e.clientY)) return;
         handleEggPointerDown(e.clientX, e.clientY);
       };
-      /* Hitbox en capture : fiable sur Safari (click-zone a pointer-events:none) */
-      const eggHit = document.getElementById("egg-hitbox");
       if (eggHit) {
-        eggHit.addEventListener("pointerdown", onEggPointerDown);
-        eggHit.addEventListener("touchstart", (e) => {
-          const t = e.changedTouches && e.changedTouches[0];
-          if (!t) return;
-          handleEggPointerDown(t.clientX, t.clientY);
-        }, { passive: true });
+        if (typeof window.PointerEvent === "function") {
+          eggHit.addEventListener("pointerdown", onEggPointerDown);
+        } else {
+          eggHit.addEventListener("touchstart", (e) => {
+            const t = e.changedTouches && e.changedTouches[0];
+            if (!t) return;
+            handleEggPointerDown(t.clientX, t.clientY);
+          }, { passive: true });
+        }
       }
-      zone.addEventListener("pointerdown", onEggPointerDown);
 
       zone.addEventListener("click", (e) => {
         const peer = e.target.closest && e.target.closest("#egg-carousel-peer, #egg-carousel-peer-prev, .egg-carousel-item:not(.is-active-slot)");
