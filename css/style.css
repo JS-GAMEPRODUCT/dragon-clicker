@@ -10332,13 +10332,12 @@ html {
 
   /*
     Zone 2 (valley) mobile uniquement :
-    position-x > 50% pour glisser VISUELLEMENT le décor vers la GAUCHE
-    (cover : 45% l’avait poussé à droite — corrigé à 55%).
+    position-x > 50% pour glisser VISUELLEMENT le décor vers la GAUCHE.
     Desktop / Zone 1 / Zone 3 inchangés.
   */
   #scene-bg[data-bg-id="valley"],
   #scene-bg-fader[data-bg-id="valley"] {
-    background-position: 55% 50% !important;
+    background-position: 51% 50% !important;
   }
 
   #app {
