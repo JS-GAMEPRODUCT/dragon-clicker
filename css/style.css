@@ -1017,9 +1017,16 @@
 
     .click-zone:focus { outline: none; }
 
-    .entity-wrap:not(.hatching):has(#egg-hitbox:hover) .egg-position-wrapper {
-      transform: scale(1.03);
-      transition: transform 0.18s ease;
+    /*
+      Hover desktop uniquement.
+      Sur iOS Safari, :hover reste collé après le 1er tap → l’œuf
+      passait à scale(1.03) en permanent jusqu’au prochain œuf.
+    */
+    @media (hover: hover) and (pointer: fine) {
+      .entity-wrap:not(.hatching):has(#egg-hitbox:hover) .egg-position-wrapper {
+        transform: scale(1.03);
+        transition: transform 0.18s ease;
+      }
     }
 
     /*
@@ -1078,30 +1085,32 @@
       will-change: transform;
     }
 
-    /* Desktop fallback si pas de WAAPI */
-    .egg-click-wrapper.egg-press-active {
-      transform: translate3d(0, 3px, 0) scale3d(0.95, 0.95, 1);
+    /* Desktop fallback si pas de WAAPI — jamais sur mobile (évite scale résiduel) */
+    @media (min-width: 769px) {
+      .egg-click-wrapper.egg-press-active {
+        transform: translate3d(0, 3px, 0) scale3d(0.95, 0.95, 1);
+      }
     }
 
     /*
       Mobile / tactile : keyframes en !important.
-      NE PAS mettre transform:none !important ici — ça écrase les keyframes
-      (WebKit : author !important > animation → squash invisible).
+      fill-mode = none (pas both/forwards) — aucun scale permanent après le clic.
+      NE PAS mettre transform:none !important ici — ça écrase les keyframes.
     */
     html.mobile-performance .egg-click-wrapper.egg-press-active {
-      animation: eggPressCss 130ms ease-out 1 both !important;
-      -webkit-animation: eggPressCss 130ms ease-out 1 both !important;
+      animation: eggPressCss 130ms ease-out 1 none !important;
+      -webkit-animation: eggPressCss 130ms ease-out 1 none !important;
     }
     @media (max-width: 768px) {
       .egg-click-wrapper.egg-press-active {
-        animation: eggPressCss 130ms ease-out 1 both !important;
-        -webkit-animation: eggPressCss 130ms ease-out 1 both !important;
+        animation: eggPressCss 130ms ease-out 1 none !important;
+        -webkit-animation: eggPressCss 130ms ease-out 1 none !important;
       }
     }
     @media (hover: none) and (pointer: coarse) {
       .egg-click-wrapper.egg-press-active {
-        animation: eggPressCss 130ms ease-out 1 both !important;
-        -webkit-animation: eggPressCss 130ms ease-out 1 both !important;
+        animation: eggPressCss 130ms ease-out 1 none !important;
+        -webkit-animation: eggPressCss 130ms ease-out 1 none !important;
       }
     }
 

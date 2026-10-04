@@ -9464,15 +9464,15 @@
         el.classList.remove("egg-press-active", "egg-press-animating");
         void el.offsetWidth;
         el.classList.add("egg-press-animating", "egg-press-active");
-        /* Force inline — redémarre même si Safari ignore le seul classList toggle */
+        /* Force inline — fill none : aucun scale résiduel après le press */
         el.style.setProperty(
           "animation",
-          "eggPressCss " + pressMs + "ms ease-out 1 both",
+          "eggPressCss " + pressMs + "ms ease-out 1 none",
           "important"
         );
         el.style.setProperty(
           "-webkit-animation",
-          "eggPressCss " + pressMs + "ms ease-out 1 both",
+          "eggPressCss " + pressMs + "ms ease-out 1 none",
           "important"
         );
         if (typeof el.animate === "function") {
@@ -9493,6 +9493,7 @@
           el.classList.remove("egg-press-active", "egg-press-animating");
           el.style.removeProperty("animation");
           el.style.removeProperty("-webkit-animation");
+          el.style.removeProperty("transform");
         }, pressMs + 20);
       } else if (typeof el.animate === "function") {
         if (el.getAnimations) {
