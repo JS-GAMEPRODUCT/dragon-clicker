@@ -2867,12 +2867,55 @@
 
     /** Global rarity drop rates (percent points). Missing rarities in a pool are skipped; remaining weights keep their relative share. */
     const RARITY_DROP_WEIGHTS = {
-      common: 64,
-      rare: 25,
-      epic: 9,
-      legendary: 1.75,
+      common: 60,
+      rare: 27,
+      epic: 10,
+      legendary: 2.75,
       mythic: 0.25
     };
+
+    /**
+     * Format a drop % for UI cards (FR decimal comma).
+     * Never rounds small rates like 0.25 down to 0.
+     * 60 → "60 %" · 2.75 → "2,75 %" · 0.25 → "0,25 %"
+     */
+    function formatDropPercent(pct) {
+      const n = Number(pct);
+      if (!Number.isFinite(n) || n < 0) return "0 %";
+      /* Keep up to 2 decimals — enough for 2.75 / 0.25 without integer truncation. */
+      const rounded = Math.round(n * 100) / 100;
+      if (Math.abs(rounded - Math.round(rounded)) < 1e-9) {
+        return String(Math.round(rounded)) + " %";
+      }
+      let text = rounded.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+      text = text.replace(".", ",");
+      return text + " %";
+    }
+
+    /**
+     * Effective rarity drop % for an egg (same weights as the hatch roll).
+     * When an egg misses a rarity, remaining weights are renormalized — matches real odds.
+     */
+    function getEggRarityDropPercent(eggDef, rarity) {
+      if (!eggDef || !rarity) return 0;
+      const base = getEggHatchPool(eggDef.id);
+      const luck = safeNumber(gameState.multipliers?.rarityLuck, 0);
+      const buckets = groupEggPoolByRarity(base);
+      let total = 0;
+      let target = 0;
+      Object.keys(buckets).forEach((rar) => {
+        if (!buckets[rar] || !buckets[rar].length) return;
+        let w = safeNumber(RARITY_DROP_WEIGHTS[rar], 0);
+        if (w <= 0) return;
+        if (luck > 0 && isRarePlusRarity(rar)) {
+          w = w * (1 + luck);
+        }
+        total += w;
+        if (rar === rarity) target = w;
+      });
+      if (total <= 0) return 0;
+      return (target / total) * 100;
+    }
 
     function isRarePlusRarity(rarity) {
       return rarity === "rare" || rarity === "epic" || rarity === "legendary" || rarity === "mythic" || rarity === "divine";
@@ -4578,6 +4621,22 @@
       return null;
     }
 
+    /** Chance d'apparition affichée = taux GLOBAL de la rareté de l'œuf source. */
+    function findEggRarityChanceForDragon(dragonId) {
+      for (let i = 0; i < EGG_DEFS.length; i++) {
+        const egg = EGG_DEFS[i];
+        if (egg.comingSoon || egg.secret) continue;
+        const pool = getEggHatchPool(egg.id);
+        for (let j = 0; j < pool.length; j++) {
+          if (pool[j].dragonId === dragonId) {
+            const def = getDragonDef(dragonId);
+            return getEggRarityDropPercent(egg, def && def.rarity);
+          }
+        }
+      }
+      return null;
+    }
+
     function openRevealModal(reveal) {
       if (!reveal || !reveal.dragonDef) {
         finishHatchCleanup();
@@ -5022,7 +5081,6 @@
         if (!def) return;
         const owned = isDragonDiscovered(gameState.dragons[def.id], def.id, gameState);
         const rarity = RARITIES[def.rarity] || RARITIES.common;
-        const chance = getPoolChancePercent(eggDef, def.id);
 
         const slot = document.createElement("div");
         /* Rarity glow only when discovered — avoids looking "unlocked" while still ??? */
@@ -5050,9 +5108,9 @@
         const rEl = slot.querySelector(".rarity-label");
         rEl.textContent = rarity.label.toUpperCase();
         rEl.className = "rarity-label " + rarity.css;
-        const rounded = Math.round(chance * 10) / 10;
-        slot.querySelector(".ps-chance").textContent =
-          (rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)) + " %";
+        /* Affiche le taux GLOBAL de la rareté (même source que le tirage), pas le split par dragon. */
+        const rarityPct = getEggRarityDropPercent(eggDef, def.rarity);
+        slot.querySelector(".ps-chance").textContent = formatDropPercent(rarityPct);
 
         grid.appendChild(slot);
       });
@@ -5409,7 +5467,7 @@
       }
 
       if (!owned) {
-        const chance = findEggChanceForDragon(def.id);
+        const chance = findEggRarityChanceForDragon(def.id);
         box.querySelector(".ds-name").textContent = "???";
         box.querySelector(".ds-desc").textContent = "Faites éclore des œufs pour découvrir ce dragon.";
         const bonusEl = box.querySelector(".ds-bonus");
@@ -5417,7 +5475,7 @@
           bonusEl.innerHTML =
             '<div class="ds-bonus-name">Apparition</div>' +
             '<div class="ds-bonus-value"></div>';
-          bonusEl.querySelector(".ds-bonus-value").textContent = chance.toFixed(0) + " %";
+          bonusEl.querySelector(".ds-bonus-value").textContent = formatDropPercent(chance);
         } else {
           bonusEl.textContent = "";
         }
