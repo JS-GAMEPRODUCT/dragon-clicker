@@ -1582,6 +1582,30 @@
     let lastAffordabilityRefresh = 0;
     let lastWorldAffordabilityRefresh = 0;
     const AFFORDABILITY_MS = 250;
+    /* Perf: throttle costly loop work (UI / achievements / expeditions). */
+    const ACHIEVEMENT_CHECK_MS = 500;
+    const EXPEDITION_TICK_MS = 250;
+    const HUD_REFRESH_MS = 100;
+    const STATS_REFRESH_MS = 250;
+    const EGG_PROGRESS_UI_MS = 200;
+    let lastAchievementCheckAt = 0;
+    let lastExpeditionTickAt = 0;
+    let lastHudRefreshAt = 0;
+    let lastStatsRefreshAt = 0;
+    let lastEggProgressUiAt = 0;
+    let hatchHistoryDirty = true;
+    let lastHudSnapshot = {
+      essence: null,
+      prod: null,
+      click: null,
+      power: null,
+      cps: null,
+      peak: null
+    };
+    let lastChargedAuraKey = "";
+    let lastExpeditionHudKey = "";
+    let lastEggProgressKey = "";
+    let cachedHudEls = null;
 
     /* Egg click / hatch FX state (visual only — no gameplay) */
     let eggClickAnimation = null;
@@ -3226,9 +3250,10 @@
       playSound("click", isCrit || isCharged);
       updateChargedAuraVisual();
       checkAchievements();
-      shopDirty = true;
-      upgradesDirty = true;
-      eggsDirty = true;
+      /* Ne pas rebuild boutique / améliorations / picker œufs à chaque clic :
+         l'affordability est rafraîchie tant que le panneau shop est ouvert. */
+      lastHudRefreshAt = 0;
+      lastEggProgressUiAt = 0;
     }
 
     /**
@@ -3455,12 +3480,14 @@
     /** Legacy cosmetic stage tracker (V1 cave egg) — kept for save compat */
     function updateEggStage() {
       const stage = getEggStageFromPower(gameState.totalEssenceEarned);
-      gameState.eggStage = stage.id;
+      const nextId = stage.id;
+      if (gameState.eggStage === nextId) return;
+      gameState.eggStage = nextId;
       /* Legacy auto-hatch flag no longer transforms the main entity;
          collection hatch sets eggHatched instead. */
       const cssEgg = document.getElementById("egg");
       if (cssEgg) {
-        cssEgg.className = "egg stage-" + Math.min(stage.id, 3);
+        cssEgg.className = "egg stage-" + Math.min(nextId, 3);
       }
     }
 
@@ -3594,7 +3621,7 @@
       setTimeout(() => p.remove(), 650);
     }
 
-    function renderEggProgressUI() {
+    function renderEggProgressUI(force) {
       const eggDef = getEquippedEggDef();
       const prog = getEggProgress(eggDef.id);
       const req = getEggHatchRequirement(eggDef);
@@ -3602,6 +3629,10 @@
       const pct = getHatchPercent(eggDef, cur);
       const poolSize = getEggHatchPool(eggDef.id).length;
       const discovered = countEggPoolDiscovered(eggDef);
+      const cps = gameState.currentCps || 0;
+      const key = eggDef.id + "|" + Math.floor(cur) + "|" + req + "|" + discovered + "|" + poolSize + "|" + cps;
+      if (!force && key === lastEggProgressKey && !hatchHistoryDirty) return;
+      lastEggProgressKey = key;
 
       const nums = document.getElementById("hatch-bar-nums");
       if (nums) {
@@ -3624,7 +3655,7 @@
         const short = firstSentence.length > 100
           ? firstSentence.slice(0, 97) + "…"
           : firstSentence;
-        descEl.textContent = short;
+        if (descEl.textContent !== short) descEl.textContent = short;
         descEl.hidden = !short;
       }
       const poolEl = document.getElementById("ki-pool-count");
@@ -3634,21 +3665,22 @@
       const etaEl = document.getElementById("ki-eta");
       if (etaEl) {
         const ppc = Math.max(0.01, gameState.powerPerClick);
-        if (gameState.currentCps <= 0) {
+        if (cps <= 0) {
           etaEl.textContent = "Cliquez pour avancer l'éclosion.";
         } else {
-          const powerPerSec = ppc * gameState.currentCps;
+          const powerPerSec = ppc * cps;
           const secs = remaining / powerPerSec;
           etaEl.textContent = "~" + formatDuration(secs * 1000) + " avant l'éclosion";
         }
       }
 
-      renderRecentHatches();
+      if (hatchHistoryDirty || force) renderRecentHatches();
     }
 
     function renderRecentHatches() {
       const list = document.getElementById("recent-hatches-list");
       if (!list) return;
+      hatchHistoryDirty = false;
       const hist = gameState.hatchHistory || [];
       if (!hist.length) {
         list.innerHTML = '<li class="empty">Aucune éclosion pour le moment.</li>';
@@ -3829,6 +3861,7 @@
       if (gameState.hatchHistory.length > HATCH_HISTORY_MAX) {
         gameState.hatchHistory.length = HATCH_HISTORY_MAX;
       }
+      hatchHistoryDirty = true;
 
       return {
         eggDef: eggDef,
@@ -5824,29 +5857,38 @@
     function tickExpeditions() {
       ensureExpeditionState();
       let changed = false;
-      getActiveExpeditionRuns().forEach(({ run }) => {
-        if (resolveExpeditionIfDue(run)) changed = true;
-      });
+      const activeRuns = getActiveExpeditionRuns();
+      for (let i = 0; i < activeRuns.length; i++) {
+        if (resolveExpeditionIfDue(activeRuns[i].run)) changed = true;
+      }
       if (changed) {
         expeditionsDirty = true;
         dragonsDirty = true;
         saveGame(true);
       }
       const busy = getBusyExpeditionRun();
-      const timerEl = document.getElementById("expedition-timer");
-      if (timerEl && busy && !busy.run.resolved) {
-        timerEl.textContent = formatCountdown(getExpeditionRemainingTime(busy.run));
+      if (!busy) {
+        updateExpeditionButtonIndicator();
+        return;
       }
-      const cardTimer = document.querySelector(".expedition-card.is-running .exp-card-timer");
-      const cardFill = document.querySelector(".expedition-card.is-running .expedition-card-progress-fill");
-      if (busy && !busy.run.resolved && (cardTimer || cardFill)) {
-        const remaining = getExpeditionRemainingTime(busy.run);
-        const def = getExpeditionDef(busy.run.expeditionId);
-        const total = Math.max(1, safeNumber(busy.run.durationMs, def?.durationMs || 1));
-        const elapsed = Math.max(0, total - remaining);
-        const pct = Math.max(0, Math.min(100, (elapsed / total) * 100));
-        if (cardTimer) cardTimer.textContent = formatCountdown(remaining) + " restantes";
-        if (cardFill) cardFill.style.width = pct.toFixed(1) + "%";
+      if (!busy.run.resolved) {
+        const timerEl = document.getElementById("expedition-timer");
+        if (timerEl) {
+          timerEl.textContent = formatCountdown(getExpeditionRemainingTime(busy.run));
+        }
+        if (isExpeditionDrawerOpen()) {
+          const cardTimer = document.querySelector(".expedition-card.is-running .exp-card-timer");
+          const cardFill = document.querySelector(".expedition-card.is-running .expedition-card-progress-fill");
+          if (cardTimer || cardFill) {
+            const remaining = getExpeditionRemainingTime(busy.run);
+            const def = getExpeditionDef(busy.run.expeditionId);
+            const total = Math.max(1, safeNumber(busy.run.durationMs, def?.durationMs || 1));
+            const elapsed = Math.max(0, total - remaining);
+            const pct = Math.max(0, Math.min(100, (elapsed / total) * 100));
+            if (cardTimer) cardTimer.textContent = formatCountdown(remaining) + " restantes";
+            if (cardFill) cardFill.style.width = pct.toFixed(1) + "%";
+          }
+        }
       }
       updateExpeditionButtonIndicator();
     }
@@ -5908,22 +5950,24 @@
 
     function updateExpeditionButtonIndicator() {
       const state = getExpeditionHudState();
+      const locked = state.kind === "locked";
+      let statusText = "";
+      if (locked) statusText = formatNumber(state.cost) + " 💎";
+      else if (state.kind === "running") statusText = formatCountdown(state.remaining);
+      else if (state.kind === "claim") statusText = "Récompense";
+      const hudKey = state.kind + "|" + statusText;
+      if (hudKey === lastExpeditionHudKey) return;
+      lastExpeditionHudKey = hudKey;
+
       const statusEl = document.getElementById("expedition-btn-status");
       const badge = document.getElementById("expedition-btn-badge");
       const ico = document.getElementById("expedition-btn-ico");
       const btn = document.getElementById("btn-expeditions");
-      const locked = state.kind === "locked";
 
       if (statusEl) {
-        if (locked) {
+        if (locked || state.kind === "running" || state.kind === "claim") {
           statusEl.hidden = false;
-          statusEl.textContent = formatNumber(state.cost) + " 💎";
-        } else if (state.kind === "running") {
-          statusEl.hidden = false;
-          statusEl.textContent = formatCountdown(state.remaining);
-        } else if (state.kind === "claim") {
-          statusEl.hidden = false;
-          statusEl.textContent = "Récompense";
+          statusEl.textContent = statusText;
         } else {
           statusEl.hidden = true;
           statusEl.textContent = "";
@@ -9159,8 +9203,8 @@
       if (changed) {
         achievementsDirty = true;
         uiDirty = true;
+        updateAchievementsNavBadge();
       }
-      updateAchievementsNavBadge();
     }
 
     function claimAchievementReward(achievementId, opts) {
@@ -10282,11 +10326,14 @@
       const every = getChargedStrikeTriggerClicks();
       const mult = getChargedStrikeMultiplier();
       if (!every || every <= 0 || !mult || mult <= 1) {
-        if (window.DCAnim && DCAnim.setChargedAura) DCAnim.setChargedAura(false, false);
-        else {
-          const wrap = document.getElementById("entity-wrap");
-          if (wrap) {
-            wrap.classList.remove("charged-aura", "charged-aura-hot");
+        if (lastChargedAuraKey !== "off") {
+          lastChargedAuraKey = "off";
+          if (window.DCAnim && DCAnim.setChargedAura) DCAnim.setChargedAura(false, false);
+          else {
+            const wrap = document.getElementById("entity-wrap");
+            if (wrap) {
+              wrap.classList.remove("charged-aura", "charged-aura-hot");
+            }
           }
         }
         return;
@@ -10295,17 +10342,26 @@
       const left = every - cur;
       const near = left <= 2 && left > 0;
       const hot = left === 1;
-      if (window.DCAnim && DCAnim.setChargedAura) DCAnim.setChargedAura(near, hot);
-      else {
-        const wrap = document.getElementById("entity-wrap");
-        if (wrap) {
-          wrap.classList.toggle("charged-aura", near);
-          wrap.classList.toggle("charged-aura-hot", near && hot);
+      const auraKey = near ? (hot ? "hot" : "near") : "idle";
+      if (auraKey !== lastChargedAuraKey) {
+        lastChargedAuraKey = auraKey;
+        if (window.DCAnim && DCAnim.setChargedAura) DCAnim.setChargedAura(near, hot);
+        else {
+          const wrap = document.getElementById("entity-wrap");
+          if (wrap) {
+            wrap.classList.toggle("charged-aura", near);
+            wrap.classList.toggle("charged-aura-hot", near && hot);
+          }
         }
       }
-      if (near && !prefersReducedMotion() && Math.random() < (hot ? 0.45 : 0.22)) {
-        spawnAmbientSpark();
-      }
+    }
+
+    /** Sparks charged — rythme frame (indépendant du throttle HUD). */
+    function tickChargedAuraSparks() {
+      if (lastChargedAuraKey !== "near" && lastChargedAuraKey !== "hot") return;
+      if (prefersReducedMotion()) return;
+      const hot = lastChargedAuraKey === "hot";
+      if (Math.random() < (hot ? 0.45 : 0.22)) spawnAmbientSpark();
     }
 
     function triggerAnim(el, className, ms) {
@@ -11256,25 +11312,68 @@
     /* -------------------------------------------------------
        UI RENDER
        ------------------------------------------------------- */
+    function getHudEls() {
+      if (
+        cachedHudEls &&
+        cachedHudEls.essence &&
+        cachedHudEls.essence.isConnected
+      ) {
+        return cachedHudEls;
+      }
+      cachedHudEls = {
+        essence: document.getElementById("ui-essence"),
+        prod: document.getElementById("ui-prod"),
+        click: document.getElementById("ui-click"),
+        power: document.getElementById("ui-dragon-power"),
+        cps: document.getElementById("ui-cps"),
+        peak: document.getElementById("ui-cps-record")
+      };
+      return cachedHudEls;
+    }
+
     function renderHeader() {
-      const essenceEl = document.getElementById("ui-essence");
-      if (essenceEl) essenceEl.textContent = formatNumber(gameState.dragonEssence);
+      const els = getHudEls();
+      const essenceStr = formatNumber(gameState.dragonEssence);
+      if (els.essence && lastHudSnapshot.essence !== essenceStr) {
+        els.essence.textContent = essenceStr;
+        lastHudSnapshot.essence = essenceStr;
+      }
       /* Global stats (recalculateGlobalStats / calculateProduction keep these in sync). */
-      document.getElementById("ui-prod").textContent = formatNumber(gameState.powerPerSecond);
-      document.getElementById("ui-click").textContent = formatNumber(gameState.powerPerClick);
-      const powerEl = document.getElementById("ui-dragon-power");
+      const prodStr = formatNumber(gameState.powerPerSecond);
+      if (els.prod && lastHudSnapshot.prod !== prodStr) {
+        els.prod.textContent = prodStr;
+        lastHudSnapshot.prod = prodStr;
+      }
+      const clickStr = formatNumber(gameState.powerPerClick);
+      if (els.click && lastHudSnapshot.click !== clickStr) {
+        els.click.textContent = clickStr;
+        lastHudSnapshot.click = clickStr;
+      }
       const powerNow = getPlayerDragonPower();
-      if (powerEl) powerEl.textContent = formatNumber(powerNow);
+      const powerStr = formatNumber(powerNow);
+      if (els.power && lastHudSnapshot.power !== powerStr) {
+        els.power.textContent = powerStr;
+        lastHudSnapshot.power = powerStr;
+      }
       if (lastHudDragonPower != null && powerNow !== lastHudDragonPower) {
         if (window.DCAnim && DCAnim.pulseHudPower) DCAnim.pulseHudPower();
-        else if (powerEl) triggerAnim(powerEl.closest(".hud-resource-card, .stat-pill") || powerEl, "anim-pulse", 180);
+        else if (els.power) {
+          triggerAnim(els.power.closest(".hud-resource-card, .stat-pill") || els.power, "anim-pulse", 180);
+        }
       }
       lastHudDragonPower = powerNow;
       updateExpeditionButtonIndicator();
       updateChargedAuraVisual();
-      document.getElementById("ui-cps").textContent = String(gameState.currentCps || 0);
-      const rec = document.getElementById("ui-cps-record");
-      if (rec) rec.textContent = String(gameState.peakCps || 0);
+      const cpsStr = String(gameState.currentCps || 0);
+      if (els.cps && lastHudSnapshot.cps !== cpsStr) {
+        els.cps.textContent = cpsStr;
+        lastHudSnapshot.cps = cpsStr;
+      }
+      const peakStr = String(gameState.peakCps || 0);
+      if (els.peak && lastHudSnapshot.peak !== peakStr) {
+        els.peak.textContent = peakStr;
+        lastHudSnapshot.peak = peakStr;
+      }
       /* Decay combo display if idle */
       const last = safeNumber(gameState._lastComboClickAt, 0);
       if (last && performance.now() - last > getComboWindowMs()) {
@@ -11900,11 +11999,18 @@
     }
 
     function renderUI(now) {
-      renderHeader();
-      renderEggProgressUI();
+      const t = now || performance.now();
+      /* HUD ~10/s — assez pour Essence / CPS, sans DOM writes à 60 FPS. */
+      if (t - lastHudRefreshAt >= HUD_REFRESH_MS) {
+        renderHeader();
+        lastHudRefreshAt = t;
+      }
+      if (t - lastEggProgressUiAt >= EGG_PROGRESS_UI_MS) {
+        renderEggProgressUI();
+        lastEggProgressUiAt = t;
+      }
 
       const panelId = getActiveOverlayPanelId();
-      const t = now || performance.now();
 
       if (shopDirty) {
         renderShop();
@@ -11940,15 +12046,13 @@
       if (expeditionsDirty) {
         renderExpeditions();
         lastExpeditionUiRefresh = t;
-      } else if (isExpeditionDrawerOpen()) {
-        /* Met à jour timers / résolution ; le re-render complet vient via expeditionsDirty
-           (ex. passage running → ready). Ne PAS re-render en boucle pendant "RÉCUPÉRER"
-           sinon le bouton est détruit chaque frame et le clic ne marche jamais. */
-        tickExpeditions();
       }
+      /* Timers expéditions : tickExpeditions() est déjà appelé (throttlé) depuis updateGame.
+         Évite le double tick / double querySelector quand le tiroir est ouvert. */
 
-      if (panelId === "stats") {
+      if (panelId === "stats" && t - lastStatsRefreshAt >= STATS_REFRESH_MS) {
         renderStats();
+        lastStatsRefreshAt = t;
       }
 
       uiDirty = false;
@@ -11965,6 +12069,7 @@
       renderZones();
       renderExpeditions();
       renderHeader();
+      renderEggProgressUI(true);
       updateChestButtonBadge();
     }
 
@@ -12423,9 +12528,16 @@
         addPower(pps * dt, "auto");
       }
 
-      checkAchievements();
-      tickExpeditions();
+      if (now - lastAchievementCheckAt >= ACHIEVEMENT_CHECK_MS) {
+        checkAchievements();
+        lastAchievementCheckAt = now;
+      }
+      if (now - lastExpeditionTickAt >= EXPEDITION_TICK_MS) {
+        tickExpeditions();
+        lastExpeditionTickAt = now;
+      }
       tickEggAmbientFx(now);
+      tickChargedAuraSparks();
       renderUI(now);
 
       requestAnimationFrame(updateGame);
