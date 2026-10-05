@@ -10285,6 +10285,11 @@ html {
     background-position: 51% 50% !important;
   }
 
+  #scene-bg[data-bg-id="halloween"],
+  #scene-bg-fader[data-bg-id="halloween"] {
+    background-position: 50% 48% !important;
+  }
+
   #app {
     --altar-y: 64%;
     /* Mobile : œuf un peu plus grand (~+10 %) — desktop inchangé */
@@ -14474,6 +14479,31 @@ html.is-mobile-team-open #panel-kingdom::before {
   border-color: rgba(150, 150, 160, 0.4);
   color: rgba(190, 190, 200, 0.85);
   background: rgba(20, 20, 28, 0.45);
+}
+.events-card-enter {
+  appearance: none;
+  margin-top: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 170, 70, 0.55);
+  background: linear-gradient(180deg, rgba(180, 80, 30, 0.95) 0%, rgba(110, 40, 20, 0.98) 100%);
+  color: #ffe7b8;
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 220, 140, 0.25);
+}
+.events-card-enter:hover {
+  filter: brightness(1.06);
+}
+.events-card-enter:active {
+  transform: translateY(1px);
+}
+.events-event-card.theme-halloween .events-card-enter {
+  border-color: rgba(255, 150, 50, 0.6);
 }
 
 @media (max-width: 899px) {

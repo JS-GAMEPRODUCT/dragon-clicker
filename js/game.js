@@ -169,7 +169,8 @@
       basic: "assets/backgrounds/background.png",
       valley: "assets/backgrounds/background zone 2.png",
       /* Même convention de nommage que Z1/Z2 (background zone N). */
-      mountains: "assets/backgrounds/background zone 3.png"
+      mountains: "assets/backgrounds/background zone 3.png",
+      halloween: "assets/event/halloween/background/background zone halloween.png"
     };
 
     /* -------------------------------------------------------
@@ -498,6 +499,94 @@
       return getZoneDef(id);
     }
 
+    /**
+     * Zone utilisée pour boutique / améliorations.
+     * Les zones eventOnly n'ont pas de producteurs : on garde l'économie
+     * de la dernière zone permanente (meta.returnZoneId) ou du plus haut unlock.
+     */
+    function getEconomyZoneId() {
+      const zone = getCurrentZone();
+      if (!zone || !zone.eventOnly) return zone ? zone.id : "sanctuary";
+      const ret = gameState.meta && gameState.meta.returnZoneId;
+      if (ret && isZoneUnlocked(gameState, ret)) {
+        const retZone = getZoneDef(ret);
+        if (retZone && !retZone.eventOnly) return ret;
+      }
+      const order = ["mountains", "valley", "sanctuary"];
+      for (let i = 0; i < order.length; i++) {
+        if (isZoneUnlocked(gameState, order[i])) return order[i];
+      }
+      return "sanctuary";
+    }
+
+    function rememberReturnZoneBeforeEvent() {
+      if (!gameState.meta) gameState.meta = {};
+      const cur = gameState.currentZoneId || "sanctuary";
+      const curZone = getZoneDef(cur);
+      if (curZone && !curZone.eventOnly) {
+        gameState.meta.returnZoneId = cur;
+      }
+    }
+
+    /** Débloque une zone événement (date atteinte ou code) — sans Essence. */
+    function grantEventZoneAccess(zoneId, opts) {
+      opts = opts || {};
+      const zone = getZoneDef(zoneId);
+      if (!zone) return false;
+      if (isZoneUnlocked(gameState, zoneId)) {
+        unlockZoneEggs(zoneId);
+        return false;
+      }
+      if (!gameState.unlockedZones) gameState.unlockedZones = ["sanctuary"];
+      if (gameState.unlockedZones.indexOf(zoneId) === -1) {
+        gameState.unlockedZones.push(zoneId);
+      }
+      if (!gameState.meta) gameState.meta = {};
+      gameState.meta.unlockedZones = gameState.unlockedZones.slice();
+      unlockZoneEggs(zoneId);
+      shopDirty = true;
+      zonesDirty = true;
+      eggsDirty = true;
+      dragonsDirty = true;
+      uiDirty = true;
+      if (!opts.silent) {
+        showNotification("🎃 Événement", "Zone Halloween débloquée !");
+        playSound("zoneUnlock");
+      }
+      return true;
+    }
+
+    /** Auto-débloque les zones événement dont la date de début est atteinte. */
+    function ensureSeasonalEventZones() {
+      let changed = false;
+      getEventDefs().forEach((ev) => {
+        if (!ev || !ev.zoneId) return;
+        const start = getEventStartDate(ev);
+        if (!start || Date.now() < start.getTime()) return;
+        if (grantEventZoneAccess(ev.zoneId, { silent: true })) changed = true;
+      });
+      if (changed) saveGame(true);
+    }
+
+    function isEventZonePlayable(ev) {
+      if (!ev || !ev.zoneId) return !!ev && !!ev.accessible;
+      return isZoneUnlocked(gameState, ev.zoneId);
+    }
+
+    function enterEventZone(ev) {
+      if (!ev || !ev.zoneId) return;
+      if (!isEventZonePlayable(ev)) {
+        showNotification(
+          (ev.icon ? ev.icon + " " : "") + (ev.name || "Événement"),
+          "Zone verrouillée — utilisez un code ou attendez l'ouverture."
+        );
+        playSound("error");
+        return;
+      }
+      rememberReturnZoneBeforeEvent();
+      enterZoneFromMap(ev.zoneId);
+    }
+
     function countZonePoolDiscovered(state, zoneId) {
       const zone = getZoneDef(zoneId);
       if (!zone) return 0;
@@ -766,6 +855,9 @@
       if (req.type === "totalPower" || req.type === "dragonPower") {
         return "Avoir une Puissance Draconique de " + formatNumber(req.value);
       }
+      if (req.type === "eventAccess") {
+        return "Accès événement requis";
+      }
       return req.type + " ≥ " + req.value;
     }
 
@@ -796,6 +888,10 @@
         } else if (req.type === "totalPower" || req.type === "dragonPower") {
           current = calculateDragonPower(s);
           ok = current >= req.value;
+        } else if (req.type === "eventAccess") {
+          /* Jamais via Débloquer Monde — code bonus / date d'événement uniquement. */
+          current = 0;
+          ok = false;
         }
         return { req: req, ok: ok, current: current, label: describeZoneRequirement(req) };
       });
@@ -809,6 +905,7 @@
       const zone = getZoneDef(zoneId);
       if (!zone || zone.startUnlocked) return { ok: false, reason: "invalid", reqs: checkZoneRequirements(zone || ZONE_DEFS[0]) };
       if (zone.comingSoon) return { ok: false, reason: "comingSoon", reqs: checkZoneRequirements(zone) };
+      if (zone.eventOnly) return { ok: false, reason: "eventOnly", reqs: checkZoneRequirements(zone) };
       const reqs = checkZoneRequirements(zone);
       if (isZoneUnlocked(gameState, zoneId)) {
         return { ok: false, reason: "already", reqs: reqs, cost: zone.unlockCost, canPay: true };
@@ -974,8 +1071,8 @@
     }
 
     function getVisibleProducers() {
-      const zone = getCurrentZone();
-      return PRODUCER_DEFS.filter((p) => p.zoneId === zone.id);
+      const zoneId = getEconomyZoneId();
+      return PRODUCER_DEFS.filter((p) => p.zoneId === zoneId);
     }
 
     function getActiveUpgradeDef(id) {
@@ -1138,13 +1235,13 @@
     }
 
     function getVisibleActiveUpgrades() {
-      const zone = getCurrentZone();
-      return ACTIVE_UPGRADE_DEFS.filter((u) => u.zoneId === zone.id);
+      const zoneId = getEconomyZoneId();
+      return ACTIVE_UPGRADE_DEFS.filter((u) => u.zoneId === zoneId);
     }
 
     function getVisibleShopPassives() {
-      const zone = getCurrentZone();
-      return SHOP_PASSIVE_DEFS.filter((u) => u.zoneId === zone.id);
+      const zoneId = getEconomyZoneId();
+      return SHOP_PASSIVE_DEFS.filter((u) => u.zoneId === zoneId);
     }
 
     function getLevelPassiveLevel(id, state) {
@@ -1396,8 +1493,9 @@
     }
 
     function updateZoneScopedPanelHeaders() {
-      const zone = getCurrentZone();
-      const head = formatZoneShopHeading(zone);
+      /* Boutique / Améliorations suivent la zone économique (hors eventOnly). */
+      const economyZone = getZoneDef(getEconomyZoneId());
+      const head = formatZoneShopHeading(economyZone);
       const detail = head.name || "";
       const shopSub = document.getElementById("shop-zone-sub");
       if (shopSub) {
@@ -2956,7 +3054,13 @@
     const BONUS_CODES = {
       "1234": { type: "essence", amount: 1000000 },
       /* Bypass temporaire accès Zone 3 (anciennes saves Z2 terminées). Pas d'Essence / zoneSpent. */
-      "LEGACY-Z3-2026": { type: "unlockZone", zoneId: "mountains" }
+      "LEGACY-Z3-2026": { type: "unlockZone", zoneId: "mountains" },
+      /* Accès anticipé zone événement Halloween (sans Essence / zoneSpent). */
+      "HALLOWEEN2026": {
+        type: "unlockZone",
+        zoneId: "halloween",
+        successMessage: "Zone Halloween débloquée !"
+      }
     };
 
     function setBonusCodeFeedback(message, kind) {
@@ -2987,14 +3091,16 @@
       if (reward.type === "unlockZone") {
         const zoneId = reward.zoneId || "mountains";
         const zone = getZoneDef(zoneId);
-        const zoneName = zone && zone.name ? zone.name : "Zone 3";
+        const zoneName = zone && zone.name ? zone.name : "Zone";
+        const successMsg = reward.successMessage || (zoneName + " débloquée !");
+        const alreadyMsg = reward.alreadyMessage || (zoneName + " déjà débloquée.");
         if (isZoneUnlocked(gameState, zoneId)) {
           if (gameState.redeemedCodes.indexOf(code) === -1) {
             gameState.redeemedCodes.push(code);
             saveGame(true);
           }
-          setBonusCodeFeedback(zoneName + " déjà débloquée.", "ok");
-          showNotification("CODES BONUS", zoneName + " déjà débloquée.");
+          setBonusCodeFeedback(alreadyMsg, "ok");
+          showNotification("CODES BONUS", alreadyMsg);
           return true;
         }
         /* Accès permanent via unlockedZones — sans Essence ni zoneSpent. */
@@ -3017,8 +3123,8 @@
         renderZones();
         renderDragons();
         playSound("zoneUnlock");
-        setBonusCodeFeedback(zoneName + " débloquée !", "ok");
-        showNotification("CODE VALIDÉ !", zoneName + " débloquée !");
+        setBonusCodeFeedback(successMsg, "ok");
+        showNotification("CODE VALIDÉ !", successMsg);
         const inputUnlock = document.getElementById("bonus-code-input");
         if (inputUnlock) inputUnlock.value = "";
         return true;
@@ -5070,12 +5176,25 @@
         title: "Tous les dragons"
       });
 
-      ZONE_DEFS.forEach((zone, index) => {
+      let permanentIndex = 0;
+      ZONE_DEFS.forEach((zone) => {
+        if (zone.eventOnly) {
+          if (!isZoneUnlocked(gameState, zone.id)) return;
+          makeBtn({
+            id: zone.id,
+            label: zone.icon || "🎃",
+            isCurrentZone: zone.id === currentZoneId,
+            locked: false,
+            title: zone.name
+          });
+          return;
+        }
+        permanentIndex += 1;
         const unlocked = isZoneUnlocked(gameState, zone.id);
         const isCurrent = zone.id === currentZoneId;
         makeBtn({
           id: zone.id,
-          label: "Zone " + (index + 1),
+          label: "Zone " + permanentIndex,
           isCurrentZone: isCurrent,
           locked: !unlocked,
           title: zone.name + (unlocked ? "" : " (verrouillée)")
@@ -9066,8 +9185,11 @@
       const list = document.getElementById("world-zones-list");
       if (!list) return;
       list.innerHTML = "";
-      ZONE_DEFS.forEach((zone, index) => {
-        list.appendChild(createWorldZoneCard(zone, index));
+      let worldIndex = 0;
+      ZONE_DEFS.forEach((zone) => {
+        if (zone.eventOnly) return;
+        list.appendChild(createWorldZoneCard(zone, worldIndex));
+        worldIndex += 1;
       });
     }
 
@@ -12090,6 +12212,7 @@
 
     function getEventStatusLabel(ev) {
       if (!ev) return "Bientôt";
+      if (isEventZonePlayable(ev)) return "Disponible";
       if (ev.statusLabel) return ev.statusLabel;
       if (ev.status === "active") return "En cours";
       if (ev.status === "ended") return "Terminé";
@@ -12207,17 +12330,18 @@
 
       const startDate = getEventStartDate(ev);
       const startReached = !!(startDate && Date.now() >= startDate.getTime());
+      const playable = isEventZonePlayable(ev);
 
       const period = document.createElement("p");
       period.className = "events-card-period";
-      period.textContent = startReached
+      period.textContent = playable
         ? "Événement disponible"
         : (ev.periodLabel || "");
 
       const countdown = document.createElement("div");
       countdown.className = "events-card-countdown";
       countdown.setAttribute("data-event-countdown", ev.id || "");
-      countdown.hidden = !startDate || startReached;
+      countdown.hidden = !startDate || startReached || playable;
       const cdLabel = document.createElement("span");
       cdLabel.className = "events-card-countdown-label";
       cdLabel.textContent = "Débute dans";
@@ -12232,26 +12356,41 @@
       desc.textContent = ev.shortDescription || "";
 
       const badge = document.createElement("span");
-      badge.className = "events-card-badge " + getEventStatusClass(ev.status);
+      badge.className = "events-card-badge " + getEventStatusClass(playable ? "active" : ev.status);
       badge.textContent = getEventStatusLabel(ev);
 
       body.appendChild(name);
       if (period.textContent) body.appendChild(period);
-      if (startDate) body.appendChild(countdown);
+      if (startDate && !playable) body.appendChild(countdown);
       if (ev.shortDescription) body.appendChild(desc);
       body.appendChild(badge);
+
+      if (playable && ev.zoneId) {
+        const enterBtn = document.createElement("button");
+        enterBtn.type = "button";
+        enterBtn.className = "events-card-enter";
+        enterBtn.textContent = "Entrer";
+        enterBtn.setAttribute("aria-label", "Entrer dans " + (ev.name || "l'événement"));
+        enterBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          playSound("button");
+          enterEventZone(ev);
+        });
+        body.appendChild(enterBtn);
+      }
 
       card.appendChild(visual);
       card.appendChild(body);
 
       const onActivate = () => {
-        if (ev.accessible) {
-          /* Gameplay événement : étapes suivantes */
+        if (playable && ev.zoneId) {
+          playSound("button");
+          enterEventZone(ev);
           return;
         }
         showNotification(
           (ev.icon ? ev.icon + " " : "") + (ev.name || "Événement"),
-          startReached ? "Événement disponible" : (ev.periodLabel || "Bientôt disponible")
+          startReached ? "Événement bientôt jouable — ou utilisez un code bonus." : (ev.periodLabel || "Bientôt disponible")
         );
         playSound("button");
       };
@@ -12286,6 +12425,7 @@
 
     function renderEventsMenu() {
       stopEventsCountdown();
+      ensureSeasonalEventZones();
       const listEl = document.getElementById("events-list");
       if (!listEl) return;
       const list = getEventDefs();
@@ -12942,6 +13082,7 @@
       const loaded = loadGame();
 
       syncActiveEggFromZoneSelection();
+      ensureSeasonalEventZones();
 
       /* Scène critique après load : uniquement la zone active. */
       preloadEggProgressImages();

@@ -139,5 +139,19 @@ var ZONE_DEFS = [
         unlockRequirements: [{ type: "eggsHatched", value: 300 }],
         eggIds: [],
         producerIds: []
+      },
+      {
+        id: "halloween",
+        name: "Halloween",
+        rank: "Événement",
+        description: "Une nuit maudite où citrouilles et fantômes s'éveillent dans le Royaume.",
+        background: "halloween",
+        startUnlocked: false,
+        /* Zone événement : hors progression Monde (accès menu Événements / code). */
+        eventOnly: true,
+        unlockCost: 0,
+        unlockRequirements: [{ type: "eventAccess", eventId: "halloween" }],
+        eggIds: ["citrouille", "fantome"],
+        producerIds: []
       }
     ];

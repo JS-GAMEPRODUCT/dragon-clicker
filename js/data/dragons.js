@@ -114,6 +114,41 @@ var DRAGON_ZONE_RARITY_BONUSES = {
         values: [120, 190, 280, 390, 520]
       }
     ]
+  },
+  /* Événement Halloween — courbe type Vallée (entre Z1 et Z3). */
+  halloween: {
+    common: {
+      type: "clickPowerPercent",
+      name: "Puissance de clic",
+      values: [2, 3, 4, 5, 7]
+    },
+    rare: {
+      type: "essenceProductionPercent",
+      name: "Essence/sec",
+      values: [3, 4, 5, 7, 9]
+    },
+    epic: {
+      type: "clickPowerPercent",
+      name: "Puissance de clic",
+      values: [5, 7, 9, 12, 15]
+    },
+    legendary: {
+      type: "essenceProductionFlat",
+      name: "Essence/sec",
+      values: [25, 40, 60, 85, 120]
+    },
+    mythic: [
+      {
+        type: "clickPowerFlat",
+        name: "Puissance de clic",
+        values: [5, 7, 10, 13, 17]
+      },
+      {
+        type: "essenceProductionFlat",
+        name: "Essence/sec",
+        values: [40, 65, 95, 135, 180]
+      }
+    ]
   }
 };
 
@@ -479,6 +514,162 @@ var DRAGON_DEFS = [
         icon: "🌌",
         zoneId: "mountains",
         eggId: "storm"
+      },
+      /* —— Halloween — Œuf Citrouille —— */
+      {
+        id: "jacklyn",
+        name: "Jacklyn",
+        element: "shadow",
+        rarity: "common",
+        description: "Petite citrouille animée, toujours prête à jouer un tour inoffensif.",
+        image: "assets/event/halloween/dragon/dragon citrouille commun.png",
+        icon: "🎃",
+        zoneId: "halloween",
+        eggId: "citrouille"
+      },
+      {
+        id: "patchyn",
+        name: "Patchyn",
+        element: "shadow",
+        rarity: "common",
+        description: "Son sourire sculpté brille dès que la nuit tombe sur le Royaume.",
+        image: "assets/event/halloween/dragon/dragon citrouille commun2.png",
+        icon: "🎃",
+        zoneId: "halloween",
+        eggId: "citrouille"
+      },
+      {
+        id: "lanternis",
+        name: "Lanternis",
+        element: "shadow",
+        rarity: "rare",
+        description: "Une flamme orange danse dans son regard — guide des soirs d'octobre.",
+        image: "assets/event/halloween/dragon/dragon citrouille rare.png",
+        icon: "🕯️",
+        zoneId: "halloween",
+        eggId: "citrouille"
+      },
+      {
+        id: "gourdrak",
+        name: "Gourdrak",
+        element: "shadow",
+        rarity: "epic",
+        description: "Écailles de courge et souffle tiède : il garde les champs maudits.",
+        image: "assets/event/halloween/dragon/dragon citrouille epic.png",
+        icon: "🧡",
+        zoneId: "halloween",
+        eggId: "citrouille"
+      },
+      {
+        id: "harvestyx",
+        name: "Harvestyx",
+        element: "shadow",
+        rarity: "epic",
+        description: "Né des récoltes abandonnées, il attire les fragmentations nocturnes.",
+        image: "assets/event/halloween/dragon/dragon citrouille epic2.png",
+        icon: "🍂",
+        zoneId: "halloween",
+        eggId: "citrouille"
+      },
+      {
+        id: "citrogorn",
+        name: "Citrogorn",
+        element: "shadow",
+        rarity: "legendary",
+        description: "Seigneur des lanternes. Les citrouilles s'inclinent à son passage.",
+        image: "assets/event/halloween/dragon/dragon citrouille legendaire.png",
+        icon: "👑",
+        zoneId: "halloween",
+        eggId: "citrouille"
+      },
+      {
+        id: "samhainor",
+        name: "Samhainor",
+        element: "shadow",
+        rarity: "mythic",
+        description: "Mythe de la Nuit d'Halloween. On dit qu'il ouvre le voile entre les mondes.",
+        image: "assets/event/halloween/dragon/dragon citrouille mythique.png",
+        icon: "🌌",
+        zoneId: "halloween",
+        eggId: "citrouille"
+      },
+      {
+        id: "nightgourd",
+        name: "Nightgourd",
+        element: "shadow",
+        rarity: "mythic",
+        description: "Citrouille mythique dont la lumière ne s'éteint jamais, même au soleil.",
+        image: "assets/event/halloween/dragon/dragon citrouille mythique2.png",
+        icon: "✨",
+        zoneId: "halloween",
+        eggId: "citrouille"
+      },
+      /* —— Halloween — Œuf Fantôme —— */
+      {
+        id: "spectrix",
+        name: "Spectrix",
+        element: "shadow",
+        rarity: "common",
+        description: "Un petit esprit translucide qui glisse entre les tombes du Royaume.",
+        image: "assets/event/halloween/dragon/dragon fantomecommun.png",
+        icon: "👻",
+        zoneId: "halloween",
+        eggId: "fantome"
+      },
+      {
+        id: "wispette",
+        name: "Wispette",
+        element: "shadow",
+        rarity: "common",
+        description: "Feu follet joueur, elle adoucit les nuits les plus froides.",
+        image: "assets/event/halloween/dragon/dragon fantome commun2.png",
+        icon: "👻",
+        zoneId: "halloween",
+        eggId: "fantome"
+      },
+      {
+        id: "hauntis",
+        name: "Hauntis",
+        element: "shadow",
+        rarity: "rare",
+        description: "Son murmure fait frissonner les couloirs du Sanctuaire.",
+        image: "assets/event/halloween/dragon/dragon fantome rare.png",
+        icon: "🌫️",
+        zoneId: "halloween",
+        eggId: "fantome"
+      },
+      {
+        id: "phasmor",
+        name: "Phasmor",
+        element: "shadow",
+        rarity: "epic",
+        description: "Apparition épique : il traverse les murs comme le vent d'automne.",
+        image: "assets/event/halloween/dragon/dragon fantome epic.png",
+        icon: "🔮",
+        zoneId: "halloween",
+        eggId: "fantome"
+      },
+      {
+        id: "spectryon",
+        name: "Spectryon",
+        element: "shadow",
+        rarity: "legendary",
+        description: "Légende fantôme des cryptes. Les ombres lui obéissent.",
+        image: "assets/event/halloween/dragon/dragon fantome legendaire.png",
+        icon: "👑",
+        zoneId: "halloween",
+        eggId: "fantome"
+      },
+      {
+        id: "oblivyx",
+        name: "Oblivyx",
+        element: "shadow",
+        rarity: "mythic",
+        description: "Mythe du néant spectral. Peu ont croisé son regard sans l'oublier.",
+        image: "assets/event/halloween/dragon/dragon fantome mythique.png",
+        icon: "🌌",
+        zoneId: "halloween",
+        eggId: "fantome"
       }
     ];
 
@@ -681,6 +872,80 @@ var EGG_DEFS = [
           { dragonId: "voltara", weight: 1 },
           { dragonId: "cimor", weight: 1 },
           { dragonId: "aetherion", weight: 1 }
+        ],
+        pity: {
+          enabled: false,
+          rules: [
+            { rarity: "legendary", softPityAfter: 20, hardPityAt: 50 },
+            { rarity: "mythic", softPityAfter: 80, hardPityAt: 200 }
+          ]
+        }
+      },
+      {
+        id: "citrouille",
+        name: "Œuf Citrouille",
+        description: "Un œuf orange sculpté par la Nuit d'Halloween. Des flammes dansent sous sa coquille.",
+        image: "assets/event/halloween/eggs/oeuf citrouille.png",
+        progressImages: {
+          intact: "assets/event/halloween/eggs/oeuf citrouille.png",
+          cracked35: "assets/event/halloween/eggs/oeuf citrouille35.png",
+          cracked75: "assets/event/halloween/eggs/oeuf citrouille99.png"
+        },
+        background: "halloween",
+        zoneId: "halloween",
+        requiredHatchPower: 1200,
+        requiredClicks: 1200,
+        rarity: "common",
+        element: "shadow",
+        startUnlocked: false,
+        comingSoon: false,
+        secret: false,
+        visualOffsetX: 0,
+        dragonPool: [
+          { dragonId: "jacklyn", weight: 1 },
+          { dragonId: "patchyn", weight: 1 },
+          { dragonId: "lanternis", weight: 1 },
+          { dragonId: "gourdrak", weight: 1 },
+          { dragonId: "harvestyx", weight: 1 },
+          { dragonId: "citrogorn", weight: 1 },
+          { dragonId: "samhainor", weight: 1 },
+          { dragonId: "nightgourd", weight: 1 }
+        ],
+        pity: {
+          enabled: false,
+          rules: [
+            { rarity: "legendary", softPityAfter: 20, hardPityAt: 50 },
+            { rarity: "mythic", softPityAfter: 80, hardPityAt: 200 }
+          ]
+        }
+      },
+      {
+        id: "fantome",
+        name: "Œuf Fantôme",
+        description: "Un œuf spectral translucide. On entend parfois un murmure à l'intérieur.",
+        image: "assets/event/halloween/eggs/oeuf fantome.png",
+        progressImages: {
+          intact: "assets/event/halloween/eggs/oeuf fantome.png",
+          cracked35: "assets/event/halloween/eggs/oeuf fantome35.png",
+          cracked75: "assets/event/halloween/eggs/oeuf fantome99.png"
+        },
+        background: "halloween",
+        zoneId: "halloween",
+        requiredHatchPower: 1800,
+        requiredClicks: 1800,
+        rarity: "common",
+        element: "shadow",
+        startUnlocked: false,
+        comingSoon: false,
+        secret: false,
+        visualOffsetX: 0,
+        dragonPool: [
+          { dragonId: "spectrix", weight: 1 },
+          { dragonId: "wispette", weight: 1 },
+          { dragonId: "hauntis", weight: 1 },
+          { dragonId: "phasmor", weight: 1 },
+          { dragonId: "spectryon", weight: 1 },
+          { dragonId: "oblivyx", weight: 1 }
         ],
         pity: {
           enabled: false,
