@@ -158,7 +158,7 @@ var PRODUCER_DEFS = [
         tier: 5,
         zoneId: "valley"
       },
-      /* Zone 3 — Montagne sauvage : ~1h pour ~75 % (production inchangée). */
+      /* Zone 3 — Montagne sauvage : courbe progressive (base→max, EXP 1.35). Maxima inchangés. */
       {
         id: "graniteNest",
         name: "Nid de Granit",
@@ -170,7 +170,7 @@ var PRODUCER_DEFS = [
         baseProduction: 4,
         maxProduction: 100,
         maxLevel: 25,
-        productionCurve: "linear",
+        productionCurve: "progressive",
         tier: 1,
         zoneId: "mountains"
       },
@@ -185,7 +185,7 @@ var PRODUCER_DEFS = [
         baseProduction: 10,
         maxProduction: 200,
         maxLevel: 20,
-        productionCurve: "linear",
+        productionCurve: "progressive",
         tier: 2,
         zoneId: "mountains"
       },
@@ -200,7 +200,7 @@ var PRODUCER_DEFS = [
         baseProduction: 25,
         maxProduction: 375,
         maxLevel: 15,
-        productionCurve: "linear",
+        productionCurve: "progressive",
         tier: 3,
         zoneId: "mountains"
       },
@@ -215,7 +215,7 @@ var PRODUCER_DEFS = [
         baseProduction: 60,
         maxProduction: 600,
         maxLevel: 10,
-        productionCurve: "linear",
+        productionCurve: "progressive",
         tier: 4,
         zoneId: "mountains"
       },
@@ -230,9 +230,85 @@ var PRODUCER_DEFS = [
         baseProduction: 130,
         maxProduction: 910,
         maxLevel: 7,
-        productionCurve: "linear",
+        productionCurve: "progressive",
         tier: 5,
         zoneId: "mountains"
+      },
+      /* Zone 4 — Royaume oublié : courbe progressive (base→max, EXP 1.35). */
+      {
+        id: "forgottenNest",
+        name: "Nid oublié",
+        icon: "🪺",
+        description: "Un nid enseveli sous la poussière des royaumes disparus.",
+        baseCost: 40000,
+        costGrowth: 1.035,
+        productionPerLevel: 50,
+        baseProduction: 50,
+        maxProduction: 600,
+        maxLevel: 20,
+        productionCurve: "progressive",
+        tier: 1,
+        zoneId: "zone4"
+      },
+      {
+        id: "relicVault",
+        name: "Crypte des Reliques",
+        icon: "📦",
+        description: "Coffres scellés où l'essence des ancêtres s'accumule encore.",
+        baseCost: 90000,
+        costGrowth: 1.05,
+        productionPerLevel: 120,
+        baseProduction: 120,
+        maxProduction: 1500,
+        maxLevel: 15,
+        productionCurve: "progressive",
+        tier: 2,
+        zoneId: "zone4"
+      },
+      {
+        id: "arcaneSanctum",
+        name: "Sanctuaire Arcanique",
+        icon: "🔮",
+        description: "Autel de runes éteintes, réveillé par le flux draconique.",
+        baseCost: 200000,
+        costGrowth: 1.07,
+        productionPerLevel: 300,
+        baseProduction: 300,
+        maxProduction: 3200,
+        maxLevel: 10,
+        productionCurve: "progressive",
+        tier: 3,
+        zoneId: "zone4"
+      },
+      {
+        id: "voidSpire",
+        name: "Flèche du Néant",
+        icon: "🗼",
+        description: "Une flèche d'ombre qui canalise le vide ancien.",
+        baseCost: 450000,
+        costGrowth: 1.10,
+        productionPerLevel: 650,
+        baseProduction: 650,
+        maxProduction: 6000,
+        maxLevel: 7,
+        productionCurve: "progressive",
+        tier: 4,
+        zoneId: "zone4"
+      },
+      {
+        id: "forgottenCitadel",
+        name: "Citadelle du Royaume oublié",
+        icon: "🏰",
+        description: "Cœur économique des ruines — dernier bastion du Royaume oublié.",
+        baseCost: 900000,
+        costGrowth: 1.13,
+        productionPerLevel: 1400,
+        baseProduction: 1400,
+        maxProduction: 10000,
+        maxLevel: 5,
+        productionCurve: "progressive",
+        tier: 5,
+        zoneId: "zone4"
       }
     ];
 
@@ -448,7 +524,7 @@ var ZONE_RANK_META = [
           }
         ]
       },
-      /* Zone 3 — Montagne sauvage : effets inchangés, ~75 % en ~1h à 6–7 CPS. */
+      /* Zone 3 — Montagne sauvage : Griffes progressives (cumul → +40) ; Force déjà progressive. */
       {
         zoneId: "mountains", rank: "Adepte", order: 3,
         customActiveUpgrades: [
@@ -459,10 +535,10 @@ var ZONE_RANK_META = [
             icon: "✊",
             maxLevel: 20,
             bonusType: "clickPowerFlat",
-            /* +2 / niveau → +40 au max (valeurs totales cumulées) */
+            /* Totaux cumulés progressifs (~+1.2 … ~+2.8) → +40 au max */
             bonusValues: [
-              2, 4, 6, 8, 10, 12, 14, 16, 18, 20,
-              22, 24, 26, 28, 30, 32, 34, 36, 38, 40
+              1.2, 2.5, 3.9, 5.4, 6.9, 8.5, 10.2, 12, 13.9, 15.9,
+              17.9, 20, 22.2, 24.5, 26.9, 29.4, 31.9, 34.5, 37.2, 40
             ],
             baseCost: 16500,
             costGrowth: 1.148,
@@ -537,19 +613,93 @@ var ZONE_RANK_META = [
           }
         ]
       },
+      /* Zone 4 — Royaume oublié : tables progressives (cumuls). Cap crit/twin globaux inchangés. */
       {
-        zoneId: "forgotten", rank: "Vétéran", order: 4,
-        names: {
-          claws: "Griffes du Vétéran",
-          instinct: "Instinct du Vétéran",
-          bite: "Morsure du Vétéran",
-          fervor: "Ferveur du Vétéran"
-        },
-        clickFlatPerLevel: 0.55,
-        critChance: 0.002, critMult: 0.085,
-        fervorPower: 0.035, fervorDuration: 60,
-        baseCosts: { claws: 1.2e6, instinct: 2e6, bite: 3e6, fervor: 2.4e6 },
-        costGrowth: 1.19
+        zoneId: "zone4", rank: "Vétéran", order: 4,
+        customActiveUpgrades: [
+          {
+            id: "claws_forgotten",
+            family: "claws",
+            name: "Griffes oubliées",
+            icon: "✊",
+            maxLevel: 20,
+            bonusType: "clickPowerFlat",
+            /* Totaux cumulés progressifs → +120 au max */
+            bonusValues: [
+              3, 6.3, 9.9, 13.9, 18.2, 22.7, 27.6, 32.8, 38.4, 44.2,
+              50.4, 56.8, 63.6, 70.7, 78.2, 85.9, 93.9, 102.3, 111, 120
+            ],
+            baseCost: 45000,
+            costGrowth: 1.14,
+            uiOrder: 1
+          },
+          {
+            id: "force_forgotten",
+            family: "force",
+            name: "Force des Reliques",
+            icon: "💪",
+            maxLevel: 5,
+            bonusType: "clickPowerFlat",
+            bonusValues: [18, 40, 67, 99, 135],
+            baseCost: 220000,
+            costGrowth: 1.45,
+            uiOrder: 2
+          },
+          {
+            id: "instinct_forgotten",
+            family: "instinct",
+            name: "Instinct Arcanique",
+            icon: "👁️",
+            maxLevel: 10,
+            bonusType: "critChanceFlat",
+            /* Points de % → fractions (0.2 % = 0.002 … 2 % = 0.02). Cap global inchangé. */
+            bonusValues: [
+              0.002, 0.004, 0.006, 0.008, 0.01,
+              0.012, 0.014, 0.016, 0.018, 0.02
+            ],
+            baseCost: 75000,
+            costGrowth: 1.24,
+            uiOrder: 3
+          },
+          {
+            id: "bite_forgotten",
+            family: "bite",
+            name: "Morsure du Néant",
+            icon: "💥",
+            maxLevel: 8,
+            bonusType: "critMultiplierFlat",
+            bonusValues: [0.15, 0.31, 0.48, 0.66, 0.85, 1.05, 1.27, 1.5],
+            baseCost: 120000,
+            costGrowth: 1.28,
+            uiOrder: 4
+          },
+          {
+            id: "breath_forgotten",
+            family: "breath",
+            name: "Souffle des Arcanes",
+            icon: "🌬️",
+            maxLevel: 5,
+            bonusType: "globalProdPct",
+            /* Points de % totaux → +20 % production passive au max */
+            bonusValues: [3, 6.5, 10.5, 15, 20],
+            baseCost: 300000,
+            costGrowth: 1.40,
+            uiOrder: 5
+          },
+          {
+            id: "echo_forgotten",
+            family: "twin",
+            name: "Écho du Royaume",
+            icon: "✨",
+            maxLevel: 5,
+            bonusType: "twinHatchChance",
+            /* Même unité que Z2/Z3 (points de %) — cap Twin global inchangé */
+            bonusValues: [0.1, 0.2, 0.3, 0.4, 0.5],
+            baseCost: 450000,
+            costGrowth: 1.34,
+            uiOrder: 6
+          }
+        ]
       },
       {
         zoneId: "royal", rank: "Maître", order: 5,

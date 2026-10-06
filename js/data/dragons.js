@@ -881,6 +881,79 @@ var EGG_DEFS = [
           ]
         }
       },
+      /* —— Zone 4 — Royaume oublié (pools dragons à venir) —— */
+      {
+        id: "reliques",
+        name: "Œuf des Reliques",
+        description: "Un œuf orné de reliques antiques. Les arcanes du Royaume oublié y sommeillent encore.",
+        image: "assets/eggs/oeuf royaume oubliée.png",
+        progressImages: {
+          intact: "assets/eggs/oeuf royaume oubliée.png",
+          cracked35: "assets/eggs/oeuf royaume oubliée35.png",
+          cracked75: "assets/eggs/oeuf royaume oubliée75.png"
+        },
+        background: "zone4",
+        zoneId: "zone4",
+        requiredHatchPower: 9000,
+        requiredClicks: 9000,
+        rarity: "common",
+        element: "arcane",
+        startUnlocked: false,
+        comingSoon: false,
+        secret: false,
+        dragonsComingSoon: true,
+        visualOffsetX: 0,
+        dragonPool: [],
+        pity: { enabled: false, rules: [] }
+      },
+      {
+        id: "arcanes",
+        name: "Œuf des Arcanes Oubliées",
+        description: "Des runes éteintes courent sur sa coquille. La magie ancienne y attend d'être réveillée.",
+        image: "assets/eggs/oeuf des arcanes.png",
+        progressImages: {
+          intact: "assets/eggs/oeuf des arcanes.png",
+          cracked35: "assets/eggs/oeuf des arcanes35.png",
+          cracked75: "assets/eggs/oeuf des arcanes75.png"
+        },
+        background: "zone4",
+        zoneId: "zone4",
+        requiredHatchPower: 12000,
+        requiredClicks: 12000,
+        rarity: "common",
+        element: "arcane",
+        startUnlocked: false,
+        comingSoon: false,
+        secret: false,
+        dragonsComingSoon: true,
+        visualOffsetX: 0,
+        dragonPool: [],
+        pity: { enabled: false, rules: [] }
+      },
+      {
+        id: "neant",
+        name: "Œuf du Néant Ancien",
+        description: "Un œuf baigné d'ombre primordiale. On dit qu'il précède les premiers royaumes.",
+        image: "assets/eggs/oeuf du neant.png",
+        progressImages: {
+          intact: "assets/eggs/oeuf du neant.png",
+          cracked35: "assets/eggs/oeuf du neant35.png",
+          cracked75: "assets/eggs/oeuf du neant75.png"
+        },
+        background: "zone4",
+        zoneId: "zone4",
+        requiredHatchPower: 15000,
+        requiredClicks: 15000,
+        rarity: "common",
+        element: "shadow",
+        startUnlocked: false,
+        comingSoon: false,
+        secret: false,
+        dragonsComingSoon: true,
+        visualOffsetX: 0,
+        dragonPool: [],
+        pity: { enabled: false, rules: [] }
+      },
       {
         id: "citrouille",
         name: "Œuf Citrouille",

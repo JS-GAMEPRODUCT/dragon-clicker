@@ -50,17 +50,26 @@ var ZONE_DEFS = [
         producerIds: ["graniteNest", "amberRefuge", "cliffSanctuary", "peakTower", "stormBastion"]
       },
       {
-        id: "forgotten",
+        id: "zone4",
         name: "Royaume oublié",
         rank: "Vétéran",
-        description: "Ruines d'un empire perdu — à venir.",
-        background: "basic",
+        description: "Ruines majestueuses d'une civilisation draconique disparue — reliques, arcanes et néant ancien.",
+        background: "zone4",
         startUnlocked: false,
-        comingSoon: true,
-        unlockCost: 5e6,
-        unlockRequirements: [{ type: "eggsHatched", value: 50 }],
-        eggIds: [],
-        producerIds: []
+        /* Gate : 15M investis en Zone 3 (mountains), puis 4M pour ouvrir (paiement hors zoneSpent). */
+        unlockCost: 4000000,
+        unlockPortalName: "Portail vers le Royaume oublié",
+        unlockRequirements: [
+          { type: "zoneSpent", zoneId: "mountains", value: 15000000 }
+        ],
+        eggIds: ["reliques", "arcanes", "neant"],
+        producerIds: [
+          "forgottenNest",
+          "relicVault",
+          "arcaneSanctum",
+          "voidSpire",
+          "forgottenCitadel"
+        ]
       },
       {
         id: "royal",

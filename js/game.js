@@ -152,7 +152,7 @@
       bosses: true,
       expeditions: true,
       talentTree: true,
-      zones: ["sanctuary", "valley", "mountains", "forgotten", "royal", "ruins", "peaks", "celestial", "primordial", "divine"],
+      zones: ["sanctuary", "valley", "mountains", "zone4", "royal", "ruins", "peaks", "celestial", "primordial", "divine"],
       quests: [],
       dailyRewards: null,
       eventDragons: [],
@@ -170,6 +170,7 @@
       valley: "assets/backgrounds/background zone 2.png",
       /* Même convention de nommage que Z1/Z2 (background zone N). */
       mountains: "assets/backgrounds/background zone 3.png",
+      zone4: "assets/backgrounds/background zone 4.png",
       halloween: "assets/event/halloween/background/background zone halloween.png"
     };
 
@@ -2243,7 +2244,10 @@
       const def = getEggDef(id);
       const pool = (def && def.dragonPool) || [];
       if (!pool.length) {
-        console.warn("[DragonClicker] Aucun dragon dans le pool de l'œuf:", id);
+        /* Zone 4 provisoire : pools vides volontaires — pas de spam console. */
+        if (!(def && def.dragonsComingSoon)) {
+          console.warn("[DragonClicker] Aucun dragon dans le pool de l'œuf:", id);
+        }
         return [];
       }
       const valid = [];
@@ -2266,7 +2270,9 @@
         valid.push(entry);
       });
       if (!valid.length) {
-        console.warn("[DragonClicker] Pool cascade/œuf invalide après filtre:", id);
+        if (!(def && def.dragonsComingSoon)) {
+          console.warn("[DragonClicker] Pool cascade/œuf invalide après filtre:", id);
+        }
       }
       return valid;
     }
@@ -3098,6 +3104,13 @@
       "1234": { type: "essence", amount: 1000000 },
       /* Bypass temporaire accès Zone 3 (anciennes saves Z2 terminées). Pas d'Essence / zoneSpent. */
       "LEGACY-Z3-2026": { type: "unlockZone", zoneId: "mountains" },
+      /* Accès anticipé Zone 4 — unlock uniquement (pas d'Essence / zoneSpent). */
+      "LEGACY-Z4-2026": {
+        type: "unlockZone",
+        zoneId: "zone4",
+        successMessage: "Royaume oublié débloqué !",
+        alreadyMessage: "Le Royaume oublié est déjà débloqué."
+      },
       /* Accès anticipé zone événement Halloween (sans Essence / zoneSpent). */
       "HALLOWEEN2026": {
         type: "unlockZone",
@@ -4195,7 +4208,12 @@
     function startHatchSequence(eggDef) {
       if (hatchSequenceActive) return;
       if (!eggDef || !getEggHatchPool(eggDef.id).length) {
-        console.warn("[DragonClicker] Éclosion impossible — pool vide pour", eggDef && eggDef.id);
+        /* Protection : œufs Zone 4 sans dragons — pas d'erreur, pas de soft-lock. */
+        if (eggDef && eggDef.dragonsComingSoon) {
+          showNotification("🐉 Bientôt", "Les dragons de cet œuf arriveront bientôt.");
+        } else {
+          console.warn("[DragonClicker] Éclosion impossible — pool vide pour", eggDef && eggDef.id);
+        }
         return;
       }
 
@@ -8932,7 +8950,8 @@
     const WORLD_ZONE_VISUALS = {
       sanctuary: "assets/menu/world/zone1.png",
       valley: "assets/menu/world/zone2.png",
-      mountains: "assets/menu/world/zone3.png"
+      mountains: "assets/menu/world/zone3.png",
+      zone4: "assets/menu/world/zone4.png"
     };
     const WORLD_ZONE_LOCK_ICON = "assets/menu/world/cadenas.png";
 
@@ -9026,6 +9045,7 @@
         if (zone.id === "sanctuary") visual.classList.add("pos-sanctuary");
         if (zone.id === "valley") visual.classList.add("pos-valley");
         if (zone.id === "mountains") visual.classList.add("pos-mountains");
+        if (zone.id === "zone4") visual.classList.add("pos-zone4");
         const img = document.createElement("img");
         img.className = "world-zone-art";
         img.src = visualSrc;
@@ -11014,18 +11034,27 @@
       let unlocked = Array.isArray(data.unlockedZones)
         ? data.unlockedZones.slice()
         : (Array.isArray(fresh.meta.unlockedZones) ? fresh.meta.unlockedZones.slice() : []);
-      unlocked = unlocked.map((z) => (z === "cave" ? "sanctuary" : z));
+      unlocked = unlocked.map((z) => {
+        if (z === "cave") return "sanctuary";
+        if (z === "forgotten") return "zone4";
+        return z;
+      });
       if (unlocked.indexOf("sanctuary") === -1) unlocked.unshift("sanctuary");
       fresh.unlockedZones = unlocked.filter((id, i, arr) => arr.indexOf(id) === i);
       fresh.meta.unlockedZones = fresh.unlockedZones.slice();
-      const wantZone = data.currentZoneId === "cave" ? "sanctuary" : (data.currentZoneId || "sanctuary");
+      const wantZoneRaw = data.currentZoneId === "cave" ? "sanctuary" : (data.currentZoneId || "sanctuary");
+      const wantZone = wantZoneRaw === "forgotten" ? "zone4" : wantZoneRaw;
       fresh.currentZoneId = fresh.unlockedZones.indexOf(wantZone) !== -1 ? wantZone : "sanctuary";
 
       /* Eggs of unlocked zones become available (plant egg after valley unlock). */
       fresh.unlockedZones.forEach((zid) => unlockZoneEggs(zid, fresh));
 
       let visited = Array.isArray(data.visitedZones) ? data.visitedZones.slice() : [];
-      visited = visited.map((z) => (z === "cave" ? "sanctuary" : z));
+      visited = visited.map((z) => {
+        if (z === "cave") return "sanctuary";
+        if (z === "forgotten") return "zone4";
+        return z;
+      });
       if (visited.indexOf("sanctuary") === -1) visited.unshift("sanctuary");
       /* Legacy: unlocked zones without visitedZones count as visited except fresh valley unlock. */
       if (!Array.isArray(data.visitedZones)) {
