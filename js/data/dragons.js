@@ -115,6 +115,41 @@ var DRAGON_ZONE_RARITY_BONUSES = {
       }
     ]
   },
+  /* Zone 4 — Royaume oublié : courbe au-dessus de la Montagne. */
+  zone4: {
+    common: {
+      type: "clickPowerPercent",
+      name: "Puissance de clic",
+      values: [4, 6, 9, 12, 15]
+    },
+    rare: {
+      type: "essenceProductionPercent",
+      name: "Essence/sec",
+      values: [7, 10, 13, 17, 21]
+    },
+    epic: {
+      type: "clickPowerPercent",
+      name: "Puissance de clic",
+      values: [11, 15, 20, 26, 32]
+    },
+    legendary: {
+      type: "essenceProductionFlat",
+      name: "Essence/sec",
+      values: [140, 220, 320, 440, 580]
+    },
+    mythic: [
+      {
+        type: "clickPowerFlat",
+        name: "Puissance de clic",
+        values: [18, 25, 34, 45, 58]
+      },
+      {
+        type: "essenceProductionFlat",
+        name: "Essence/sec",
+        values: [200, 310, 450, 620, 820]
+      }
+    ]
+  },
   /* Événement Halloween — courbe type Vallée (entre Z1 et Z3). */
   halloween: {
     common: {
@@ -670,6 +705,240 @@ var DRAGON_DEFS = [
         icon: "🌌",
         zoneId: "halloween",
         eggId: "fantome"
+      },
+      /* —— Zone 4 — Œuf des Reliques (assets dragon royaume oubliée *) —— */
+      {
+        id: "vestigis",
+        name: "Drake des Vestiges",
+        element: "arcane",
+        rarity: "common",
+        description: "Dragonnet des ruines, attiré par les fragments d'ancien pouvoir.",
+        image: "assets/dragons/dragon royaume oubliée commun.png",
+        icon: "🏺",
+        zoneId: "zone4",
+        eggId: "reliques"
+      },
+      {
+        id: "ruinling",
+        name: "Dragonnet des Ruines",
+        element: "arcane",
+        rarity: "common",
+        description: "Il niche entre les colonnes brisées du Royaume oublié.",
+        image: "assets/dragons/dragon royaume oubliée commun2.png",
+        icon: "🧱",
+        zoneId: "zone4",
+        eggId: "reliques"
+      },
+      {
+        id: "relicon",
+        name: "Sentinelle des Reliques",
+        element: "arcane",
+        rarity: "rare",
+        description: "Gardienne discrète des coffres scellés et des sceaux oubliés.",
+        image: "assets/dragons/dragon royaume oubliée rare.png",
+        icon: "🛡️",
+        zoneId: "zone4",
+        eggId: "reliques"
+      },
+      {
+        id: "shardyx",
+        name: "Voyant des Tessons",
+        element: "arcane",
+        rarity: "rare",
+        description: "Ses yeux lisent l'histoire dans chaque éclat de pierre runique.",
+        image: "assets/dragons/dragon royaume oubliée rare2.png",
+        icon: "💎",
+        zoneId: "zone4",
+        eggId: "reliques"
+      },
+      {
+        id: "thronyx",
+        name: "Chevalier du Trône Brisé",
+        element: "arcane",
+        rarity: "epic",
+        description: "Armure de reliques et serment brisé — il veille encore sur un trône vide.",
+        image: "assets/dragons/dragon royaume oubliée epic.png",
+        icon: "⚔️",
+        zoneId: "zone4",
+        eggId: "reliques"
+      },
+      {
+        id: "losthron",
+        name: "Gardien du Trône Perdu",
+        element: "arcane",
+        rarity: "legendary",
+        description: "Légende des salles royales. Nul n'approche le trône perdu sans son accord.",
+        image: "assets/dragons/dragon royaume oubliée legendaire.png",
+        icon: "👑",
+        zoneId: "zone4",
+        eggId: "reliques"
+      },
+      {
+        id: "aeternyx",
+        name: "Souverain du Trône Éternel",
+        element: "arcane",
+        rarity: "mythic",
+        description: "Mythe vivant du Royaume oublié. On dit que le trône n'a jamais vraiment disparu.",
+        image: "assets/dragons/dragon royaume oubliée mythique.png",
+        icon: "✨",
+        zoneId: "zone4",
+        eggId: "reliques"
+      },
+      /* —— Zone 4 — Œuf des Arcanes Oubliées (assets dragon oeuf arcane *) —— */
+      {
+        id: "glyphling",
+        name: "Drakel des Glyphes",
+        element: "arcane",
+        rarity: "common",
+        description: "Des runes naïves scintillent déjà sur ses écailles.",
+        image: "assets/dragons/dragon oeuf arcane commun.png",
+        icon: "📜",
+        zoneId: "zone4",
+        eggId: "arcanes"
+      },
+      {
+        id: "fluxling",
+        name: "Dragonnet du Flux",
+        element: "arcane",
+        rarity: "common",
+        description: "Il suit les courants magiques comme un poisson suit le fleuve.",
+        image: "assets/dragons/dragon oeuf arcane commun2.png",
+        icon: "🌊",
+        zoneId: "zone4",
+        eggId: "arcanes"
+      },
+      {
+        id: "arcanist",
+        name: "Arcaniste Draconique",
+        element: "arcane",
+        rarity: "rare",
+        description: "Savant des cercles oubliés, il tisse l'essence en formules vivantes.",
+        image: "assets/dragons/dragon oeuf arcane rare.png",
+        icon: "🔮",
+        zoneId: "zone4",
+        eggId: "arcanes"
+      },
+      {
+        id: "portalix",
+        name: "Sentinelle des Portails",
+        element: "arcane",
+        rarity: "rare",
+        description: "Elle ouvre et ferme les passages entre les salles arcaniques.",
+        image: "assets/dragons/dragon oeuf arcane rare2.png",
+        icon: "🚪",
+        zoneId: "zone4",
+        eggId: "arcanes"
+      },
+      {
+        id: "archontis",
+        name: "Archonte des Arcanes",
+        element: "arcane",
+        rarity: "epic",
+        description: "Haut mage draconique. Les glyphes s'inclinent à sa voix.",
+        image: "assets/dragons/dragon oeuf arcane epic.png",
+        icon: "🧿",
+        zoneId: "zone4",
+        eggId: "arcanes"
+      },
+      {
+        id: "glyphlord",
+        name: "Souverain des Glyphes Perdus",
+        element: "arcane",
+        rarity: "legendary",
+        description: "Légende des grimoires scellés. Chaque rune du royaume lui répond.",
+        image: "assets/dragons/dragon oeuf arcane legendaire.png",
+        icon: "📖",
+        zoneId: "zone4",
+        eggId: "arcanes"
+      },
+      {
+        id: "nexusor",
+        name: "Souverain du Nexus Arcanique",
+        element: "arcane",
+        rarity: "mythic",
+        description: "Mythe du carrefour magique. Tout flux arcane passe par son regard.",
+        image: "assets/dragons/dragon oeuf arcane mythique.png",
+        icon: "🌌",
+        zoneId: "zone4",
+        eggId: "arcanes"
+      },
+      /* —— Zone 4 — Œuf du Néant Ancien (assets dragon oeuf du neant *) —— */
+      {
+        id: "voidling",
+        name: "Drakel du Néant",
+        element: "shadow",
+        rarity: "common",
+        description: "Petit dragon d'ombre, né entre deux battements du vide.",
+        image: "assets/dragons/dragon oeuf du neant commun.png",
+        icon: "🌑",
+        zoneId: "zone4",
+        eggId: "neant"
+      },
+      {
+        id: "mistling",
+        name: "Dragonnet de la Brume Vide",
+        element: "shadow",
+        rarity: "common",
+        description: "Sa silhouette se dissout dans la brume dès qu'on le fixe trop longtemps.",
+        image: "assets/dragons/dragon oeuf du neant commun2.png",
+        icon: "🌫️",
+        zoneId: "zone4",
+        eggId: "neant"
+      },
+      {
+        id: "riftara",
+        name: "Dragon des Failles Oubliées",
+        element: "shadow",
+        rarity: "rare",
+        description: "Il surgit des fissures entre les mondes, puis s'efface.",
+        image: "assets/dragons/dragon oeuf du neant rare.png",
+        icon: "🕳️",
+        zoneId: "zone4",
+        eggId: "neant"
+      },
+      {
+        id: "duskveil",
+        name: "Veilleur de la Brume Noire",
+        element: "shadow",
+        rarity: "rare",
+        description: "Gardien silencieux des brumes où la lumière n'ose plus entrer.",
+        image: "assets/dragons/dragon oeuf du neant rare2.png",
+        icon: "👁️",
+        zoneId: "zone4",
+        eggId: "neant"
+      },
+      {
+        id: "abyssor",
+        name: "Seigneur des Abîmes Oubliés",
+        element: "shadow",
+        rarity: "epic",
+        description: "Des abysses sans fond répondent à son appel.",
+        image: "assets/dragons/dragon oeuf du neant epic.png",
+        icon: "🖤",
+        zoneId: "zone4",
+        eggId: "neant"
+      },
+      {
+        id: "sealedor",
+        name: "Monarque du Néant Scellé",
+        element: "shadow",
+        rarity: "legendary",
+        description: "Légende des sceaux brisés. Le vide lui-même porte sa couronne.",
+        image: "assets/dragons/dragon oeuf du neant legendaire.png",
+        icon: "👑",
+        zoneId: "zone4",
+        eggId: "neant"
+      },
+      {
+        id: "primordyx",
+        name: "Souverain du Néant Primordial",
+        element: "shadow",
+        rarity: "mythic",
+        description: "Mythe antérieur aux royaumes. On dit qu'il précède la première lumière.",
+        image: "assets/dragons/dragon oeuf du neant mythique.png",
+        icon: "🌌",
+        zoneId: "zone4",
+        eggId: "neant"
       }
     ];
 
@@ -881,7 +1150,7 @@ var EGG_DEFS = [
           ]
         }
       },
-      /* —— Zone 4 — Royaume oublié (pools dragons à venir) —— */
+      /* —— Zone 4 — Royaume oublié —— */
       {
         id: "reliques",
         name: "Œuf des Reliques",
@@ -901,9 +1170,16 @@ var EGG_DEFS = [
         startUnlocked: false,
         comingSoon: false,
         secret: false,
-        dragonsComingSoon: true,
         visualOffsetX: 0,
-        dragonPool: [],
+        dragonPool: [
+          { dragonId: "vestigis", weight: 1 },
+          { dragonId: "ruinling", weight: 1 },
+          { dragonId: "relicon", weight: 1 },
+          { dragonId: "shardyx", weight: 1 },
+          { dragonId: "thronyx", weight: 1 },
+          { dragonId: "losthron", weight: 1 },
+          { dragonId: "aeternyx", weight: 1 }
+        ],
         pity: { enabled: false, rules: [] }
       },
       {
@@ -925,9 +1201,16 @@ var EGG_DEFS = [
         startUnlocked: false,
         comingSoon: false,
         secret: false,
-        dragonsComingSoon: true,
         visualOffsetX: 0,
-        dragonPool: [],
+        dragonPool: [
+          { dragonId: "glyphling", weight: 1 },
+          { dragonId: "fluxling", weight: 1 },
+          { dragonId: "arcanist", weight: 1 },
+          { dragonId: "portalix", weight: 1 },
+          { dragonId: "archontis", weight: 1 },
+          { dragonId: "glyphlord", weight: 1 },
+          { dragonId: "nexusor", weight: 1 }
+        ],
         pity: { enabled: false, rules: [] }
       },
       {
@@ -949,9 +1232,16 @@ var EGG_DEFS = [
         startUnlocked: false,
         comingSoon: false,
         secret: false,
-        dragonsComingSoon: true,
         visualOffsetX: 0,
-        dragonPool: [],
+        dragonPool: [
+          { dragonId: "voidling", weight: 1 },
+          { dragonId: "mistling", weight: 1 },
+          { dragonId: "riftara", weight: 1 },
+          { dragonId: "duskveil", weight: 1 },
+          { dragonId: "abyssor", weight: 1 },
+          { dragonId: "sealedor", weight: 1 },
+          { dragonId: "primordyx", weight: 1 }
+        ],
         pity: { enabled: false, rules: [] }
       },
       {
