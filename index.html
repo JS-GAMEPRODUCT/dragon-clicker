@@ -2,13 +2,13 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="description" content="Dragon Clicker — Idle clicker fantasy autour des dragons" />
   <title>Dragon Clicker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=zone4-v1" />
+  <link rel="stylesheet" href="css/style.css?v=inventory-v1" />
 
 </head>
 <body>
@@ -133,6 +133,9 @@
     </header>
 
     <main class="main">
+      <!-- Backdrop partagé des grands menus (flou + assombrissement léger) -->
+      <div id="dc-menu-backdrop" class="dc-menu-backdrop" aria-hidden="true"></div>
+
       <!-- Royaume — immersive scene -->
       <section id="panel-kingdom" class="panel active" data-panel="kingdom">
         <div class="egg-stage" id="egg-stage">
@@ -281,34 +284,55 @@
           </div>
         </aside>
 
-        <aside class="expedition-drawer" id="expedition-drawer" aria-hidden="true" aria-label="Expéditions">
-          <button type="button" class="expedition-edge-tab is-locked" id="btn-expeditions" aria-expanded="false" aria-controls="expedition-drawer" aria-disabled="false" title="Camp d'expédition — 15 000 Essence pour débloquer">
-            <span class="exp-btn-badge" id="expedition-btn-badge" hidden>!</span>
-            <span class="exp-tab-ico" id="expedition-btn-ico" aria-hidden="true">⛺</span>
-            <span class="exp-tab-label">Expéditions</span>
-            <span class="exp-btn-status" id="expedition-btn-status">15K 💎</span>
+        <!-- Colonne droite : Expéditions puis Inventaire (sous Stats / Réglages). -->
+        <div class="scene-right-stack" id="scene-right-stack">
+          <button type="button" class="scene-expeditions-btn" id="btn-open-expeditions-hub" aria-label="Expéditions" title="Expéditions" aria-expanded="false" aria-controls="panel-expeditions-hub">
+            <span class="scene-expeditions-badge" id="expedition-btn-badge" hidden aria-hidden="true">!</span>
+            <span class="scene-expeditions-art" aria-hidden="true">
+              <img
+                src="assets/expedition/badges.png"
+                alt=""
+                draggable="false"
+                decoding="async"
+              />
+            </span>
+            <span class="scene-expeditions-label">Expéditions</span>
+            <span class="scene-expeditions-status" id="expedition-btn-status" hidden></span>
           </button>
-          <div class="expedition-frame-shell">
-            <img
-              class="expedition-frame"
-              src="assets/expedition/background%20expedition.png"
-              alt=""
-              draggable="false"
-              decoding="async"
-            />
-            <div class="expedition-overlay-content">
-              <header class="expedition-drawer-head">
-                <h2 class="expedition-drawer-title">Expéditions</h2>
-                <p class="expedition-drawer-sub">Envoyez vos dragons explorer des terres anciennes.</p>
-                <button type="button" class="expedition-drawer-close" id="expedition-drawer-close" aria-label="Fermer">✕</button>
-              </header>
-            </div>
-            <div class="expedition-inner-frame">
-              <div id="expeditions-root" class="expeditions-root expedition-scroll-viewport"></div>
-            </div>
-          </div>
-        </aside>
+          <button type="button" class="scene-inventory-btn" id="btn-open-inventory" aria-label="Inventaire" title="Inventaire" aria-expanded="false" aria-controls="panel-inventory">
+            <span class="scene-inventory-badge" id="inventory-btn-badge" hidden aria-hidden="true">!</span>
+            <span class="scene-inventory-art" aria-hidden="true">
+              <img
+                src="assets/inventaire/badge%20inventaire.png"
+                alt=""
+                draggable="false"
+                decoding="async"
+              />
+            </span>
+            <span class="scene-inventory-label">Inventaire</span>
+          </button>
+        </div>
+
       </section>
+
+      <!-- Hall des Expéditions — cadre natif type Bestiaire / Succès (plus de PNG UI) -->
+      <aside class="expedition-drawer" id="expedition-drawer" aria-hidden="true" aria-label="Hall des Expéditions">
+        <div class="game-large-panel expedition-hall-panel">
+          <span class="game-large-panel-corner game-large-panel-corner-tl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-tr" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-bl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-br" aria-hidden="true"></span>
+          <header class="expedition-hall-head">
+            <button type="button" class="expedition-hall-back" id="expedition-drawer-back" aria-label="Retour au hub Expéditions">←</button>
+            <h2 class="game-large-panel-title expedition-hall-title">Hall des Expéditions</h2>
+            <button type="button" class="expedition-hall-close" id="expedition-drawer-close" aria-label="Fermer">✕</button>
+          </header>
+          <div class="expedition-hall-summary" id="expedition-hall-summary" hidden></div>
+          <div class="game-large-panel-scroll expedition-hall-scroll">
+            <div id="expeditions-root" class="expeditions-root"></div>
+          </div>
+        </div>
+      </aside>
 
       <div class="sheet-bar" id="sheet-bar" hidden>
         <div class="sheet-tabs" id="sheet-tabs" role="tablist"></div>
@@ -392,7 +416,119 @@
         </div>
       </section>
 
-      <!-- Expéditions déplacées dans le drawer Royaume (expeditions-root) -->
+      <!-- Hub Expéditions — cadre type Bestiaire / Succès (Hall = système actuel) -->
+      <section id="panel-expeditions-hub" class="panel overlay-panel game-large-panel-overlay expeditions-hub-panel menu-open-animation" data-panel="expeditions-hub" aria-label="Expéditions">
+        <div class="game-large-panel">
+          <span class="game-large-panel-corner game-large-panel-corner-tl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-tr" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-bl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-br" aria-hidden="true"></span>
+          <h2 class="game-large-panel-title">Expéditions</h2>
+          <div class="game-large-panel-scroll expeditions-hub-body" id="expeditions-hub-body">
+            <button type="button" class="exp-hub-hero" id="exp-hub-hall" data-exp-hub="hall" aria-label="Hall des Expéditions — Accéder">
+              <span class="exp-hub-hero-veil" aria-hidden="true"></span>
+              <span class="exp-hub-hero-edge" aria-hidden="true"></span>
+              <span class="exp-hub-hero-content">
+                <span class="exp-hub-hero-copy">
+                  <span class="exp-hub-hero-kicker">Bâtiment principal</span>
+                  <span class="exp-hub-hero-title">Hall des Expéditions</span>
+                  <span class="exp-hub-hero-desc">Envoyez vos dragons explorer le monde.</span>
+                </span>
+                <span class="exp-hub-access" aria-hidden="true">
+                  <span class="exp-hub-access-ico">◎</span>
+                  <span class="exp-hub-access-label">Accéder</span>
+                  <span class="exp-hub-access-arrow">›</span>
+                </span>
+              </span>
+            </button>
+
+            <div class="exp-hub-secondary-row">
+              <button type="button" class="exp-hub-module exp-hub-illu" id="exp-hub-contracts" data-exp-hub="contracts" aria-label="Contrats">
+                <span class="exp-hub-badge" id="exp-hub-contracts-badge" hidden aria-hidden="true"></span>
+                <span class="exp-hub-illu-veil" aria-hidden="true"></span>
+                <span class="exp-hub-illu-content">
+                  <span class="exp-hub-illu-copy">
+                    <span class="exp-hub-name">Contrats</span>
+                    <span class="exp-hub-desc">Objectifs d’exploration</span>
+                  </span>
+                </span>
+              </button>
+              <button type="button" class="exp-hub-module exp-hub-illu" id="exp-hub-threats" data-exp-hub="threats" aria-label="Menaces">
+                <span class="exp-hub-badge" id="exp-hub-threats-badge" hidden aria-hidden="true"></span>
+                <span class="exp-hub-illu-veil" aria-hidden="true"></span>
+                <span class="exp-hub-illu-content">
+                  <span class="exp-hub-illu-copy">
+                    <span class="exp-hub-name">Menaces</span>
+                    <span class="exp-hub-desc">Créatures découvertes</span>
+                  </span>
+                </span>
+              </button>
+            </div>
+
+            <button type="button" class="exp-hub-module exp-hub-ledger is-soon" data-exp-hub="ledger" aria-disabled="true">
+              <span class="exp-hub-ico exp-hub-ico-glyph" aria-hidden="true">☰</span>
+              <span class="exp-hub-copy">
+                <span class="exp-hub-name">Registre d’exploration</span>
+                <span class="exp-hub-desc">Vos découvertes et exploits.</span>
+              </span>
+              <span class="exp-hub-soon">Bientôt</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Contrats d'expédition -->
+      <section id="panel-expedition-contracts" class="panel overlay-panel game-large-panel-overlay expedition-subpanel menu-open-animation" data-panel="expedition-contracts" aria-label="Contrats">
+        <div class="game-large-panel">
+          <span class="game-large-panel-corner game-large-panel-corner-tl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-tr" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-bl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-br" aria-hidden="true"></span>
+          <header class="expedition-subpanel-head">
+            <button type="button" class="expedition-hall-back" id="expedition-contracts-back" aria-label="Retour au hub Expéditions">←</button>
+            <h2 class="game-large-panel-title">Contrats</h2>
+            <button type="button" class="expedition-hall-close" id="expedition-contracts-close" aria-label="Fermer">✕</button>
+          </header>
+          <div class="game-large-panel-scroll" id="expedition-contracts-root"></div>
+        </div>
+      </section>
+
+      <!-- Menaces d'expédition -->
+      <section id="panel-expedition-threats" class="panel overlay-panel game-large-panel-overlay expedition-subpanel menu-open-animation" data-panel="expedition-threats" aria-label="Menaces">
+        <div class="game-large-panel">
+          <span class="game-large-panel-corner game-large-panel-corner-tl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-tr" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-bl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-br" aria-hidden="true"></span>
+          <header class="expedition-subpanel-head">
+            <button type="button" class="expedition-hall-back" id="expedition-threats-back" aria-label="Retour au hub Expéditions">←</button>
+            <h2 class="game-large-panel-title">Menaces</h2>
+            <button type="button" class="expedition-hall-close" id="expedition-threats-close" aria-label="Fermer">✕</button>
+          </header>
+          <div class="game-large-panel-scroll" id="expedition-threats-root"></div>
+        </div>
+      </section>
+
+      <!-- Inventaire — Matériaux / Reliques / Coffres -->
+      <section id="panel-inventory" class="panel overlay-panel game-large-panel-overlay inventory-panel menu-open-animation" data-panel="inventory" aria-label="Inventaire">
+        <div class="game-large-panel inventory-shell">
+          <span class="game-large-panel-corner game-large-panel-corner-tl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-tr" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-bl" aria-hidden="true"></span>
+          <span class="game-large-panel-corner game-large-panel-corner-br" aria-hidden="true"></span>
+          <header class="expedition-subpanel-head inventory-head">
+            <span class="inventory-head-spacer" aria-hidden="true"></span>
+            <h2 class="game-large-panel-title">Inventaire</h2>
+            <button type="button" class="expedition-hall-close" id="inventory-close" aria-label="Fermer">✕</button>
+          </header>
+          <nav class="inventory-tabs" id="inventory-tabs" role="tablist" aria-label="Catégories inventaire">
+            <button type="button" class="inventory-tab is-active" role="tab" data-inv-tab="materials" aria-selected="true">Matériaux</button>
+            <button type="button" class="inventory-tab" role="tab" data-inv-tab="relics" aria-selected="false">Reliques</button>
+            <button type="button" class="inventory-tab" role="tab" data-inv-tab="chests" aria-selected="false">Coffres</button>
+          </nav>
+          <div class="game-large-panel-scroll inventory-body" id="inventory-root"></div>
+        </div>
+      </section>
 
       <!-- Boutique + Améliorations (dual layout, sans onglets) -->
       <section id="panel-shop" class="panel overlay-panel shop-panel menu-open-animation" data-panel="shop">
@@ -706,6 +842,7 @@
   <script src="js/data/upgrades.js?v=z4-eco-v1"></script>
   <script src="js/data/expeditions.js"></script>
   <script src="js/data/chests.js"></script>
+  <script src="js/data/contracts.js?v=contracts-daily-v2"></script>
   <script src="js/data/events.js?v=halloween-zone-v1"></script>
   <script src="js/asset-manager.js"></script>
   <script src="js/animations/animation-manager.js"></script>
@@ -713,7 +850,7 @@
   <script src="js/animations/egg-animations.js?v=egg-press-simple-v1"></script>
   <script src="js/animations/dragon-reveal.js"></script>
   <script src="js/animations/ui-animations.js"></script>
-  <script src="js/game.js?v=z4-eco-v1"></script>
+  <script src="js/game.js?v=inventory-v1"></script>
   <script src="js/main.js"></script>
 
 </body>

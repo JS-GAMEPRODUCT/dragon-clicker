@@ -77,6 +77,16 @@
     const EXPEDITION_PARTY_MIN = 1;
     const EXPEDITION_PARTY_MAX = 3;
 
+    /* Contrats quotidiens V2 — data dans js/data/contracts.js */
+    const CONTRACT_ACTIVE_MAX =
+      typeof CONTRACT_DAILY_COUNT === "number" ? CONTRACT_DAILY_COUNT : 3;
+    const THREAT_DISCOVERY_CHANCE = 0.10;
+    const THREAT_POWER_MULT = 1.65;
+    const THREAT_DURATION_MULT = 1.25;
+    const THREAT_REWARD_MULT = 1.75;
+    const THREAT_DURATION_MIN_MS = 12 * 60 * 1000;
+    const THREAT_DURATION_MAX_MS = 3 * 60 * 60 * 1000;
+
     const EXPEDITION_BASE_POWER = {
       common: 100,
       rare: 250,
@@ -1630,6 +1640,8 @@
         team: [null, null, null],
         redeemedCodes: [],
         chests: createEmptyChestInventory(),
+        /* Matériaux / Reliques — coffres restent dans gameState.chests */
+        inventory: { materials: {}, relics: {} },
         /* 0 = coffre régulier Royaume prêt (timestamp ms absolu sinon) */
         nextFreeChestAt: 0,
         expeditions: {
@@ -1659,6 +1671,11 @@
     let zonesDirty = true;
     let expeditionsDirty = true;
     let expeditionIntroAnimPending = false;
+    /** Si true, fermer le Hall (drawer) rouvre le Hub Expéditions. */
+    let expeditionReturnToHub = false;
+    /** "hub" | "threats" | null — navigation retour depuis préparation / Hall */
+    let expeditionReturnTarget = null;
+    let expeditionPreparePickerOpen = false;
     let buyingLock = false;
     let expeditionUi = {
       mode: "list",
@@ -5733,7 +5750,12 @@
       return {
         unlockedSlots: DEFAULT_EXPEDITION_SLOTS,
         slots: Array.from({ length: DEFAULT_EXPEDITION_SLOTS }, () => null),
-        systemUnlocked: false
+        systemUnlocked: false,
+        contracts: [],
+        dailyContracts: { dateKey: null, contracts: [] },
+        contractProcessedRuns: {},
+        activeThreat: null,
+        threatRolledRuns: {}
       };
     }
 
@@ -5751,11 +5773,31 @@
       if (!exp.systemUnlocked && st.specialUpgrades?.[EXPEDITION_CAMP_ID]?.bought) {
         exp.systemUnlocked = true;
       }
+      if (!Array.isArray(exp.contracts)) exp.contracts = [];
+      if (!exp.dailyContracts || typeof exp.dailyContracts !== "object") {
+        exp.dailyContracts = { dateKey: null, contracts: [] };
+      }
+      if (!Array.isArray(exp.dailyContracts.contracts)) exp.dailyContracts.contracts = [];
+      if (!exp.contractProcessedRuns || typeof exp.contractProcessedRuns !== "object") {
+        exp.contractProcessedRuns = {};
+      }
+      if (!exp.threatRolledRuns || typeof exp.threatRolledRuns !== "object") {
+        exp.threatRolledRuns = {};
+      }
+      if (exp.activeThreat != null && typeof exp.activeThreat !== "object") {
+        exp.activeThreat = null;
+      }
       return exp;
     }
 
     function getExpeditionDef(id) {
-      return EXPEDITION_DEFS.find((e) => e.id === id) || null;
+      if (!id) return null;
+      const base = EXPEDITION_DEFS.find((e) => e.id === id);
+      if (base) return base;
+      const exp = gameState && gameState.expeditions;
+      const threat = exp && exp.activeThreat;
+      if (threat && threat.id === id) return buildThreatExpeditionDef(threat);
+      return null;
     }
 
     function getVisibleExpeditions() {
@@ -5769,6 +5811,819 @@
         : (defOrZoneId && defOrZoneId.zoneId);
       const zone = getZoneDef(zoneId);
       return zone ? zone.name : "Zone inconnue";
+    }
+
+    /* -------------------------------------------------------
+       CONTRATS QUOTIDIENS V2 (data: js/data/contracts.js) + MENACES
+       ------------------------------------------------------- */
+    const CONTRACT_RARITY_RANK = {
+      common: 1,
+      rare: 2,
+      epic: 3,
+      legendary: 4,
+      mythic: 5,
+      divine: 6
+    };
+
+    function getContractTemplates() {
+      return Array.isArray(CONTRACT_TEMPLATES) ? CONTRACT_TEMPLATES : [];
+    }
+
+    function getContractDateKey(dateObj) {
+      const d = dateObj instanceof Date ? dateObj : new Date(dateObj || Date.now());
+      if (Number.isNaN(d.getTime())) {
+        const n = new Date();
+        return (
+          n.getFullYear() +
+          "-" +
+          String(n.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(n.getDate()).padStart(2, "0")
+        );
+      }
+      return (
+        d.getFullYear() +
+        "-" +
+        String(d.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(d.getDate()).padStart(2, "0")
+      );
+    }
+
+    function getMsUntilNextContractRollover(nowMs) {
+      const now = new Date(nowMs != null ? nowMs : Date.now());
+      const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+      return Math.max(0, next.getTime() - now.getTime());
+    }
+
+    function formatContractCountdown(ms) {
+      const totalSec = Math.max(0, Math.floor(safeNumber(ms, 0) / 1000));
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      return (
+        String(h).padStart(2, "0") +
+        ":" +
+        String(m).padStart(2, "0") +
+        ":" +
+        String(s).padStart(2, "0")
+      );
+    }
+
+    function pickWeightedKey(weights) {
+      const entries = [];
+      let total = 0;
+      Object.keys(weights || {}).forEach((k) => {
+        const w = Math.max(0, safeNumber(weights[k], 0));
+        if (w <= 0) return;
+        entries.push({ k, w });
+        total += w;
+      });
+      if (!entries.length || total <= 0) return "common";
+      let r = Math.random() * total;
+      for (let i = 0; i < entries.length; i++) {
+        r -= entries[i].w;
+        if (r <= 0) return entries[i].k;
+      }
+      return entries[entries.length - 1].k;
+    }
+
+    function pickIntInRange(range, fallback) {
+      if (Array.isArray(range) && range.length >= 2) {
+        const min = Math.floor(safeNumber(range[0], fallback));
+        const max = Math.max(min, Math.floor(safeNumber(range[1], min)));
+        return min + Math.floor(Math.random() * (max - min + 1));
+      }
+      return Math.max(1, Math.floor(safeNumber(fallback, 1)));
+    }
+
+    function getUnlockedZoneIdsForContracts() {
+      return (gameState.unlockedZones || []).filter((id) => getZoneDef(id));
+    }
+
+    function playerOwnsDragonRarityAtLeast(minRarity) {
+      const need = CONTRACT_RARITY_RANK[minRarity] || 1;
+      return DRAGON_DEFS.some((d) => {
+        if (!d || d.secret) return false;
+        if (!isDragonDiscovered(gameState.dragons[d.id], d.id, gameState)) return false;
+        return (CONTRACT_RARITY_RANK[d.rarity] || 0) >= need;
+      });
+    }
+
+    function hasUnlockedExpeditionWithMinDuration(minDurationMs) {
+      const need = Math.max(0, safeNumber(minDurationMs, 0));
+      const unlocked = {};
+      getUnlockedZoneIdsForContracts().forEach((id) => {
+        unlocked[id] = true;
+      });
+      return EXPEDITION_DEFS.some(
+        (e) => e && unlocked[e.zoneId] && safeNumber(e.durationMs, 0) >= need
+      );
+    }
+
+    function isContractTemplateEligible(tpl) {
+      if (!tpl || !tpl.type) return false;
+      if (tpl.type === "zone") {
+        return getUnlockedZoneIdsForContracts().length > 0;
+      }
+      if (tpl.type === "rarity_team") {
+        return playerOwnsDragonRarityAtLeast(tpl.minDragonRarity || "rare");
+      }
+      if (tpl.type === "long_duration") {
+        return hasUnlockedExpeditionWithMinDuration(tpl.minDurationMs || 30 * 60 * 1000);
+      }
+      return true;
+    }
+
+    function buildContractDescription(contract) {
+      const n = Math.max(1, safeNumber(contract.target, 1));
+      const plural = n > 1 ? "s" : "";
+      if (contract.type === "finish") {
+        return "Terminer " + n + " expédition" + plural + ".";
+      }
+      if (contract.type === "favorable") {
+        return "Terminer " + n + " expédition" + plural + " favorables.";
+      }
+      if (contract.type === "meet_power") {
+        return (
+          "Terminer " +
+          n +
+          " expédition" +
+          plural +
+          " avec une équipe ≥ puissance conseillée."
+        );
+      }
+      if (contract.type === "domination") {
+        const pct = Math.round(safeNumber(contract.dominationRatio, 1.25) * 100);
+        return (
+          "Terminer " +
+          n +
+          " expédition" +
+          plural +
+          " avec ≥ " +
+          pct +
+          " % de la puissance conseillée."
+        );
+      }
+      if (contract.type === "zone") {
+        const zoneName = getExpeditionZoneLabel(contract.zoneId);
+        return "Terminer " + n + " expédition" + plural + " en " + zoneName + ".";
+      }
+      if (contract.type === "full_party") {
+        return (
+          "Terminer " +
+          n +
+          " expédition" +
+          plural +
+          " avec 3 dragons sélectionnés."
+        );
+      }
+      if (contract.type === "rarity_team") {
+        const rar =
+          (RARITIES[contract.minDragonRarity] && RARITIES[contract.minDragonRarity].label) ||
+          "Rare";
+        return (
+          "Terminer " +
+          n +
+          " expédition" +
+          plural +
+          " avec au moins 1 dragon " +
+          rar +
+          "+" +
+          "."
+        );
+      }
+      if (contract.type === "long_duration") {
+        const mins = Math.max(1, Math.round(safeNumber(contract.minDurationMs, 0) / 60000));
+        const label =
+          mins >= 60
+            ? mins % 60 === 0
+              ? mins / 60 + " h"
+              : (mins / 60).toFixed(1).replace(".0", "") + " h"
+            : mins + " min";
+        return (
+          "Terminer " +
+          n +
+          " expédition" +
+          plural +
+          " d'au moins " +
+          label +
+          "."
+        );
+      }
+      return contract.description || "Objectif d'expédition.";
+    }
+
+    function rollContractReward(rarity) {
+      const pools =
+        typeof CONTRACT_REWARD_POOLS === "object" && CONTRACT_REWARD_POOLS
+          ? CONTRACT_REWARD_POOLS
+          : {};
+      const pool = pools[rarity] || pools.common || [];
+      if (!pool.length) {
+        return { kind: "essence", amount: 1000 };
+      }
+      const weightMap = {};
+      pool.forEach((entry, i) => {
+        weightMap[String(i)] = safeNumber(entry.weight, 1);
+      });
+      const picked = pool[parseInt(pickWeightedKey(weightMap), 10)] || pool[0];
+      const reward = { kind: picked.kind || "essence" };
+      if (reward.kind === "chest") {
+        reward.chestType = CHEST_TYPES[picked.chestType] ? picked.chestType : "draconic";
+        reward.zoneId = getCurrentZone().id || "sanctuary";
+        return reward;
+      }
+      if (reward.kind === "fragments") {
+        reward.amount = pickIntInRange(picked.amount, 1);
+        return reward;
+      }
+      /* Essence : snapshot production passive au moment de la génération */
+      const minutes = pickIntInRange(picked.minutes, 3);
+      let pps = safeNumber(gameState.powerPerSecond, 0);
+      if (!(pps > 0) && typeof recalculateGlobalStats === "function") {
+        try {
+          pps = safeNumber(recalculateGlobalStats().essencePerSecond, 0);
+        } catch (e) {
+          pps = 0;
+        }
+      }
+      let amount = Math.floor(pps * 60 * minutes);
+      const minAmt = Math.max(0, Math.floor(safeNumber(picked.min, 0)));
+      const maxAmt = Math.max(minAmt, Math.floor(safeNumber(picked.max, amount || minAmt)));
+      if (!(amount > 0)) amount = minAmt;
+      amount = Math.max(minAmt, Math.min(maxAmt, amount));
+      reward.amount = Math.max(1, amount);
+      reward.snapshotMinutes = minutes;
+      reward.snapshotPps = pps;
+      return reward;
+    }
+
+    function describeContractReward(reward) {
+      if (!reward) return "Récompense";
+      if (reward.kind === "chest") {
+        const t = CHEST_TYPES[reward.chestType];
+        return t ? t.name : "Coffre";
+      }
+      if (reward.kind === "essence") {
+        return formatNumber(reward.amount) + " Essence";
+      }
+      if (reward.kind === "fragments") {
+        return "+" + Math.max(1, safeNumber(reward.amount, 1)) + " fragments";
+      }
+      return "Récompense";
+    }
+
+    function getContractRarityMeta(rarity) {
+      const meta =
+        typeof CONTRACT_RARITY_META === "object" && CONTRACT_RARITY_META
+          ? CONTRACT_RARITY_META[rarity]
+          : null;
+      if (meta) return meta;
+      const r = RARITIES[rarity] || RARITIES.common;
+      return { id: r.id, label: r.label, css: r.css };
+    }
+
+    function createDailyContractFromTemplate(tpl, rarity) {
+      if (!tpl || !isContractTemplateEligible(tpl)) return null;
+      const targetRange = Array.isArray(tpl.target) ? tpl.target : [1, 1];
+      const target = pickIntInRange(targetRange, 1);
+      let zoneId = null;
+      if (tpl.type === "zone") {
+        const unlocked = getUnlockedZoneIdsForContracts();
+        if (!unlocked.length) return null;
+        zoneId = unlocked[Math.floor(Math.random() * unlocked.length)];
+      }
+      const ratios =
+        typeof CONTRACT_DOMINATION_RATIOS === "object" ? CONTRACT_DOMINATION_RATIOS : {};
+      const ratioKey = tpl.ratioKey || rarity;
+      const dominationRatio =
+        tpl.type === "domination"
+          ? safeNumber(ratios[ratioKey], rarity === "legendary" ? 1.5 : rarity === "epic" ? 1.4 : 1.25)
+          : null;
+      const contract = {
+        id:
+          "ctr_" +
+          Date.now().toString(36) +
+          "_" +
+          Math.floor(Math.random() * 1e6).toString(36),
+        templateId: tpl.id,
+        type: tpl.type,
+        rarity: rarity || tpl.rarity || "common",
+        title: tpl.title || "Contrat",
+        target: target,
+        progress: 0,
+        zoneId: zoneId,
+        minDragonRarity: tpl.minDragonRarity || null,
+        dominationRatio: dominationRatio,
+        minDurationMs: tpl.minDurationMs || null,
+        reward: rollContractReward(rarity || tpl.rarity || "common"),
+        status: "active",
+        claimed: false,
+        description: ""
+      };
+      contract.description = buildContractDescription(contract);
+      return contract;
+    }
+
+    function normalizeDailyContract(raw) {
+      if (!raw || typeof raw !== "object") return null;
+      const rarity = raw.rarity || "common";
+      const status =
+        raw.claimed || raw.status === "claimed"
+          ? "claimed"
+          : raw.status === "ready"
+            ? "ready"
+            : "active";
+      const c = {
+        id: String(raw.id || ("ctr_" + Math.random().toString(36).slice(2))),
+        templateId: raw.templateId || raw.id || "finish_c",
+        type: raw.type || "finish",
+        rarity: rarity,
+        title: String(raw.title || "Contrat"),
+        target: Math.max(1, Math.floor(safeNumber(raw.target, 1))),
+        progress: Math.max(0, Math.floor(safeNumber(raw.progress, 0))),
+        zoneId: raw.zoneId || null,
+        minDragonRarity: raw.minDragonRarity || null,
+        dominationRatio:
+          raw.dominationRatio != null ? safeNumber(raw.dominationRatio, null) : null,
+        minDurationMs: raw.minDurationMs != null ? safeNumber(raw.minDurationMs, null) : null,
+        reward:
+          raw.reward && typeof raw.reward === "object"
+            ? raw.reward
+            : { kind: "essence", amount: 1000 },
+        status: status,
+        claimed: status === "claimed",
+        description: String(raw.description || "")
+      };
+      if (c.progress >= c.target && c.status === "active") {
+        c.progress = c.target;
+        c.status = "ready";
+      }
+      if (!c.description) c.description = buildContractDescription(c);
+      return c;
+    }
+
+    function migrateV1ContractsToDaily(exp, dateKey) {
+      const legacy = Array.isArray(exp.contracts) ? exp.contracts.filter((c) => c && typeof c === "object") : [];
+      if (!legacy.length) return null;
+      const ready = legacy.filter((c) => c.status === "ready" && !c.claimed);
+      const active = legacy.filter((c) => c.status !== "ready" && !c.claimed);
+      const ordered = ready.concat(active).slice(0, CONTRACT_ACTIVE_MAX);
+      if (!ordered.length) return null;
+      return {
+        dateKey: dateKey,
+        contracts: ordered.map((c) =>
+          normalizeDailyContract(
+            Object.assign({}, c, {
+              rarity: c.rarity || "common",
+              templateId: c.templateId || "finish_c"
+            })
+          )
+        ).filter(Boolean)
+      };
+    }
+
+    function generateDailyContractsBoard(dateKey) {
+      const slotWeights =
+        typeof CONTRACT_SLOT_RARITY_WEIGHTS !== "undefined" &&
+        Array.isArray(CONTRACT_SLOT_RARITY_WEIGHTS)
+          ? CONTRACT_SLOT_RARITY_WEIGHTS
+          : [{ common: 70, rare: 30 }, { common: 35, rare: 45, epic: 20 }, { rare: 55, epic: 35, legendary: 10 }];
+      const want = CONTRACT_ACTIVE_MAX;
+      const templates = getContractTemplates();
+      const usedTemplates = {};
+      const usedTypes = {};
+      const contracts = [];
+
+      for (let slot = 0; slot < want; slot++) {
+        const weights = slotWeights[slot] || slotWeights[slotWeights.length - 1] || { common: 100 };
+        let created = null;
+        for (let attempt = 0; attempt < 24 && !created; attempt++) {
+          const rarity = pickWeightedKey(weights);
+          let pool = templates.filter(
+            (t) =>
+              t.rarity === rarity &&
+              !usedTemplates[t.id] &&
+              !usedTypes[t.type] &&
+              isContractTemplateEligible(t)
+          );
+          if (!pool.length) {
+            pool = templates.filter(
+              (t) =>
+                t.rarity === rarity &&
+                !usedTemplates[t.id] &&
+                isContractTemplateEligible(t)
+            );
+          }
+          if (!pool.length) {
+            pool = templates.filter(
+              (t) => !usedTemplates[t.id] && isContractTemplateEligible(t)
+            );
+          }
+          if (!pool.length) break;
+          const tpl = pool[Math.floor(Math.random() * pool.length)];
+          created = createDailyContractFromTemplate(tpl, rarity);
+          if (created) {
+            usedTemplates[tpl.id] = true;
+            usedTypes[tpl.type] = true;
+            contracts.push(created);
+          }
+        }
+        if (!created) {
+          const fallback = templates.find(
+            (t) => !usedTemplates[t.id] && isContractTemplateEligible(t)
+          );
+          if (fallback) {
+            const c = createDailyContractFromTemplate(fallback, fallback.rarity || "common");
+            if (c) {
+              usedTemplates[fallback.id] = true;
+              contracts.push(c);
+            }
+          }
+        }
+      }
+      return { dateKey: dateKey, contracts: contracts.slice(0, want) };
+    }
+
+    function syncContractsMirror(exp) {
+      const e = exp || ensureExpeditionState();
+      if (!e.dailyContracts || typeof e.dailyContracts !== "object") {
+        e.dailyContracts = { dateKey: null, contracts: [] };
+      }
+      if (!Array.isArray(e.dailyContracts.contracts)) e.dailyContracts.contracts = [];
+      e.contracts = e.dailyContracts.contracts;
+      return e.dailyContracts.contracts;
+    }
+
+    /**
+     * Garantit le tableau quotidien. force=true régénère (DEV / testDate).
+     * testDate: Date | timestamp | "YYYY-MM-DD"
+     */
+    function ensureDailyContracts(force, testDate) {
+      const exp = ensureExpeditionState();
+      if (!exp.dailyContracts || typeof exp.dailyContracts !== "object") {
+        exp.dailyContracts = { dateKey: null, contracts: [] };
+      }
+      if (!exp.systemUnlocked && !force) {
+        syncContractsMirror(exp);
+        return exp.dailyContracts.contracts;
+      }
+      let dateKey;
+      if (typeof testDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(testDate)) {
+        dateKey = testDate;
+      } else if (testDate != null) {
+        dateKey = getContractDateKey(testDate);
+      } else {
+        dateKey = getContractDateKey(Date.now());
+      }
+
+      if (!exp.dailyContracts || typeof exp.dailyContracts !== "object") {
+        exp.dailyContracts = { dateKey: null, contracts: [] };
+      }
+
+      const hasBoard =
+        exp.dailyContracts.dateKey === dateKey &&
+        Array.isArray(exp.dailyContracts.contracts) &&
+        exp.dailyContracts.contracts.length > 0;
+
+      if (!force && hasBoard) {
+        exp.dailyContracts.contracts = exp.dailyContracts.contracts
+          .map(normalizeDailyContract)
+          .filter(Boolean);
+        syncContractsMirror(exp);
+        return exp.dailyContracts.contracts;
+      }
+
+      /* Migration V1 → premier tableau du jour (préserve ready non claim) */
+      if (
+        !force &&
+        !hasBoard &&
+        (!exp.dailyContracts.dateKey || !exp.dailyContracts.contracts.length) &&
+        Array.isArray(exp.contracts) &&
+        exp.contracts.length
+      ) {
+        const migrated = migrateV1ContractsToDaily(exp, dateKey);
+        if (migrated && migrated.contracts.length) {
+          while (migrated.contracts.length < CONTRACT_ACTIVE_MAX) {
+            const board = generateDailyContractsBoard(dateKey);
+            const used = {};
+            migrated.contracts.forEach((c) => {
+              if (c.templateId) used[c.templateId] = true;
+              if (c.type) used["type:" + c.type] = true;
+            });
+            const filler = (board.contracts || []).find(
+              (c) => c && !used[c.templateId] && !used["type:" + c.type]
+            );
+            if (!filler) break;
+            migrated.contracts.push(filler);
+          }
+          exp.dailyContracts = {
+            dateKey: dateKey,
+            contracts: migrated.contracts.slice(0, CONTRACT_ACTIVE_MAX)
+          };
+          syncContractsMirror(exp);
+          return exp.dailyContracts.contracts;
+        }
+      }
+
+      exp.dailyContracts = generateDailyContractsBoard(dateKey);
+      syncContractsMirror(exp);
+      return exp.dailyContracts.contracts;
+    }
+
+    /** Alias compat — ne remplit plus à l'infini après claim. */
+    function ensureActiveContracts() {
+      return ensureDailyContracts(false);
+    }
+
+    function checkDailyContractsRollover() {
+      const exp = ensureExpeditionState();
+      if (!exp.systemUnlocked) return false;
+      const today = getContractDateKey(Date.now());
+      if (
+        exp.dailyContracts &&
+        exp.dailyContracts.dateKey === today &&
+        Array.isArray(exp.dailyContracts.contracts) &&
+        exp.dailyContracts.contracts.length
+      ) {
+        return false;
+      }
+      ensureDailyContracts(false);
+      saveGame(true);
+      updateExpeditionHubBadges();
+      if (document.getElementById("panel-expedition-contracts")?.classList.contains("active")) {
+        renderExpeditionContractsPanel();
+      }
+      return true;
+    }
+
+    function countClaimableContracts() {
+      const exp = ensureExpeditionState();
+      const list =
+        (exp.dailyContracts && exp.dailyContracts.contracts) || exp.contracts || [];
+      return list.filter((c) => c && c.status === "ready" && !c.claimed).length;
+    }
+
+    function runMatchesContract(run, contract) {
+      if (!run || !contract || contract.claimed) return false;
+      if (contract.status === "ready" || contract.status === "claimed") return false;
+      const def = getExpeditionDef(run.expeditionId);
+      if (contract.type === "finish") return true;
+      if (contract.type === "favorable") {
+        const fav =
+          typeof CONTRACT_FAVORABLE_CHANCE === "number" ? CONTRACT_FAVORABLE_CHANCE : 0.8;
+        return safeNumber(run.successChance, 0) >= fav;
+      }
+      if (contract.type === "meet_power") {
+        return safeNumber(run.teamPower, 0) >= safeNumber(run.recommendedPower, 1);
+      }
+      if (contract.type === "domination") {
+        const rec = Math.max(1, safeNumber(run.recommendedPower, 1));
+        const ratio = safeNumber(contract.dominationRatio, 1.25);
+        return safeNumber(run.teamPower, 0) >= rec * ratio;
+      }
+      if (contract.type === "zone") {
+        const z = run.zoneId || (def && def.zoneId);
+        return !!contract.zoneId && z === contract.zoneId;
+      }
+      if (contract.type === "full_party") {
+        return Array.isArray(run.dragonIds) && run.dragonIds.length >= 3;
+      }
+      if (contract.type === "rarity_team") {
+        const need = CONTRACT_RARITY_RANK[contract.minDragonRarity] || 2;
+        return (run.dragonIds || []).some((id) => {
+          const d = getDragonDef(id);
+          return d && (CONTRACT_RARITY_RANK[d.rarity] || 0) >= need;
+        });
+      }
+      if (contract.type === "long_duration") {
+        const dur = safeNumber(
+          run.durationMs,
+          def ? safeNumber(def.durationMs, 0) : 0
+        );
+        return dur >= safeNumber(contract.minDurationMs, 0);
+      }
+      return false;
+    }
+
+    function onExpeditionCompleted(run) {
+      if (!run || !run.id) return;
+      const exp = ensureExpeditionState();
+      if (exp.contractProcessedRuns[run.id]) {
+        maybeDiscoverThreatFromRun(run);
+        return;
+      }
+      exp.contractProcessedRuns[run.id] = 1;
+      ensureDailyContracts(false);
+      const list =
+        (exp.dailyContracts && exp.dailyContracts.contracts) || exp.contracts || [];
+      list.forEach((c) => {
+        if (!c || c.claimed || c.status === "ready" || c.status === "claimed") return;
+        if (!runMatchesContract(run, c)) return;
+        c.progress = Math.min(c.target, safeNumber(c.progress, 0) + 1);
+        if (c.progress >= c.target) {
+          c.progress = c.target;
+          c.status = "ready";
+        }
+      });
+      syncContractsMirror(exp);
+      maybeDiscoverThreatFromRun(run);
+      updateExpeditionHubBadges();
+    }
+
+    function grantContractReward(reward) {
+      if (!reward) return "Récompense";
+      if (reward.kind === "chest") {
+        const zoneId = reward.zoneId || getCurrentZone().id || "sanctuary";
+        const type = CHEST_TYPES[reward.chestType] ? reward.chestType : "draconic";
+        addChest(zoneId, type, 1);
+        const chestDef = CHEST_TYPES[type];
+        return chestDef ? chestDef.name : "Coffre";
+      }
+      if (reward.kind === "essence") {
+        const amt = Math.max(0, Math.floor(safeNumber(reward.amount, 0)));
+        if (amt > 0) addPower(amt, "expedition");
+        return formatNumber(amt) + " Essence";
+      }
+      if (reward.kind === "fragments") {
+        const amt = Math.max(1, Math.floor(safeNumber(reward.amount, 1)));
+        const owned = DRAGON_DEFS.filter((d) =>
+          !d.secret && isDragonDiscovered(gameState.dragons[d.id], d.id, gameState)
+        );
+        let given = 0;
+        for (let i = 0; i < amt; i++) {
+          if (!owned.length) break;
+          const d = owned[Math.floor(Math.random() * owned.length)];
+          grantDragonFragments(d.id, 1);
+          given++;
+        }
+        return given ? ("+" + given + " fragments") : "Aucun fragment";
+      }
+      return "Récompense";
+    }
+
+    function claimContract(contractId) {
+      const exp = ensureExpeditionState();
+      ensureDailyContracts(false);
+      const list =
+        (exp.dailyContracts && exp.dailyContracts.contracts) || exp.contracts || [];
+      const c = list.find((x) => x && x.id === contractId);
+      if (!c) return { ok: false, reason: "missing" };
+      if (c.claimed || c.status === "claimed") return { ok: false, reason: "already_claimed" };
+      if (c.status !== "ready") return { ok: false, reason: "not_ready" };
+      c.claimed = true;
+      c.status = "claimed";
+      const label = grantContractReward(c.reward);
+      syncContractsMirror(exp);
+      saveGame(true);
+      updateExpeditionHubBadges();
+      showNotification("📜 Contrat accompli", label);
+      playSound("buy");
+      return { ok: true, rewardLabel: label };
+    }
+
+    /** DEV — forcer un tableau pour une date (sans changer l'horloge système). */
+    function generateDailyContractsForDev(testDate) {
+      const board = ensureDailyContracts(true, testDate);
+      saveGame(true);
+      updateExpeditionHubBadges();
+      if (document.getElementById("panel-expedition-contracts")?.classList.contains("active")) {
+        renderExpeditionContractsPanel();
+      }
+      return board;
+    }
+
+    function scaleThreatRewardConfig(cfg, mult) {
+      const src = cfg || {};
+      const m = Math.max(1, safeNumber(mult, THREAT_REWARD_MULT));
+      const out = Object.assign({}, src);
+      out.powerMin = Math.max(1, Math.floor(safeNumber(src.powerMin, 0) * m));
+      out.powerMax = Math.max(out.powerMin, Math.floor(safeNumber(src.powerMax, 0) * m));
+      out.fragmentChance = Math.min(1, safeNumber(src.fragmentChance, 0) * Math.min(1.35, m * 0.85));
+      out.fragmentMin = Math.max(0, Math.floor(safeNumber(src.fragmentMin, 0)));
+      out.fragmentMax = Math.max(
+        out.fragmentMin,
+        Math.floor(safeNumber(src.fragmentMax, 0) * (m > 1 ? 1.25 : 1))
+      );
+      out.rareChance = Math.min(1, safeNumber(src.rareChance, 0) * m);
+      out.rarePowerMin = Math.floor(safeNumber(src.rarePowerMin, 0) * m);
+      out.rarePowerMax = Math.floor(safeNumber(src.rarePowerMax, 0) * m);
+      out.chestChance = Math.min(1, Math.max(safeNumber(src.chestChance, 0.55), 0.75));
+      const w = src.chestWeights || { draconic: 70, rare: 25, epic: 5 };
+      let draconic = Math.max(0, safeNumber(w.draconic, 70) - 15);
+      let rare = Math.max(0, safeNumber(w.rare, 25) + 10);
+      let epic = Math.max(0, safeNumber(w.epic, 5) + 5);
+      const sum = draconic + rare + epic || 1;
+      out.chestWeights = {
+        draconic: Math.round((draconic / sum) * 100),
+        rare: Math.round((rare / sum) * 100),
+        epic: Math.max(0, 100 - Math.round((draconic / sum) * 100) - Math.round((rare / sum) * 100))
+      };
+      return out;
+    }
+
+    function buildThreatExpeditionDef(threat) {
+      if (!threat) return null;
+      return {
+        id: threat.id,
+        zoneId: threat.zoneId,
+        name: threat.name,
+        image: threat.image,
+        description: threat.description || "Une menace dangereuse rôde dans la région.",
+        durationMs: threat.durationMs,
+        recommendedPower: threat.recommendedPower,
+        rewardPreview: threat.rewardPreview || "Récompenses améliorées",
+        rewardConfig: threat.rewardConfig || {},
+        requirements: {},
+        isThreat: true
+      };
+    }
+
+    function createThreatFromSourceRun(run) {
+      const source = getExpeditionDef(run.expeditionId);
+      if (!source || source.isThreat) return null;
+      const zoneId = run.zoneId || source.zoneId || "sanctuary";
+      const zoneName = getExpeditionZoneLabel(zoneId);
+      const rec = Math.max(
+        100,
+        Math.round(safeNumber(source.recommendedPower, 500) * THREAT_POWER_MULT)
+      );
+      let durationMs = Math.round(safeNumber(source.durationMs, 600000) * THREAT_DURATION_MULT);
+      durationMs = Math.max(THREAT_DURATION_MIN_MS, Math.min(THREAT_DURATION_MAX_MS, durationMs));
+      return {
+        id: "threat_" + source.id + "_" + (run.id || Date.now()),
+        name: "Menace — " + zoneName,
+        zoneId: zoneId,
+        sourceExpeditionId: source.id,
+        recommendedPower: rec,
+        durationMs: durationMs,
+        image: source.image || "",
+        description:
+          "Une créature dangereuse a été détectée après vos explorations en " + zoneName + ".",
+        rewardPreview: "Butin amélioré · coffres renforcés",
+        rewardConfig: scaleThreatRewardConfig(source.rewardConfig, THREAT_REWARD_MULT),
+        state: "detected",
+        runId: null
+      };
+    }
+
+    function maybeDiscoverThreatFromRun(run) {
+      const exp = ensureExpeditionState();
+      if (!run || !run.id) return;
+      if (exp.threatRolledRuns[run.id]) return;
+      exp.threatRolledRuns[run.id] = 1;
+      if (exp.activeThreat) return;
+      if (run.isThreat) return;
+      const result = run.result || {};
+      if (!result.success) return;
+      if (Math.random() >= THREAT_DISCOVERY_CHANCE) return;
+      const threat = createThreatFromSourceRun(run);
+      if (!threat) return;
+      exp.activeThreat = threat;
+      showNotification("⚠️ Menace détectée", threat.name + " — consultez Menaces.");
+      playSound("expeditionComplete");
+      updateExpeditionHubBadges();
+    }
+
+    function getActiveThreat() {
+      const exp = ensureExpeditionState();
+      return exp.activeThreat || null;
+    }
+
+    function clearActiveThreat() {
+      const exp = ensureExpeditionState();
+      exp.activeThreat = null;
+      updateExpeditionHubBadges();
+    }
+
+    function updateExpeditionHubBadges() {
+      const claimable = countClaimableContracts();
+      const cBadge = document.getElementById("exp-hub-contracts-badge");
+      if (cBadge) {
+        if (claimable > 0) {
+          cBadge.hidden = false;
+          cBadge.textContent = claimable > 9 ? "9+" : String(claimable);
+          cBadge.setAttribute("aria-hidden", "false");
+        } else {
+          cBadge.hidden = true;
+          cBadge.textContent = "";
+          cBadge.setAttribute("aria-hidden", "true");
+        }
+      }
+      const threat = getActiveThreat();
+      const tBadge = document.getElementById("exp-hub-threats-badge");
+      if (tBadge) {
+        if (threat) {
+          tBadge.hidden = false;
+          tBadge.textContent = "!";
+          tBadge.setAttribute("aria-hidden", "false");
+        } else {
+          tBadge.hidden = true;
+          tBadge.textContent = "";
+          tBadge.setAttribute("aria-hidden", "true");
+        }
+      }
     }
 
     function makeSeededRng(seed) {
@@ -6051,6 +6906,10 @@
 
     function tickExpeditions() {
       ensureExpeditionState();
+      checkDailyContractsRollover();
+      if (document.getElementById("panel-expedition-contracts")?.classList.contains("active")) {
+        updateContractsCountdownUi();
+      }
       let changed = false;
       const activeRuns = getActiveExpeditionRuns();
       for (let i = 0; i < activeRuns.length; i++) {
@@ -6156,8 +7015,7 @@
 
       const statusEl = document.getElementById("expedition-btn-status");
       const badge = document.getElementById("expedition-btn-badge");
-      const ico = document.getElementById("expedition-btn-ico");
-      const btn = document.getElementById("btn-expeditions");
+      const btn = document.getElementById("btn-open-expeditions-hub");
 
       if (statusEl) {
         if (locked || state.kind === "running" || state.kind === "claim") {
@@ -6168,17 +7026,180 @@
           statusEl.textContent = "";
         }
       }
-      if (badge) badge.hidden = locked || state.kind !== "claim";
-      if (ico) ico.textContent = locked ? "⛺" : "🧭";
+      if (badge) {
+        const showClaim = !locked && state.kind === "claim";
+        badge.hidden = !showClaim;
+        badge.setAttribute("aria-hidden", showClaim ? "false" : "true");
+      }
       if (btn) {
-        btn.classList.toggle("is-locked", locked);
         btn.classList.toggle("has-claim", !locked && state.kind === "claim");
         btn.classList.toggle("is-running", !locked && state.kind === "running");
-        btn.setAttribute("aria-disabled", "false");
         btn.title = locked
-          ? "Camp d'expédition — " + formatNumber(state.cost) + " Essence pour débloquer"
+          ? "Expéditions — Camp à débloquer (" + formatNumber(state.cost) + " Essence)"
           : "Expéditions";
       }
+    }
+
+    function isExpeditionsHubOpen() {
+      const panel = document.getElementById("panel-expeditions-hub");
+      return !!(panel && panel.classList.contains("active"));
+    }
+
+    const EXPEDITIONS_HUB_HALL_IMAGE = "assets/expedition/Hall des expedition.png";
+    let expeditionsHubHallPreloadStarted = false;
+
+    function preloadExpeditionsHubHallImage() {
+      if (expeditionsHubHallPreloadStarted) return;
+      expeditionsHubHallPreloadStarted = true;
+      if (window.DCAssets && typeof DCAssets.preloadIdle === "function") {
+        DCAssets.preloadIdle([EXPEDITIONS_HUB_HALL_IMAGE]);
+        return;
+      }
+      const img = new Image();
+      img.decoding = "async";
+      img.src = EXPEDITIONS_HUB_HALL_IMAGE;
+    }
+
+    let menuBackdropHold = false;
+
+    function isMainMenuOverlayOpen() {
+      /*
+        Stack Expéditions (Hub / Hall / Contrats / Menaces / Préparation) :
+        panneau bleu nuit opaque — PAS de voile / blur extérieur.
+        L’overlay panel (fond transparent) continue de bloquer les clics.
+      */
+      if (document.querySelector(".expedition-drawer.open")) return false;
+      if (document.querySelector("#panel-expeditions-hub.active")) return false;
+      if (document.querySelector("#panel-expedition-contracts.active")) return false;
+      if (document.querySelector("#panel-expedition-threats.active")) return false;
+      if (document.querySelector("#panel-inventory.active")) return false;
+      /* Transition Hall → Hub : ne pas flash un backdrop */
+      if (menuBackdropHold) return false;
+      if (document.querySelector(".panel.overlay-panel.active")) return true;
+      return false;
+    }
+
+    function updateMenuBackdrop() {
+      const el = document.getElementById("dc-menu-backdrop");
+      if (!el) return;
+      const open = isMainMenuOverlayOpen();
+      el.classList.toggle("is-visible", open);
+      el.setAttribute("aria-hidden", open ? "false" : "true");
+      document.documentElement.classList.toggle("dc-menu-backdrop-open", open);
+    }
+
+    function openExpeditionsHub() {
+      expeditionReturnToHub = false;
+      expeditionReturnTarget = null;
+      preloadExpeditionsHubHallImage();
+      playSound("button");
+      ensureExpeditionState();
+      ensureDailyContracts(false);
+      switchPanel("expeditions-hub");
+      const btn = document.getElementById("btn-open-expeditions-hub");
+      if (btn) btn.setAttribute("aria-expanded", "true");
+      updateExpeditionButtonIndicator();
+      updateExpeditionHubBadges();
+      updateMenuBackdrop();
+    }
+
+    function closeExpeditionsHub() {
+      const btn = document.getElementById("btn-open-expeditions-hub");
+      if (btn) btn.setAttribute("aria-expanded", "false");
+      if (isExpeditionsHubOpen()) switchPanel("kingdom");
+      updateMenuBackdrop();
+    }
+
+    function isInventoryPanelOpen() {
+      const panel = document.getElementById("panel-inventory");
+      return !!(panel && panel.classList.contains("active"));
+    }
+
+    /* Session only — pas persisté en save */
+    let inventorySessionTab = "materials";
+
+    function openInventoryPanel() {
+      playSound("button");
+      ensureInventory();
+      ensureChestInventory();
+      switchPanel("inventory");
+      const btn = document.getElementById("btn-open-inventory");
+      if (btn) btn.setAttribute("aria-expanded", "true");
+      syncInventoryTabsUi();
+      renderInventoryPanel();
+      updateInventoryBadge();
+      updateMenuBackdrop();
+    }
+
+    function closeInventoryPanel() {
+      const btn = document.getElementById("btn-open-inventory");
+      if (btn) btn.setAttribute("aria-expanded", "false");
+      if (isInventoryPanelOpen()) switchPanel("kingdom");
+      updateMenuBackdrop();
+    }
+
+    function openExpeditionHallFromHub() {
+      expeditionReturnToHub = true;
+      expeditionReturnTarget = "hub";
+      playSound("button");
+      /* Ouvrir le Hall avant de quitter le Hub → backdrop stable, pas de flash */
+      openExpeditionDrawer({ fromHub: true, silent: true });
+      switchPanel("kingdom");
+      updateMenuBackdrop();
+    }
+
+    function openExpeditionContractsPanel() {
+      playSound("button");
+      if (!areExpeditionsUnlocked()) {
+        showNotification("Contrats", "Débloquez d'abord le Camp d'expédition.");
+        return;
+      }
+      ensureExpeditionState();
+      ensureDailyContracts(false);
+      switchPanel("expedition-contracts");
+      renderExpeditionContractsPanel();
+      updateExpeditionHubBadges();
+      updateMenuBackdrop();
+    }
+
+    function openExpeditionThreatsPanel() {
+      playSound("button");
+      if (!areExpeditionsUnlocked()) {
+        showNotification("Menaces", "Débloquez d'abord le Camp d'expédition.");
+        return;
+      }
+      ensureExpeditionState();
+      switchPanel("expedition-threats");
+      renderExpeditionThreatsPanel();
+      updateExpeditionHubBadges();
+      updateMenuBackdrop();
+    }
+
+    function returnToExpeditionsHubFromSubpanel() {
+      openExpeditionsHub();
+    }
+
+    function prepareThreatFromMenu() {
+      const threat = getActiveThreat();
+      if (!threat) {
+        showNotification("Menaces", "Aucune menace détectée.");
+        return;
+      }
+      if (threat.state === "running") {
+        showNotification("Menaces", "Cette menace est déjà en cours.");
+        return;
+      }
+      if (!hasFreeExpeditionSlot()) {
+        showNotification("Menaces", "Une équipe est déjà en expédition.");
+        return;
+      }
+      expeditionReturnToHub = false;
+      expeditionReturnTarget = "threats";
+      switchPanel("kingdom");
+      openExpeditionDrawer({ silent: true });
+      resetExpeditionPrepare(threat.id);
+      updateExpeditionHallChrome();
+      updateMenuBackdrop();
     }
 
     function isExpeditionDrawerOpen() {
@@ -6186,34 +7207,82 @@
       return !!(drawer && drawer.classList.contains("open"));
     }
 
-    function openExpeditionDrawer() {
+    function updateExpeditionHallSummary() {
+      const el = document.getElementById("expedition-hall-summary");
+      if (!el) return;
+      if (!areExpeditionsUnlocked()) {
+        el.hidden = true;
+        el.innerHTML = "";
+        return;
+      }
+      const exp = ensureExpeditionState();
+      const slots = Math.max(1, safeNumber(exp.unlockedSlots, DEFAULT_EXPEDITION_SLOTS));
+      const active = getActiveExpeditionRuns().length;
+      el.hidden = false;
+      el.innerHTML =
+        '<span class="expedition-hall-summary-label">Équipes en expédition</span>' +
+        '<strong class="expedition-hall-summary-value"></strong>';
+      el.querySelector(".expedition-hall-summary-value").textContent = active + " / " + slots;
+    }
+
+    function openExpeditionDrawer(opts) {
+      opts = opts || {};
+      if (opts.fromHub) expeditionReturnToHub = true;
       const drawer = document.getElementById("expedition-drawer");
-      const btn = document.getElementById("btn-expeditions");
       if (!drawer) return;
       drawer.classList.add("open");
       drawer.setAttribute("aria-hidden", "false");
-      if (btn) btn.setAttribute("aria-expanded", "true");
+      const backBtn = document.getElementById("expedition-drawer-back");
+      if (backBtn) backBtn.hidden = !expeditionReturnToHub;
       expeditionIntroAnimPending = true;
       expeditionsDirty = true;
       if (areExpeditionsUnlocked()) preloadExpeditionImagesForCurrentZone();
       renderExpeditions();
       updateExpeditionButtonIndicator();
-      playSound("button");
+      updateMenuBackdrop();
+      if (!opts.silent) playSound("button");
     }
 
-    function closeExpeditionDrawer() {
+    function closeExpeditionDrawer(opts) {
+      opts = opts || {};
       const drawer = document.getElementById("expedition-drawer");
-      const btn = document.getElementById("btn-expeditions");
       if (!drawer) return;
+      const wasOpen = drawer.classList.contains("open");
+      if (!wasOpen) {
+        updateMenuBackdrop();
+        return;
+      }
       hideExpeditionRewardsTip(true);
+      if (expeditionUi.mode === "prepare") {
+        expeditionUi.mode = "list";
+        expeditionUi.selectedExpeditionId = null;
+        expeditionUi.selectedDragons = [];
+        expeditionPreparePickerOpen = false;
+      }
+      const backToHub = wasOpen && expeditionReturnToHub && !opts.skipHubReturn;
+      const backToThreats =
+        wasOpen && expeditionReturnTarget === "threats" && !opts.skipHubReturn && !backToHub;
+      if (wasOpen || opts.skipHubReturn) expeditionReturnToHub = false;
+      const savedReturn = expeditionReturnTarget;
+      if (wasOpen) expeditionReturnTarget = null;
+      /* Hold backdrop pendant la transition Hall → Hub (évite clignotement) */
+      if (backToHub || backToThreats) menuBackdropHold = true;
       drawer.classList.remove("open");
       drawer.setAttribute("aria-hidden", "true");
-      if (btn) btn.setAttribute("aria-expanded", "false");
+      drawer.classList.remove("is-prepare");
+      const titleEl = document.querySelector(".expedition-hall-title");
+      if (titleEl) titleEl.textContent = "Hall des Expéditions";
       updateExpeditionButtonIndicator();
+      if (backToHub) openExpeditionsHub();
+      else if (backToThreats || savedReturn === "threats") {
+        /* X depuis prep menace : fermer sans rouvrir ; ← géré via leaveExpeditionPrepare */
+      }
+      menuBackdropHold = false;
+      updateMenuBackdrop();
     }
 
     function toggleExpeditionDrawer() {
-      if (isExpeditionDrawerOpen()) closeExpeditionDrawer();
+      if (isExpeditionDrawerOpen()) closeExpeditionDrawer({ skipHubReturn: true });
       else openExpeditionDrawer();
     }
 
@@ -6222,7 +7291,8 @@
       if (!areExpeditionsUnlocked()) return { ok: false, reason: "locked" };
       const def = getExpeditionDef(expeditionId);
       if (!def) return { ok: false, reason: "invalid" };
-      if (def.zoneId && def.zoneId !== getCurrentZone().id) {
+      /* Menaces : zone libre (chasse spéciale). Expéditions normales : zone courante. */
+      if (!def.isThreat && def.zoneId && def.zoneId !== getCurrentZone().id) {
         return { ok: false, reason: "wrong_zone" };
       }
       if (!hasFreeExpeditionSlot()) return { ok: false, reason: "busy" };
@@ -6255,8 +7325,9 @@
       }
       if (slotIndex < 0) return { ok: false, reason: "busy" };
 
+      const runId = "run_" + startTime + "_" + slotIndex;
       exp.slots[slotIndex] = {
-        id: "run_" + startTime + "_" + slotIndex,
+        id: runId,
         expeditionId: def.id,
         zoneId: def.zoneId,
         dragonIds: ids.slice(),
@@ -6271,17 +7342,27 @@
         resolved: false,
         claimed: false,
         notifiedComplete: false,
-        result: null
+        result: null,
+        isThreat: !!def.isThreat
       };
+
+      if (def.isThreat && exp.activeThreat && exp.activeThreat.id === def.id) {
+        exp.activeThreat.state = "running";
+        exp.activeThreat.runId = runId;
+      }
 
       expeditionUi.mode = "list";
       expeditionUi.selectedExpeditionId = null;
       expeditionUi.selectedDragons = [];
+      expeditionPreparePickerOpen = false;
       expeditionsDirty = true;
       dragonsDirty = true;
       uiDirty = true;
       saveGame(true);
-      showNotification("🧭 Expédition lancée !", def.name + " — Retour dans " + formatDuration(def.durationMs) + ".");
+      showNotification(
+        def.isThreat ? "⚠️ Menace engagée !" : "🧭 Expédition lancée !",
+        def.name + " — Retour dans " + formatDuration(def.durationMs) + "."
+      );
       playSound("expeditionStart");
       const launchCard = document.querySelector('[data-expedition-id="' + expeditionId + '"]');
       if (launchCard && window.DCAnim && DCAnim.expeditionLaunchFx) {
@@ -6289,6 +7370,7 @@
       } else if (launchCard) {
         triggerAnim(launchCard, "anim-exp-launch", 420);
       }
+      updateExpeditionHubBadges();
       return { ok: true, slotIndex };
     }
 
@@ -6322,8 +7404,15 @@
           );
         }
 
+        const claimedRun = Object.assign({}, run);
         exp.slots[slotIndex] = null;
         gameState.totalExpeditionsCompleted = safeNumber(gameState.totalExpeditionsCompleted, 0) + 1;
+
+        /* Contrats + découverte Menace (une seule fois par run.id) */
+        onExpeditionCompleted(claimedRun);
+        if (claimedRun.isThreat || (exp.activeThreat && exp.activeThreat.runId === claimedRun.id)) {
+          clearActiveThreat();
+        }
 
         expeditionsDirty = true;
         dragonsDirty = true;
@@ -6332,15 +7421,22 @@
         checkAchievements();
         saveGame(true);
 
-        const def = getExpeditionDef(run.expeditionId);
+        const def = getExpeditionDef(claimedRun.expeditionId) ||
+          (claimedRun.isThreat ? { name: "Menace" } : null);
         const claimBits = describeExpeditionRewardLines(result).slice(0, 3);
         showNotification(
-          "🧭 EXPÉDITION TERMINÉE",
+          claimedRun.isThreat ? "⚠️ MENACE VAINCUE" : "🧭 EXPÉDITION TERMINÉE",
           (def ? def.name + " — " : "") + (claimBits.length ? claimBits.join(" · ") : "Récompenses récupérées")
         );
         const claimHost = document.getElementById("expeditions-root");
         if (claimHost && window.DCAnim && DCAnim.expeditionClaimFx) {
           DCAnim.expeditionClaimFx(claimHost);
+        }
+        if (document.getElementById("panel-expedition-contracts")?.classList.contains("active")) {
+          renderExpeditionContractsPanel();
+        }
+        if (document.getElementById("panel-expedition-threats")?.classList.contains("active")) {
+          renderExpeditionThreatsPanel();
         }
         return { ok: true, result };
       } catch (err) {
@@ -6421,6 +7517,399 @@
       return n;
     }
 
+    /* -------------------------------------------------------
+       INVENTAIRE V1 — matériaux / reliques (+ coffres via gameState.chests)
+       ------------------------------------------------------- */
+    function createEmptyInventory() {
+      return { materials: {}, relics: {} };
+    }
+
+    function sanitizeInventory(raw) {
+      const out = createEmptyInventory();
+      if (!raw || typeof raw !== "object") return out;
+      if (raw.materials && typeof raw.materials === "object") {
+        Object.keys(raw.materials).forEach((id) => {
+          if (!id) return;
+          const entry = raw.materials[id];
+          const amount =
+            typeof entry === "number"
+              ? entry
+              : entry && typeof entry === "object"
+                ? entry.amount
+                : 0;
+          const n = Math.max(0, Math.floor(safeNumber(amount, 0)));
+          if (n > 0) {
+            out.materials[id] =
+              entry && typeof entry === "object"
+                ? Object.assign({}, entry, { amount: n })
+                : { amount: n };
+          }
+        });
+      }
+      if (raw.relics && typeof raw.relics === "object") {
+        Object.keys(raw.relics).forEach((id) => {
+          if (!id) return;
+          const entry = raw.relics[id];
+          if (entry == null) return;
+          if (typeof entry === "number") {
+            const n = Math.max(0, Math.floor(safeNumber(entry, 0)));
+            if (n > 0) out.relics[id] = { amount: n };
+            return;
+          }
+          if (typeof entry === "object") {
+            const n = Math.max(0, Math.floor(safeNumber(entry.amount, 1)));
+            if (n <= 0 && !entry.id) return;
+            out.relics[id] = Object.assign({}, entry, {
+              amount: n > 0 ? n : Math.max(1, Math.floor(safeNumber(entry.amount, 1)))
+            });
+          }
+        });
+      }
+      return out;
+    }
+
+    function ensureInventory() {
+      if (!gameState.inventory || typeof gameState.inventory !== "object") {
+        gameState.inventory = createEmptyInventory();
+      }
+      if (!gameState.inventory.materials || typeof gameState.inventory.materials !== "object") {
+        gameState.inventory.materials = {};
+      }
+      if (!gameState.inventory.relics || typeof gameState.inventory.relics !== "object") {
+        gameState.inventory.relics = {};
+      }
+      return gameState.inventory;
+    }
+
+    function normalizeInventoryCategory(type) {
+      const t = String(type || "").toLowerCase();
+      if (t === "material" || t === "materials") return "materials";
+      if (t === "relic" || t === "relics") return "relics";
+      if (t === "chest" || t === "chests") return "chests";
+      return null;
+    }
+
+    /** Quantité — coffres lus depuis gameState.chests (pas de doublon). */
+    function getInventoryQuantity(type, id) {
+      const cat = normalizeInventoryCategory(type);
+      if (!cat || id == null || id === "") return 0;
+      if (cat === "chests") {
+        const parts = String(id).split("|");
+        if (parts.length >= 2) return getChestCount(parts[0], parts[1]);
+        /* id = type seul → somme toutes zones */
+        const inv = ensureChestInventory();
+        let n = 0;
+        Object.keys(inv).forEach((zoneId) => {
+          n += inv[zoneId][id] || 0;
+        });
+        return n;
+      }
+      const bag = ensureInventory()[cat];
+      const entry = bag[id];
+      if (entry == null) return 0;
+      if (typeof entry === "number") return Math.max(0, Math.floor(safeNumber(entry, 0)));
+      return Math.max(0, Math.floor(safeNumber(entry.amount, 0)));
+    }
+
+    function hasInventoryItem(type, id, amount) {
+      const need = Math.max(1, Math.floor(safeNumber(amount, 1)));
+      return getInventoryQuantity(type, id) >= need;
+    }
+
+    /**
+     * Ajoute un objet. Coffres → addChest (source de vérité existante).
+     * id coffre : "zoneId|chestType"
+     */
+    function addInventoryItem(type, id, amount, meta) {
+      const cat = normalizeInventoryCategory(type);
+      const n = Math.max(0, Math.floor(safeNumber(amount, 0)));
+      if (!cat || !id || !(n > 0)) return false;
+      if (cat === "chests") {
+        const parts = String(id).split("|");
+        if (parts.length < 2) return false;
+        const ok = addChest(parts[0], parts[1], n);
+        if (ok) saveGame(true);
+        return ok;
+      }
+      const bag = ensureInventory()[cat];
+      const prev = bag[id];
+      const prevAmt =
+        prev == null
+          ? 0
+          : typeof prev === "number"
+            ? Math.max(0, Math.floor(safeNumber(prev, 0)))
+            : Math.max(0, Math.floor(safeNumber(prev.amount, 0)));
+      const nextAmt = prevAmt + n;
+      if (prev && typeof prev === "object") {
+        bag[id] = Object.assign({}, prev, meta && typeof meta === "object" ? meta : {}, {
+          amount: nextAmt
+        });
+      } else {
+        bag[id] = Object.assign(
+          { amount: nextAmt },
+          meta && typeof meta === "object" ? meta : {}
+        );
+      }
+      saveGame(true);
+      updateInventoryBadge();
+      if (isInventoryPanelOpen()) renderInventoryPanel();
+      return true;
+    }
+
+    function removeInventoryItem(type, id, amount) {
+      const cat = normalizeInventoryCategory(type);
+      const n = Math.max(0, Math.floor(safeNumber(amount, 0)));
+      if (!cat || !id || !(n > 0)) return false;
+      if (cat === "chests") {
+        const parts = String(id).split("|");
+        if (parts.length < 2) return false;
+        const inv = ensureChestInventory();
+        const zoneId = parts[0];
+        const chestType = parts[1];
+        if (!isValidChest(zoneId, chestType)) return false;
+        const have = inv[zoneId][chestType] || 0;
+        if (have < n) return false;
+        inv[zoneId][chestType] = have - n;
+        saveGame(true);
+        updateChestButtonBadge();
+        updateInventoryBadge();
+        if (isInventoryPanelOpen()) renderInventoryPanel();
+        return true;
+      }
+      const bag = ensureInventory()[cat];
+      const prev = bag[id];
+      if (prev == null) return false;
+      const prevAmt =
+        typeof prev === "number"
+          ? Math.max(0, Math.floor(safeNumber(prev, 0)))
+          : Math.max(0, Math.floor(safeNumber(prev.amount, 0)));
+      if (prevAmt < n) return false;
+      const nextAmt = prevAmt - n;
+      if (nextAmt <= 0) {
+        delete bag[id];
+      } else if (typeof prev === "object") {
+        bag[id] = Object.assign({}, prev, { amount: nextAmt });
+      } else {
+        bag[id] = { amount: nextAmt };
+      }
+      saveGame(true);
+      updateInventoryBadge();
+      if (isInventoryPanelOpen()) renderInventoryPanel();
+      return true;
+    }
+
+    function listStoredChestsForInventory() {
+      const inv = ensureChestInventory();
+      const list = [];
+      getChestZoneIds().forEach((zoneId) => {
+        getChestTypeOrder().forEach((type) => {
+          const count = (inv[zoneId] && inv[zoneId][type]) || 0;
+          if (count <= 0) return;
+          list.push({ zoneId, type, count });
+        });
+      });
+      return list;
+    }
+
+    function updateInventoryBadge() {
+      const badge = document.getElementById("inventory-btn-badge");
+      if (!badge) return;
+      const chests = getTotalChestCount();
+      if (chests > 0) {
+        badge.hidden = false;
+        badge.textContent = chests > 9 ? "9+" : String(chests);
+        badge.setAttribute("aria-hidden", "false");
+      } else {
+        badge.hidden = true;
+        badge.textContent = "";
+        badge.setAttribute("aria-hidden", "true");
+      }
+    }
+
+    function syncInventoryTabsUi() {
+      const tabs = document.querySelectorAll("#inventory-tabs .inventory-tab");
+      tabs.forEach((btn) => {
+        const tab = btn.getAttribute("data-inv-tab");
+        const active = tab === inventorySessionTab;
+        btn.classList.toggle("is-active", active);
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+      });
+    }
+
+    function setInventoryTab(tab) {
+      if (tab !== "materials" && tab !== "relics" && tab !== "chests") return;
+      inventorySessionTab = tab;
+      syncInventoryTabsUi();
+      renderInventoryPanel();
+    }
+
+    function renderInventoryEmpty(root, title, text) {
+      root.innerHTML = "";
+      const empty = document.createElement("div");
+      empty.className = "inventory-empty";
+      empty.innerHTML =
+        '<p class="inventory-empty-title"></p><p class="inventory-empty-text"></p>';
+      empty.querySelector(".inventory-empty-title").textContent = title;
+      empty.querySelector(".inventory-empty-text").textContent = text;
+      root.appendChild(empty);
+    }
+
+    function renderInventoryMaterials(root) {
+      const bag = ensureInventory().materials;
+      const ids = Object.keys(bag).filter((id) => getInventoryQuantity("materials", id) > 0);
+      if (!ids.length) {
+        renderInventoryEmpty(
+          root,
+          "Aucun matériau",
+          "Les matériaux obtenus lors de vos aventures apparaîtront ici."
+        );
+        return;
+      }
+      const grid = document.createElement("div");
+      grid.className = "inventory-grid";
+      ids.forEach((id) => {
+        const entry = bag[id];
+        const amount = getInventoryQuantity("materials", id);
+        const name =
+          (entry && typeof entry === "object" && entry.name) || String(id);
+        const rarity =
+          (entry && typeof entry === "object" && entry.rarity) || "common";
+        const rar = RARITIES[rarity] || RARITIES.common;
+        const card = document.createElement("article");
+        card.className = "inv-card " + (rar.css || "rarity-common");
+        card.innerHTML =
+          '<div class="inv-card-art" aria-hidden="true"></div>' +
+          '<p class="inv-card-name"></p>' +
+          '<span class="inv-card-rarity"></span>' +
+          '<strong class="inv-card-qty"></strong>';
+        card.querySelector(".inv-card-name").textContent = name;
+        card.querySelector(".inv-card-rarity").textContent = rar.label || "";
+        card.querySelector(".inv-card-qty").textContent = "x" + amount;
+        if (entry && entry.icon) {
+          const img = document.createElement("img");
+          img.src = entry.icon;
+          img.alt = "";
+          img.draggable = false;
+          img.decoding = "async";
+          card.querySelector(".inv-card-art").appendChild(img);
+        }
+        grid.appendChild(card);
+      });
+      root.appendChild(grid);
+    }
+
+    function renderInventoryRelics(root) {
+      const bag = ensureInventory().relics;
+      const ids = Object.keys(bag).filter((id) => {
+        const e = bag[id];
+        if (!e) return false;
+        if (typeof e === "number") return e > 0;
+        return true;
+      });
+      if (!ids.length) {
+        renderInventoryEmpty(
+          root,
+          "Aucune relique",
+          "Les reliques découvertes ou forgées apparaîtront ici."
+        );
+        return;
+      }
+      const grid = document.createElement("div");
+      grid.className = "inventory-grid";
+      ids.forEach((id) => {
+        const entry = bag[id];
+        const amount =
+          typeof entry === "number"
+            ? Math.max(0, Math.floor(entry))
+            : Math.max(0, Math.floor(safeNumber(entry.amount, 1)));
+        const name =
+          (entry && typeof entry === "object" && entry.name) || String(id);
+        const rarity =
+          (entry && typeof entry === "object" && entry.rarity) || "common";
+        const rar = RARITIES[rarity] || RARITIES.common;
+        const card = document.createElement("article");
+        card.className = "inv-card " + (rar.css || "rarity-common");
+        card.innerHTML =
+          '<div class="inv-card-art" aria-hidden="true"></div>' +
+          '<p class="inv-card-name"></p>' +
+          '<span class="inv-card-rarity"></span>' +
+          (amount > 1 ? '<strong class="inv-card-qty"></strong>' : "");
+        card.querySelector(".inv-card-name").textContent = name;
+        card.querySelector(".inv-card-rarity").textContent = rar.label || "";
+        const qtyEl = card.querySelector(".inv-card-qty");
+        if (qtyEl) qtyEl.textContent = "x" + amount;
+        if (entry && entry.icon) {
+          const img = document.createElement("img");
+          img.src = entry.icon;
+          img.alt = "";
+          img.draggable = false;
+          img.decoding = "async";
+          card.querySelector(".inv-card-art").appendChild(img);
+        }
+        grid.appendChild(card);
+      });
+      root.appendChild(grid);
+    }
+
+    function renderInventoryChests(root) {
+      const list = listStoredChestsForInventory();
+      if (!list.length) {
+        renderInventoryEmpty(
+          root,
+          "Aucun coffre",
+          "Les coffres obtenus en expédition ou en récompense apparaîtront ici."
+        );
+        return;
+      }
+      const grid = document.createElement("div");
+      grid.className = "inventory-grid";
+      list.forEach((item) => {
+        const def = CHEST_TYPES[item.type];
+        if (!def) return;
+        const card = document.createElement("article");
+        card.className = "inv-card " + (def.css || "chest-draconic");
+        card.innerHTML =
+          '<div class="inv-card-art" aria-hidden="true"><img alt="" draggable="false" decoding="async" /></div>' +
+          '<p class="inv-card-name"></p>' +
+          '<p class="inv-card-meta"></p>' +
+          '<span class="inv-card-rarity"></span>' +
+          '<strong class="inv-card-qty"></strong>' +
+          '<button type="button" class="inv-card-open">Ouvrir</button>';
+        const img = card.querySelector("img");
+        img.src = def.imageClosed;
+        card.querySelector(".inv-card-name").textContent = def.name;
+        card.querySelector(".inv-card-meta").textContent = getChestZoneLabel(item.zoneId);
+        card.querySelector(".inv-card-rarity").textContent = def.rarityLabel || "";
+        card.querySelector(".inv-card-qty").textContent = "x" + item.count;
+        const btn = card.querySelector(".inv-card-open");
+        btn.addEventListener("click", () => {
+          if (isOpeningChest) return;
+          if (getChestCount(item.zoneId, item.type) <= 0) {
+            renderInventoryPanel();
+            return;
+          }
+          startChestOpening(item.zoneId, item.type);
+        });
+        grid.appendChild(card);
+      });
+      root.appendChild(grid);
+    }
+
+    function renderInventoryPanel() {
+      const root = document.getElementById("inventory-root");
+      if (!root) return;
+      ensureInventory();
+      ensureChestInventory();
+      root.innerHTML = "";
+      if (inventorySessionTab === "relics") {
+        renderInventoryRelics(root);
+      } else if (inventorySessionTab === "chests") {
+        renderInventoryChests(root);
+      } else {
+        renderInventoryMaterials(root);
+      }
+    }
+
     function getChestZoneLabel(zoneId) {
       const zone = getZoneDef(zoneId);
       const idx = ZONE_DEFS.findIndex((z) => z.id === zoneId);
@@ -6439,7 +7928,9 @@
       inv[zoneId][chestType] += n;
       markChestNew(zoneId, chestType);
       updateChestButtonBadge();
+      updateInventoryBadge();
       if (isChestModalOpen()) renderChestInventory();
+      if (isInventoryPanelOpen() && inventorySessionTab === "chests") renderInventoryPanel();
       return true;
     }
 
@@ -6572,6 +8063,8 @@
       calculateProduction();
       saveGame(true);
       updateChestButtonBadge();
+      updateInventoryBadge();
+      if (isInventoryPanelOpen() && inventorySessionTab === "chests") renderInventoryPanel();
       return granted ? Object.assign({ zoneId, chestType }, granted) : null;
     }
 
@@ -6922,6 +8415,8 @@
       /* Plus de retour auto vers le menu inventaire (coffre régulier Royaume). */
       if (isChestModalOpen()) refreshChestInventoryCounts();
       updateRegularChestUI();
+      updateInventoryBadge();
+      if (isInventoryPanelOpen() && inventorySessionTab === "chests") renderInventoryPanel();
     }
 
     function refreshChestInventoryCounts() {
@@ -7233,8 +8728,213 @@
       expeditionUi.mode = "prepare";
       expeditionUi.selectedExpeditionId = expeditionId;
       expeditionUi.selectedDragons = [];
+      expeditionPreparePickerOpen = false;
       expeditionsDirty = true;
       renderExpeditions();
+    }
+
+    function leaveExpeditionPrepare() {
+      expeditionUi.mode = "list";
+      expeditionUi.selectedExpeditionId = null;
+      expeditionUi.selectedDragons = [];
+      expeditionPreparePickerOpen = false;
+      expeditionsDirty = true;
+      if (expeditionReturnTarget === "threats") {
+        closeExpeditionDrawer({ skipHubReturn: true });
+        openExpeditionThreatsPanel();
+        return;
+      }
+      renderExpeditions();
+      updateExpeditionHallChrome();
+    }
+
+    function updateContractsCountdownUi() {
+      const el = document.getElementById("exp-contracts-countdown");
+      if (!el) return;
+      el.textContent = formatContractCountdown(getMsUntilNextContractRollover());
+    }
+
+    function renderExpeditionContractsPanel() {
+      const root = document.getElementById("expedition-contracts-root");
+      if (!root) return;
+      ensureExpeditionState();
+      checkDailyContractsRollover();
+      const contracts = ensureDailyContracts(false);
+      root.innerHTML = "";
+
+      const meta = document.createElement("div");
+      meta.className = "exp-contracts-meta";
+      meta.innerHTML =
+        '<p class="exp-subpanel-hint">Les contrats sont renouvelés chaque jour.</p>' +
+        '<p class="exp-contracts-renewal">Renouvellement dans <strong id="exp-contracts-countdown">--:--:--</strong></p>';
+      root.appendChild(meta);
+      updateContractsCountdownUi();
+
+      const grid = document.createElement("div");
+      grid.className = "exp-contracts-grid";
+      contracts.forEach((c) => {
+        const rarityMeta = getContractRarityMeta(c.rarity);
+        const card = document.createElement("article");
+        const isReady = c.status === "ready" && !c.claimed;
+        const isClaimed = c.claimed || c.status === "claimed";
+        card.className =
+          "exp-contract-card " +
+          (rarityMeta.css || "rarity-common") +
+          (isReady ? " is-ready" : "") +
+          (isClaimed ? " is-claimed" : "");
+        const pct = Math.max(
+          0,
+          Math.min(100, (safeNumber(c.progress, 0) / Math.max(1, c.target)) * 100)
+        );
+        card.innerHTML =
+          '<div class="exp-contract-rarity-row">' +
+            '<span class="exp-contract-gem" aria-hidden="true"></span>' +
+            '<span class="exp-contract-rarity-label"></span>' +
+          "</div>" +
+          '<div class="exp-contract-top">' +
+            '<h3 class="exp-contract-title"></h3>' +
+            '<span class="exp-contract-status"></span>' +
+          "</div>" +
+          '<p class="exp-contract-desc"></p>' +
+          '<div class="exp-contract-progress">' +
+            '<div class="exp-contract-bar"><div class="exp-contract-fill"></div></div>' +
+            '<strong class="exp-contract-count"></strong>' +
+          "</div>" +
+          '<div class="exp-contract-foot">' +
+            '<span class="exp-contract-reward"></span>' +
+            '<div class="exp-contract-action"></div>' +
+          "</div>";
+        card.querySelector(".exp-contract-rarity-label").textContent = (
+          rarityMeta.label || "Commun"
+        ).toUpperCase();
+        card.querySelector(".exp-contract-title").textContent = c.title;
+        card.querySelector(".exp-contract-desc").textContent = c.description;
+        card.querySelector(".exp-contract-fill").style.width = pct.toFixed(1) + "%";
+        card.querySelector(".exp-contract-count").textContent =
+          safeNumber(c.progress, 0) + " / " + c.target;
+        card.querySelector(".exp-contract-reward").textContent =
+          "Récompense : " + describeContractReward(c.reward);
+        const statusEl = card.querySelector(".exp-contract-status");
+        const action = card.querySelector(".exp-contract-action");
+        if (isClaimed) {
+          statusEl.textContent = "Récupéré";
+        } else if (isReady) {
+          statusEl.textContent = "Terminé";
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn expedition-launch exp-contract-claim";
+          btn.textContent = "Récupérer";
+          btn.addEventListener("click", () => {
+            const res = claimContract(c.id);
+            if (res && res.ok) renderExpeditionContractsPanel();
+          });
+          action.appendChild(btn);
+        } else {
+          statusEl.textContent = "En cours";
+        }
+        grid.appendChild(card);
+      });
+      root.appendChild(grid);
+    }
+
+    function renderExpeditionThreatsPanel() {
+      const root = document.getElementById("expedition-threats-root");
+      if (!root) return;
+      ensureExpeditionState();
+      root.innerHTML = "";
+      const threat = getActiveThreat();
+      if (!threat) {
+        const empty = document.createElement("div");
+        empty.className = "exp-threat-empty";
+        empty.innerHTML =
+          '<p class="exp-threat-empty-title">Aucune menace détectée</p>' +
+          '<p class="exp-subpanel-hint">Terminez des expéditions pour découvrir des créatures dangereuses.</p>';
+        root.appendChild(empty);
+        return;
+      }
+      const card = document.createElement("article");
+      card.className = "exp-threat-card";
+      const media = document.createElement("div");
+      media.className = "exp-threat-media";
+      media.innerHTML = '<img alt="" draggable="false" decoding="async" />';
+      applyExpeditionImage(media.querySelector("img"), threat.image, threat.name);
+      card.appendChild(media);
+      const body = document.createElement("div");
+      body.className = "exp-threat-body";
+      body.innerHTML =
+        '<p class="exp-threat-kicker">Menace détectée</p>' +
+        '<h3 class="exp-threat-title"></h3>' +
+        '<p class="exp-threat-region"></p>' +
+        '<div class="exp-threat-meta">' +
+          '<span class="expedition-chip-meta">Durée <strong></strong></span>' +
+          '<span class="expedition-chip-meta">PD conseillée <strong></strong></span>' +
+        "</div>" +
+        '<p class="exp-threat-reward">Récompenses améliorées</p>' +
+        '<div class="exp-threat-action"></div>';
+      body.querySelector(".exp-threat-title").textContent = threat.name;
+      body.querySelector(".exp-threat-region").textContent =
+        "Région — " + getExpeditionZoneLabel(threat.zoneId);
+      const strongs = body.querySelectorAll(".expedition-chip-meta strong");
+      strongs[0].textContent = formatDuration(threat.durationMs);
+      strongs[1].textContent = formatNumber(threat.recommendedPower);
+      const action = body.querySelector(".exp-threat-action");
+      if (threat.state === "running") {
+        const busy = getBusyExpeditionRun();
+        const p = document.createElement("p");
+        p.className = "exp-threat-running";
+        if (busy && busy.run && busy.run.expeditionId === threat.id) {
+          p.textContent = busy.run.resolved
+            ? "Menace terminée — récupérez la récompense dans le Hall."
+            : "En cours — " + formatCountdown(getExpeditionRemainingTime(busy.run));
+        } else {
+          p.textContent = "Menace en cours.";
+        }
+        action.appendChild(p);
+      } else {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn expedition-launch exp-threat-prepare";
+        btn.textContent = "Préparer";
+        btn.addEventListener("click", () => prepareThreatFromMenu());
+        action.appendChild(btn);
+      }
+      card.appendChild(body);
+      root.appendChild(card);
+    }
+
+    function getExpeditionOutlookFromChance(chance) {
+      const c = safeNumber(chance, 0);
+      if (c >= 1) return { label: "Très favorable", tone: "is-good" };
+      if (c >= 0.8) return { label: "Favorable", tone: "is-mid" };
+      if (c >= 0.6) return { label: "Correct", tone: "is-mid" };
+      return { label: "Risqué", tone: "is-bad" };
+    }
+
+    function updateExpeditionHallChrome() {
+      const titleEl = document.querySelector(".expedition-hall-title");
+      const backBtn = document.getElementById("expedition-drawer-back");
+      const drawer = document.getElementById("expedition-drawer");
+      const inPrepare =
+        expeditionUi.mode === "prepare" && !!expeditionUi.selectedExpeditionId;
+      const def = inPrepare ? getExpeditionDef(expeditionUi.selectedExpeditionId) : null;
+      if (titleEl) {
+        titleEl.textContent = def && def.name ? def.name : "Hall des Expéditions";
+      }
+      if (backBtn) {
+        const showBack =
+          inPrepare || expeditionReturnToHub || expeditionReturnTarget === "threats";
+        backBtn.hidden = !showBack;
+        backBtn.setAttribute(
+          "aria-label",
+          inPrepare
+            ? (expeditionReturnTarget === "threats"
+              ? "Retour aux Menaces"
+              : "Retour au Hall des Expéditions")
+            : "Retour au hub Expéditions"
+        );
+        backBtn.dataset.prepareBack = inPrepare ? "1" : "0";
+      }
+      if (drawer) drawer.classList.toggle("is-prepare", inPrepare);
     }
 
     function toggleExpeditionDragon(dragonId) {
@@ -7327,6 +9027,8 @@
       tickExpeditions();
 
       root.innerHTML = "";
+      updateExpeditionHallSummary();
+      updateExpeditionHallChrome();
 
       if (!areExpeditionsUnlocked()) {
         hideExpeditionRewardsTip(true);
@@ -7337,6 +9039,8 @@
 
       if (expeditionUi.mode === "prepare" && expeditionUi.selectedExpeditionId) {
         hideExpeditionRewardsTip(true);
+        const summary = document.getElementById("expedition-hall-summary");
+        if (summary) summary.hidden = true;
         root.appendChild(buildExpeditionPrepareView());
         expeditionsDirty = false;
         return;
@@ -7488,15 +9192,7 @@
       el.className = "expedition-rewards-tip is-hidden";
       el.setAttribute("role", "tooltip");
       el.hidden = true;
-      el.addEventListener("mouseenter", () => {
-        if (expeditionRewardsTip.hideTimer) {
-          clearTimeout(expeditionRewardsTip.hideTimer);
-          expeditionRewardsTip.hideTimer = 0;
-        }
-      });
-      el.addEventListener("mouseleave", () => {
-        if (!expeditionRewardsTip.pinned) scheduleHideExpeditionRewardsTip();
-      });
+      /* pointer-events:none sur le tip — pas de hover bridge via la popup */
       const host = document.getElementById("expedition-drawer") || document.body;
       host.appendChild(el);
       expeditionRewardsTip.el = el;
@@ -7670,10 +9366,16 @@
       if (!expRoot || expRoot.dataset.rewardsTipBound) return;
       expRoot.dataset.rewardsTipBound = "1";
 
+      /*
+        mouseover/out ciblés : le trigger Récompenses est désormais en width:max-content
+        (plus de flex:1). On ignore tout hover hors de ce bouton.
+      */
       expRoot.addEventListener("mouseover", (ev) => {
         if (!prefersFineHover()) return;
         const btn = ev.target.closest('[data-action="expedition-rewards-tip"]');
         if (!btn || !expRoot.contains(btn)) return;
+        const from = ev.relatedTarget;
+        if (from && btn.contains(from)) return;
         showExpeditionRewardsTip(btn, { pinned: false });
       });
 
@@ -7681,10 +9383,11 @@
         if (!prefersFineHover()) return;
         const btn = ev.target.closest('[data-action="expedition-rewards-tip"]');
         if (!btn || !expRoot.contains(btn)) return;
-        const related = ev.relatedTarget;
-        const tip = expeditionRewardsTip.el;
-        if (related && (btn.contains(related) || (tip && tip.contains(related)))) return;
-        if (!expeditionRewardsTip.pinned) scheduleHideExpeditionRewardsTip();
+        const to = ev.relatedTarget;
+        if (to && btn.contains(to)) return;
+        if (expeditionRewardsTip.trigger === btn && !expeditionRewardsTip.pinned) {
+          hideExpeditionRewardsTip(true);
+        }
       });
 
       expRoot.addEventListener("click", (ev) => {
@@ -7693,7 +9396,6 @@
         ev.preventDefault();
         ev.stopPropagation();
         if (prefersFineHover()) {
-          /* Desktop : hover suffit ; clic garde la tip ouverte brièvement */
           showExpeditionRewardsTip(btn, { pinned: false });
           return;
         }
@@ -7709,11 +9411,17 @@
 
       document.addEventListener("click", (ev) => {
         if (!expeditionRewardsTip.openId) return;
-        const tip = expeditionRewardsTip.el;
-        if (tip && tip.contains(ev.target)) return;
         if (ev.target.closest && ev.target.closest('[data-action="expedition-rewards-tip"]')) return;
         hideExpeditionRewardsTip(true);
       }, true);
+
+      const hallScroll = document.querySelector(".expedition-hall-scroll");
+      if (hallScroll && !hallScroll.dataset.rewardsTipScrollBound) {
+        hallScroll.dataset.rewardsTipScrollBound = "1";
+        hallScroll.addEventListener("scroll", () => {
+          if (expeditionRewardsTip.openId) hideExpeditionRewardsTip(true);
+        }, { passive: true });
+      }
 
       window.addEventListener("resize", () => {
         if (expeditionRewardsTip.openId && expeditionRewardsTip.trigger) {
@@ -7743,11 +9451,10 @@
       img.loading = "eager";
       applyExpeditionImage(img, def.image, def.name);
       media.appendChild(img);
-      card.appendChild(media);
-
       const overlay = document.createElement("div");
       overlay.className = "expedition-card-overlay";
-      card.appendChild(overlay);
+      media.appendChild(overlay);
+      card.appendChild(media);
 
       if (status !== "idle") {
         const badge = document.createElement("div");
@@ -7759,13 +9466,13 @@
         card.appendChild(badge);
       }
 
+      const body = document.createElement("div");
+      body.className = "expedition-card-body";
+
       const title = document.createElement("h3");
       title.className = "expedition-card-title";
       title.textContent = def.name;
-      card.appendChild(title);
-
-      const body = document.createElement("div");
-      body.className = "expedition-card-body";
+      body.appendChild(title);
 
       if (opts.foreignActive || (status !== "idle" && def.zoneId !== getCurrentZone().id)) {
         const origin = document.createElement("p");
@@ -7777,18 +9484,43 @@
       const meta = document.createElement("div");
       meta.className = "expedition-card-meta";
       meta.innerHTML =
-        '<span class="expedition-chip-meta">⏱ <strong></strong></span>' +
-        '<span class="expedition-chip-meta">💪 Puissance conseillée : <strong></strong></span>';
+        '<span class="expedition-chip-meta">Durée <strong></strong></span>' +
+        '<span class="expedition-chip-meta">PD conseillée <strong></strong></span>';
       const metas = meta.querySelectorAll("strong");
       metas[0].textContent = formatDuration(def.durationMs);
       metas[1].textContent = formatNumber(def.recommendedPower);
       body.appendChild(meta);
 
-      if (def.description && status === "idle") {
-        const lore = document.createElement("p");
-        lore.className = "expedition-card-lore";
-        lore.textContent = def.description;
-        body.appendChild(lore);
+      if (status === "idle") {
+        const powerCtx = getExpeditionTooltipPowerContext(def);
+        const teamPower = safeNumber(powerCtx.teamPower, 0);
+        let teamCount = 0;
+        if (
+          def &&
+          expeditionUi.selectedExpeditionId === def.id &&
+          Array.isArray(expeditionUi.selectedDragons)
+        ) {
+          teamCount = expeditionUi.selectedDragons.length;
+        } else if (typeof getTeam === "function") {
+          teamCount = getTeam().filter(Boolean).length;
+        }
+        const chance = calculateSuccessChance(teamPower, def.recommendedPower);
+        const outlook = document.createElement("p");
+        outlook.className = "expedition-card-outlook";
+        const statusEl = document.createElement("span");
+        statusEl.className = "expedition-card-outlook-status";
+        if (!teamCount || teamPower <= 0) {
+          outlook.classList.add("is-empty");
+          outlook.textContent = "Équipe 0/" + EXPEDITION_PARTY_MAX + " ";
+          statusEl.textContent = "Aucune équipe";
+        } else {
+          const outlookInfo = getExpeditionOutlookFromChance(chance);
+          outlook.classList.add(outlookInfo.tone);
+          outlook.textContent = "Équipe " + formatNumber(teamPower) + " ";
+          statusEl.textContent = outlookInfo.label;
+        }
+        outlook.appendChild(statusEl);
+        body.appendChild(outlook);
       }
 
       if (status === "running" && busy && busy.run) {
@@ -7871,7 +9603,7 @@
       rewardsBtn.dataset.expeditionId = def.id;
       rewardsBtn.setAttribute("aria-label", "Voir les récompenses possibles");
       rewardsBtn.setAttribute("aria-expanded", "false");
-      rewardsBtn.textContent = "🎁 RÉCOMPENSES ?";
+      rewardsBtn.textContent = "🎁 Récompenses";
       actions.appendChild(rewardsBtn);
 
       if (status === "done" && busy) {
@@ -7924,161 +9656,125 @@
         return wrap;
       }
 
-      const back = document.createElement("button");
-      back.type = "button";
-      back.className = "btn btn-secondary expedition-back";
-      back.textContent = "← Retour";
-      back.addEventListener("click", () => {
-        expeditionUi.mode = "list";
-        expeditionUi.selectedExpeditionId = null;
-        expeditionUi.selectedDragons = [];
-        expeditionsDirty = true;
-        renderExpeditions();
-      });
-      wrap.appendChild(back);
-
-      if (def.image) {
-        const preview = document.createElement("div");
-        preview.className = "expedition-card";
-        preview.style.minHeight = "160px";
-        preview.innerHTML =
-          '<div class="expedition-card-media"><img alt="" draggable="false" /></div>' +
-          '<div class="expedition-card-overlay"></div>' +
-          '<h3 class="expedition-card-title"></h3>';
-        applyExpeditionImage(preview.querySelector("img"), def.image, def.name);
-        preview.querySelector(".expedition-card-title").textContent = def.name;
-        wrap.appendChild(preview);
-      }
-
-      const head = document.createElement("div");
-      head.className = "expedition-head";
-      head.innerHTML = "<h3></h3><p></p>";
-      head.querySelector("h3").textContent = def.name;
-      head.querySelector("p").textContent =
-        "Durée " + formatDuration(def.durationMs) +
-        " · Puissance conseillée " + formatNumber(def.recommendedPower);
-      wrap.appendChild(head);
-
-      if (def.description) {
-        const lore = document.createElement("p");
-        lore.className = "expedition-card-lore";
-        lore.textContent = def.description;
-        wrap.appendChild(lore);
-      }
-
       const teamPower = calculateExpeditionTeamPower(expeditionUi.selectedDragons);
       const chance = calculateSuccessChance(teamPower, def.recommendedPower);
-      const chestQuality = getChestQualityLabel(teamPower, def.recommendedPower);
-      const stats = document.createElement("div");
-      stats.className = "expedition-stats";
-      stats.innerHTML =
-        '<div><span>Puissance envoyée</span><strong></strong></div>' +
-        '<div><span>Puissance recommandée</span><strong></strong></div>' +
-        '<div><span>Chance de réussite</span><strong></strong></div>' +
-        '<div class="expedition-chest-quality"><span>Qualité des coffres</span><strong></strong></div>';
-      const strongs = stats.querySelectorAll("strong");
-      strongs[0].textContent = formatNumber(teamPower);
-      strongs[1].textContent = formatNumber(def.recommendedPower);
-      strongs[2].textContent = Math.round(chance * 100) + " %";
-      strongs[3].textContent = chestQuality;
-      wrap.appendChild(stats);
+      const outlook = getExpeditionOutlookFromChance(
+        expeditionUi.selectedDragons.length ? chance : 0
+      );
+      const nSel = expeditionUi.selectedDragons.length;
+      const emptyTeam = nSel === 0;
 
-      const pickTitle = document.createElement("h4");
-      pickTitle.className = "expedition-subtitle";
-      pickTitle.textContent = "Sélectionnez jusqu'à " + EXPEDITION_PARTY_MAX + " dragons";
-      wrap.appendChild(pickTitle);
+      /* IMAGE */
+      const hero = document.createElement("div");
+      hero.className = "expedition-prepare-hero";
+      hero.innerHTML =
+        '<div class="expedition-prepare-media">' +
+          '<img alt="" draggable="false" decoding="async" />' +
+          '<div class="expedition-prepare-media-fade" aria-hidden="true"></div>' +
+        "</div>";
+      applyExpeditionImage(hero.querySelector("img"), def.image, def.name);
+      wrap.appendChild(hero);
 
-      const countLine = document.createElement("p");
-      countLine.className = "expedition-party-count";
-      countLine.textContent =
-        "Dragons sélectionnés : " + expeditionUi.selectedDragons.length + " / " + EXPEDITION_PARTY_MAX;
-      wrap.appendChild(countLine);
+      /* DURÉE + PD */
+      const meta = document.createElement("div");
+      meta.className = "expedition-prepare-meta";
+      meta.innerHTML =
+        '<span class="expedition-chip-meta"><strong></strong></span>' +
+        '<span class="expedition-chip-meta">PD conseillée <strong></strong></span>';
+      const metaStrong = meta.querySelectorAll("strong");
+      metaStrong[0].textContent = formatDuration(def.durationMs);
+      metaStrong[1].textContent = formatNumber(def.recommendedPower);
+      wrap.appendChild(meta);
+
+      /* TON ÉQUIPE */
+      const teamSec = document.createElement("section");
+      teamSec.className = "expedition-prepare-team";
+      const teamTitle = document.createElement("h3");
+      teamTitle.className = "expedition-prepare-team-title";
+      teamTitle.textContent = "Ton équipe";
+      teamSec.appendChild(teamTitle);
 
       const slots = document.createElement("div");
       slots.className = "expedition-party-slots";
       slots.setAttribute("aria-label", "Emplacements de dragons");
       for (let s = 0; s < EXPEDITION_PARTY_MAX; s++) {
-        const slot = document.createElement("div");
         const dragonId = expeditionUi.selectedDragons[s];
-        slot.className = "expedition-party-slot" + (dragonId ? " filled" : "");
+        const slot = document.createElement("button");
+        slot.type = "button";
+        slot.className = "expedition-party-slot" + (dragonId ? " filled" : " is-empty");
         if (dragonId) {
           const d = getDragonDef(dragonId);
+          slot.setAttribute("aria-label", (d ? d.name : dragonId) + " — retirer");
           slot.innerHTML =
-            '<span class="eps-label"></span><button type="button" class="eps-remove" aria-label="Retirer">✕</button>';
+            '<span class="eps-art"><img alt="" draggable="false" hidden /><span class="dc-emoji"></span></span>' +
+            '<span class="eps-label"></span>' +
+            '<span class="eps-remove" aria-hidden="true">✕</span>';
           slot.querySelector(".eps-label").textContent = d ? d.name : dragonId;
-          slot.querySelector(".eps-remove").addEventListener("click", (ev) => {
-            ev.stopPropagation();
-            toggleExpeditionDragon(dragonId);
-          });
+          const emoji = slot.querySelector(".dc-emoji");
+          emoji.textContent = (d && d.icon) || "🐲";
+          if (d) {
+            loadAssetImage(slot.querySelector("img"), emoji, getDragonAsset(d, "thumb"), {
+              silhouette: false,
+              fallbackSrc: d.image
+            });
+          }
+          slot.addEventListener("click", () => toggleExpeditionDragon(dragonId));
         } else {
-          slot.innerHTML = '<span class="eps-empty">Slot ' + (s + 1) + "</span>";
+          slot.setAttribute("aria-label", "Ajouter un dragon");
+          slot.innerHTML = '<span class="eps-plus" aria-hidden="true">+</span>';
+          slot.addEventListener("click", () => {
+            expeditionPreparePickerOpen = true;
+            expeditionsDirty = true;
+            renderExpeditions();
+            const picker = document.querySelector(".expedition-prepare-picker");
+            if (picker) picker.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          });
         }
         slots.appendChild(slot);
       }
-      wrap.appendChild(slots);
+      teamSec.appendChild(slots);
 
-      const gridTitle = document.createElement("h4");
-      gridTitle.className = "expedition-subtitle";
-      gridTitle.textContent = "Dragons disponibles";
-      wrap.appendChild(gridTitle);
+      const powerLine = document.createElement("div");
+      powerLine.className =
+        "expedition-prepare-power" + (emptyTeam ? " is-empty" : " " + outlook.tone);
+      powerLine.innerHTML =
+        '<span class="expedition-prepare-power-val">Puissance : <strong></strong></span>' +
+        '<span class="expedition-prepare-outlook"><span class="dot" aria-hidden="true">●</span> <span class="label"></span></span>';
+      powerLine.querySelector("strong").textContent =
+        formatNumber(teamPower) + " / " + formatNumber(def.recommendedPower);
+      powerLine.querySelector(".label").textContent = emptyTeam
+        ? "Risqué"
+        : outlook.label;
+      teamSec.appendChild(powerLine);
+      wrap.appendChild(teamSec);
 
-      const grid = document.createElement("div");
-      grid.className = "expedition-dragon-grid";
-      const owned = DRAGON_DEFS.filter((d) =>
-        !d.secret && isDragonDiscovered(gameState.dragons[d.id], d.id, gameState)
-      );
-      if (!owned.length) {
-        const p = document.createElement("p");
-        p.className = "panel-hint";
-        p.textContent = "Aucun dragon découvert.";
-        grid.appendChild(p);
-      }
-      owned.forEach((d) => {
-        const entry = gameState.dragons[d.id];
-        const stars = Math.max(1, safeNumber(entry.stars, 1));
-        const rarity = RARITIES[d.rarity] || RARITIES.common;
-        const avail = getDragonAvailability(d.id);
-        const selected = expeditionUi.selectedDragons.indexOf(d.id) !== -1;
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className =
-          "expedition-dragon " + rarity.css +
-          (selected ? " selected" : "") +
-          (avail !== "AVAILABLE" ? " locked" : "");
-        btn.disabled = avail !== "AVAILABLE" && !selected;
-        btn.innerHTML =
-          '<span class="ed-art"><img alt="" draggable="false" hidden /><span class="dc-emoji"></span></span>' +
-          '<span class="ed-name"></span>' +
-          '<span class="ed-rarity"></span>' +
-          '<span class="ed-stars"></span>' +
-          '<span class="ed-power"></span>' +
-          '<span class="ed-status"></span>';
-        const emoji = btn.querySelector(".dc-emoji");
-        emoji.textContent = d.icon || "🐲";
-        loadAssetImage(btn.querySelector("img"), emoji, getDragonAsset(d, "thumb"), {
-          silhouette: false,
-          fallbackSrc: d.image
-        });
-        btn.querySelector(".ed-name").textContent = d.name;
-        btn.querySelector(".ed-rarity").textContent = rarity.label;
-        btn.querySelector(".ed-stars").textContent =
-          "★".repeat(stars) + "☆".repeat(MAX_DRAGON_STARS - stars);
-        btn.querySelector(".ed-power").textContent =
-          "Puissance : " + formatNumber(calculateDragonExpeditionPower(d.id));
-        const statusEl = btn.querySelector(".ed-status");
-        if (avail === "ACTIVE_TEAM") statusEl.textContent = "Équipe active";
-        else if (avail === "EXPEDITION") statusEl.textContent = "En expédition";
-        else statusEl.textContent = selected ? "Sélectionné" : "Disponible";
-        btn.addEventListener("click", () => toggleExpeditionDragon(d.id));
-        grid.appendChild(btn);
-      });
-      wrap.appendChild(grid);
+      /* RÉCOMPENSES */
+      const rewardsRow = document.createElement("div");
+      rewardsRow.className = "expedition-prepare-rewards";
+      const rewardsBtn = document.createElement("button");
+      rewardsBtn.type = "button";
+      rewardsBtn.className = "expedition-btn-rewards expedition-prepare-rewards-trigger";
+      rewardsBtn.dataset.action = "expedition-rewards-tip";
+      rewardsBtn.dataset.expeditionId = def.id;
+      rewardsBtn.setAttribute("aria-label", "Voir les récompenses possibles");
+      rewardsBtn.setAttribute("aria-expanded", "false");
+      rewardsBtn.textContent = "🎁 Récompenses possibles";
+      const detailsBtn = document.createElement("button");
+      detailsBtn.type = "button";
+      detailsBtn.className = "expedition-prepare-details";
+      detailsBtn.dataset.action = "expedition-rewards-tip";
+      detailsBtn.dataset.expeditionId = def.id;
+      detailsBtn.setAttribute("aria-label", "Détails des récompenses");
+      detailsBtn.textContent = "Détails ›";
+      rewardsRow.appendChild(rewardsBtn);
+      rewardsRow.appendChild(detailsBtn);
+      wrap.appendChild(rewardsRow);
 
+      /* LANCER */
       const launch = document.createElement("button");
       launch.type = "button";
       launch.className = "btn expedition-launch";
       launch.textContent = "Lancer l'expédition";
-      const nSel = expeditionUi.selectedDragons.length;
       launch.disabled = nSel < EXPEDITION_PARTY_MIN || nSel > EXPEDITION_PARTY_MAX;
       launch.addEventListener("click", () => {
         const res = startExpedition(def.id, expeditionUi.selectedDragons);
@@ -8086,9 +9782,99 @@
           showNotification("🧭 Expédition", "Impossible de lancer la mission.");
           return;
         }
+        expeditionPreparePickerOpen = false;
         renderExpeditions();
       });
       wrap.appendChild(launch);
+
+      /* PICKER (ouvert via [+]) */
+      const picker = document.createElement("section");
+      picker.className =
+        "expedition-prepare-picker" + (expeditionPreparePickerOpen ? " is-open" : "");
+      picker.hidden = !expeditionPreparePickerOpen;
+      if (expeditionPreparePickerOpen) {
+        const pickerHead = document.createElement("div");
+        pickerHead.className = "expedition-prepare-picker-head";
+        const pickerTitle = document.createElement("h4");
+        pickerTitle.className = "expedition-subtitle";
+        pickerTitle.textContent =
+          "Choisir un dragon (" + nSel + "/" + EXPEDITION_PARTY_MAX + ")";
+        const pickerClose = document.createElement("button");
+        pickerClose.type = "button";
+        pickerClose.className = "expedition-prepare-picker-close";
+        pickerClose.setAttribute("aria-label", "Fermer la sélection");
+        pickerClose.textContent = "Fermer";
+        pickerClose.addEventListener("click", () => {
+          expeditionPreparePickerOpen = false;
+          expeditionsDirty = true;
+          renderExpeditions();
+        });
+        pickerHead.appendChild(pickerTitle);
+        pickerHead.appendChild(pickerClose);
+        picker.appendChild(pickerHead);
+
+        const grid = document.createElement("div");
+        grid.className = "expedition-dragon-grid";
+        const owned = DRAGON_DEFS.filter((d) =>
+          !d.secret && isDragonDiscovered(gameState.dragons[d.id], d.id, gameState)
+        );
+        if (!owned.length) {
+          const p = document.createElement("p");
+          p.className = "panel-hint";
+          p.textContent = "Aucun dragon découvert.";
+          grid.appendChild(p);
+        }
+        owned.forEach((d) => {
+          const entry = gameState.dragons[d.id];
+          const stars = Math.max(1, safeNumber(entry.stars, 1));
+          const rarity = RARITIES[d.rarity] || RARITIES.common;
+          const avail = getDragonAvailability(d.id);
+          const selected = expeditionUi.selectedDragons.indexOf(d.id) !== -1;
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className =
+            "expedition-dragon " + rarity.css +
+            (selected ? " selected" : "") +
+            (avail !== "AVAILABLE" ? " locked" : "");
+          btn.disabled = avail !== "AVAILABLE" && !selected;
+          btn.innerHTML =
+            '<span class="ed-art"><img alt="" draggable="false" hidden /><span class="dc-emoji"></span></span>' +
+            '<span class="ed-name"></span>' +
+            '<span class="ed-rarity"></span>' +
+            '<span class="ed-stars"></span>' +
+            '<span class="ed-power"></span>' +
+            '<span class="ed-status"></span>';
+          const emoji = btn.querySelector(".dc-emoji");
+          emoji.textContent = d.icon || "🐲";
+          loadAssetImage(btn.querySelector("img"), emoji, getDragonAsset(d, "thumb"), {
+            silhouette: false,
+            fallbackSrc: d.image
+          });
+          btn.querySelector(".ed-name").textContent = d.name;
+          btn.querySelector(".ed-rarity").textContent = rarity.label;
+          btn.querySelector(".ed-stars").textContent =
+            "★".repeat(stars) + "☆".repeat(MAX_DRAGON_STARS - stars);
+          btn.querySelector(".ed-power").textContent =
+            "Puissance : " + formatNumber(calculateDragonExpeditionPower(d.id));
+          const statusEl = btn.querySelector(".ed-status");
+          if (avail === "ACTIVE_TEAM") statusEl.textContent = "Équipe active";
+          else if (avail === "EXPEDITION") statusEl.textContent = "En expédition";
+          else statusEl.textContent = selected ? "Sélectionné" : "Disponible";
+          btn.addEventListener("click", () => {
+            const already = expeditionUi.selectedDragons.indexOf(d.id) !== -1;
+            if (!already && expeditionUi.selectedDragons.length + 1 >= EXPEDITION_PARTY_MAX) {
+              expeditionPreparePickerOpen = false;
+            } else {
+              expeditionPreparePickerOpen = true;
+            }
+            toggleExpeditionDragon(d.id);
+          });
+          grid.appendChild(btn);
+        });
+        picker.appendChild(grid);
+      }
+      wrap.appendChild(picker);
+
       return wrap;
     }
 
@@ -10659,6 +12445,7 @@
         team: gameState.team,
         redeemedCodes: Array.isArray(gameState.redeemedCodes) ? gameState.redeemedCodes.slice() : [],
         chests: sanitizeChestInventory(gameState.chests),
+        inventory: sanitizeInventory(gameState.inventory),
         nextFreeChestAt: Math.max(0, Math.floor(safeNumber(gameState.nextFreeChestAt, 0))),
         fragmentBonusAccumulator: safeNumber(gameState.fragmentBonusAccumulator, 0),
         eggProgressAccumulator: safeNumber(gameState.eggProgressAccumulator, 0),
@@ -11131,6 +12918,7 @@
       }
 
       fresh.chests = sanitizeChestInventory(data.chests);
+      fresh.inventory = sanitizeInventory(data.inventory);
       /* Legacy sans champ : coffre régulier immédiatement disponible */
       fresh.nextFreeChestAt = Math.max(0, Math.floor(safeNumber(data.nextFreeChestAt, 0)));
 
@@ -11155,6 +12943,103 @@
           Math.floor(safeNumber(src.unlockedSlots, DEFAULT_EXPEDITION_SLOTS))
         );
         if (src.systemUnlocked) fresh.expeditions.systemUnlocked = true;
+
+        /* Menace active (avant slots — getExpeditionDef menace dépend de ceci) */
+        if (src.activeThreat && typeof src.activeThreat === "object") {
+          const t = src.activeThreat;
+          fresh.expeditions.activeThreat = {
+            id: String(t.id || ("threat_" + Date.now())),
+            name: String(t.name || "Menace"),
+            zoneId: t.zoneId || "sanctuary",
+            sourceExpeditionId: t.sourceExpeditionId || null,
+            recommendedPower: Math.max(1, Math.floor(safeNumber(t.recommendedPower, 1))),
+            durationMs: Math.max(60000, Math.floor(safeNumber(t.durationMs, 600000))),
+            image: typeof t.image === "string" ? t.image : "",
+            description: typeof t.description === "string" ? t.description : "",
+            rewardPreview: typeof t.rewardPreview === "string" ? t.rewardPreview : "",
+            rewardConfig: t.rewardConfig && typeof t.rewardConfig === "object" ? t.rewardConfig : {},
+            state: t.state === "running" ? "running" : "detected",
+            runId: t.runId || null
+          };
+        }
+        if (src.contractProcessedRuns && typeof src.contractProcessedRuns === "object") {
+          fresh.expeditions.contractProcessedRuns = Object.assign({}, src.contractProcessedRuns);
+        }
+        if (src.threatRolledRuns && typeof src.threatRolledRuns === "object") {
+          fresh.expeditions.threatRolledRuns = Object.assign({}, src.threatRolledRuns);
+        }
+        /* Contrats quotidiens V2 */
+        if (src.dailyContracts && typeof src.dailyContracts === "object") {
+          const dc = src.dailyContracts;
+          fresh.expeditions.dailyContracts = {
+            dateKey: typeof dc.dateKey === "string" ? dc.dateKey : null,
+            contracts: Array.isArray(dc.contracts)
+              ? dc.contracts
+                  .filter((c) => c && typeof c === "object")
+                  .slice(0, CONTRACT_ACTIVE_MAX)
+                  .map((c) => ({
+                    id: String(c.id || ("ctr_" + Math.random().toString(36).slice(2))),
+                    templateId: c.templateId || "finish_c",
+                    title: String(c.title || "Contrat"),
+                    type: c.type || "finish",
+                    rarity: c.rarity || "common",
+                    target: Math.max(1, Math.floor(safeNumber(c.target, 1))),
+                    progress: Math.max(0, Math.floor(safeNumber(c.progress, 0))),
+                    zoneId: c.zoneId || null,
+                    minDragonRarity: c.minDragonRarity || null,
+                    dominationRatio:
+                      c.dominationRatio != null ? safeNumber(c.dominationRatio, null) : null,
+                    minDurationMs:
+                      c.minDurationMs != null ? safeNumber(c.minDurationMs, null) : null,
+                    description: String(c.description || ""),
+                    reward:
+                      c.reward && typeof c.reward === "object"
+                        ? c.reward
+                        : { kind: "essence", amount: 1000 },
+                    status:
+                      c.claimed || c.status === "claimed"
+                        ? "claimed"
+                        : c.status === "ready"
+                          ? "ready"
+                          : "active",
+                    claimed: !!(c.claimed || c.status === "claimed")
+                  }))
+              : []
+          };
+          fresh.expeditions.contracts = fresh.expeditions.dailyContracts.contracts;
+        } else if (Array.isArray(src.contracts) && src.contracts.length) {
+          /* Migration V1 : conserver ready non claim + actifs */
+          fresh.expeditions.contracts = src.contracts
+            .filter((c) => c && typeof c === "object")
+            .slice(0, CONTRACT_ACTIVE_MAX)
+            .map((c) => ({
+              id: String(c.id || ("ctr_" + Math.random().toString(36).slice(2))),
+              templateId: c.templateId || "finish_c",
+              title: String(c.title || "Contrat"),
+              type: c.type || "finish",
+              rarity: c.rarity || "common",
+              target: Math.max(1, Math.floor(safeNumber(c.target, 1))),
+              progress: Math.max(0, Math.floor(safeNumber(c.progress, 0))),
+              zoneId: c.zoneId || null,
+              description: String(c.description || ""),
+              reward:
+                c.reward && typeof c.reward === "object"
+                  ? c.reward
+                  : { kind: "essence", amount: 5000 },
+              status:
+                c.claimed || c.status === "claimed"
+                  ? "claimed"
+                  : c.status === "ready"
+                    ? "ready"
+                    : "active",
+              claimed: !!(c.claimed || c.status === "claimed")
+            }));
+          fresh.expeditions.dailyContracts = {
+            dateKey: null,
+            contracts: fresh.expeditions.contracts
+          };
+        }
+
         const slots = Array.isArray(src.slots) ? src.slots : [];
         fresh.expeditions.slots = [];
         for (let i = 0; i < fresh.expeditions.unlockedSlots; i++) {
@@ -11166,29 +13051,33 @@
           const dragonIds = Array.isArray(run.dragonIds)
             ? run.dragonIds.filter((id) => typeof id === "string" && getDragonDef(id))
             : [];
-          if (!dragonIds.length || !getExpeditionDef(run.expeditionId)) {
+          const runDef =
+            EXPEDITION_DEFS.find((e) => e.id === run.expeditionId) ||
+            (fresh.expeditions.activeThreat &&
+            fresh.expeditions.activeThreat.id === run.expeditionId
+              ? buildThreatExpeditionDef(fresh.expeditions.activeThreat)
+              : null);
+          if (!dragonIds.length || !runDef) {
             fresh.expeditions.slots[i] = null;
             continue;
           }
           fresh.expeditions.slots[i] = {
             id: run.id || ("run_" + i),
             expeditionId: run.expeditionId,
-            zoneId: run.zoneId || (getExpeditionDef(run.expeditionId) || {}).zoneId || null,
+            zoneId: run.zoneId || runDef.zoneId || null,
             dragonIds,
             startTime: safeNumber(run.startTime, Date.now()),
             endTime: safeNumber(run.endTime, Date.now()),
-            durationMs: safeNumber(
-              run.durationMs,
-              (getExpeditionDef(run.expeditionId) || {}).durationMs || 0
-            ),
+            durationMs: safeNumber(run.durationMs, runDef.durationMs || 0),
             teamPower: safeNumber(run.teamPower, 0),
-            recommendedPower: safeNumber(run.recommendedPower, 0),
+            recommendedPower: safeNumber(run.recommendedPower, runDef.recommendedPower || 0),
             successChance: Math.min(1, Math.max(0.4, safeNumber(run.successChance, 0.4))),
             seed: safeNumber(run.seed, Date.now()) >>> 0,
             status: run.status === "ready" || run.resolved ? "ready" : "running",
             resolved: !!run.resolved,
             claimed: false,
             notifiedComplete: !!run.notifiedComplete,
+            isThreat: !!run.isThreat || !!runDef.isThreat,
             result: run.result && typeof run.result === "object" ? {
               success: !!run.result.success,
               power: Math.max(0, safeNumber(run.result.power, 0)),
@@ -11371,6 +13260,7 @@
       currentEggImageStage = null;
       currentEggImageEggId = null;
       expeditionUi = { mode: "list", selectedExpeditionId: null, selectedDragons: [] };
+      expeditionPreparePickerOpen = false;
       calculateProduction();
       applyEggScene(getEquippedEggDef());
       renderEgg();
@@ -12570,6 +14460,19 @@
       if (!bar || !tabs) return;
       const group = getNavGroupForPanel(panelId);
       bar.classList.remove("is-world", "is-shop-close-only");
+      /* Hub Expéditions / Inventaire placeholder : croix sheet-bar type Bestiaire / Succès */
+      if (
+        panelId === "expeditions-hub" ||
+        panelId === "inventory" ||
+        panelId === "expedition-contracts" ||
+        panelId === "expedition-threats"
+      ) {
+        bar.hidden = false;
+        bar.classList.add("is-shop-close-only");
+        tabs.innerHTML = "";
+        tabs.classList.remove("single");
+        return;
+      }
       if (group === "kingdom" || group === "world") {
         bar.hidden = true;
         return;
@@ -12614,13 +14517,20 @@
 
     function switchPanel(name) {
       if (name === "expeditions") {
-        switchPanel("kingdom");
-        openExpeditionDrawer();
+        openExpeditionsHub();
         return;
       }
       /* Améliorations fusionnées dans le panneau Boutique */
       if (name === "upgrades") name = "shop";
-      if (name !== "kingdom") closeExpeditionDrawer();
+      if (name !== "kingdom") closeExpeditionDrawer({ skipHubReturn: true });
+      const hubBtn = document.getElementById("btn-open-expeditions-hub");
+      if (hubBtn) {
+        hubBtn.setAttribute("aria-expanded", name === "expeditions-hub" ? "true" : "false");
+      }
+      const invBtn = document.getElementById("btn-open-inventory");
+      if (invBtn) {
+        invBtn.setAttribute("aria-expanded", name === "inventory" ? "true" : "false");
+      }
       const group = getNavGroupForPanel(name);
       if (group !== "kingdom") lastPanelByGroup[group] = name;
       renderSheetBar(name);
@@ -12698,6 +14608,14 @@
       if (name === "zones") {
         zonesDirty = true;
         closeZoneDetail();
+      }
+      updateMenuBackdrop();
+      if (name === "inventory") {
+        ensureInventory();
+        ensureChestInventory();
+        syncInventoryTabsUi();
+        renderInventoryPanel();
+        updateInventoryBadge();
       }
       if (name === "events") {
         renderEventsMenu();
@@ -12890,7 +14808,7 @@
           return;
         }
         if (isExpeditionDrawerOpen()) {
-          closeExpeditionDrawer();
+          closeExpeditionDrawer({ skipHubReturn: true });
           return;
         }
         if (document.getElementById("team-module").classList.contains("open")) {
@@ -13010,10 +14928,144 @@
           openTeamPicker(slot);
         });
       }
-      const expBtn = document.getElementById("btn-expeditions");
+      const expHubBtn = document.getElementById("btn-open-expeditions-hub");
+      const invBtn = document.getElementById("btn-open-inventory");
+      const expHubHall = document.getElementById("exp-hub-hall");
+      const expHubBody = document.getElementById("expeditions-hub-body")
+        || document.querySelector("#panel-expeditions-hub .expeditions-hub-body");
       const expClose = document.getElementById("expedition-drawer-close");
-      if (expBtn) expBtn.addEventListener("click", () => toggleExpeditionDrawer());
-      if (expClose) expClose.addEventListener("click", () => closeExpeditionDrawer());
+      const expBack = document.getElementById("expedition-drawer-back");
+      if (expHubBtn) {
+        expHubBtn.addEventListener("click", () => {
+          if (isExpeditionsHubOpen()) closeExpeditionsHub();
+          else openExpeditionsHub();
+        });
+      }
+      if (invBtn) {
+        invBtn.addEventListener("click", () => {
+          if (isInventoryPanelOpen()) closeInventoryPanel();
+          else openInventoryPanel();
+        });
+      }
+      const invTabs = document.getElementById("inventory-tabs");
+      if (invTabs && !invTabs.dataset.bound) {
+        invTabs.dataset.bound = "1";
+        invTabs.addEventListener("click", (ev) => {
+          const tabBtn = ev.target.closest(".inventory-tab[data-inv-tab]");
+          if (!tabBtn || !invTabs.contains(tabBtn)) return;
+          playSound("button");
+          setInventoryTab(tabBtn.getAttribute("data-inv-tab"));
+        });
+      }
+      const invClose = document.getElementById("inventory-close");
+      if (invClose) {
+        invClose.addEventListener("click", () => {
+          playSound("button");
+          closeInventoryPanel();
+        });
+      }
+      if (expHubHall) {
+        expHubHall.addEventListener("click", () => openExpeditionHallFromHub());
+      }
+      if (expHubBody && !expHubBody.dataset.hubModsBound) {
+        expHubBody.dataset.hubModsBound = "1";
+        expHubBody.addEventListener("click", (ev) => {
+          const mod = ev.target.closest(".exp-hub-module[data-exp-hub]");
+          if (!mod || !expHubBody.contains(mod)) return;
+          if (mod.id === "exp-hub-hall") return;
+          ev.preventDefault();
+          const kind = mod.getAttribute("data-exp-hub") || "";
+          if (kind === "contracts") {
+            openExpeditionContractsPanel();
+            return;
+          }
+          if (kind === "threats") {
+            openExpeditionThreatsPanel();
+            return;
+          }
+          if (!mod.classList.contains("is-soon")) return;
+          playSound("button");
+          if (kind === "ledger") {
+            showNotification("Registre", "Le registre d'exploration arrive prochainement.");
+          } else {
+            showNotification("Expéditions", "Ce module arrive prochainement.");
+          }
+        });
+      }
+      const contractsBack = document.getElementById("expedition-contracts-back");
+      const contractsClose = document.getElementById("expedition-contracts-close");
+      const threatsBack = document.getElementById("expedition-threats-back");
+      const threatsClose = document.getElementById("expedition-threats-close");
+      if (contractsBack) {
+        contractsBack.addEventListener("click", () => returnToExpeditionsHubFromSubpanel());
+      }
+      if (threatsBack) {
+        threatsBack.addEventListener("click", () => returnToExpeditionsHubFromSubpanel());
+      }
+      if (contractsClose) {
+        contractsClose.addEventListener("click", () => {
+          playSound("button");
+          switchPanel("kingdom");
+          updateMenuBackdrop();
+        });
+      }
+      if (threatsClose) {
+        threatsClose.addEventListener("click", () => {
+          playSound("button");
+          switchPanel("kingdom");
+          updateMenuBackdrop();
+        });
+      }
+      try {
+        window.DCDebug = window.DCDebug || {};
+        window.DCDebug.forceThreatDiscovery = function forceThreatDiscovery() {
+          ensureExpeditionState();
+          const exp = gameState.expeditions;
+          exp.activeThreat = null;
+          const zone = getCurrentZone();
+          const defs = EXPEDITION_DEFS.filter((d) => d.zoneId === zone.id);
+          const src = defs[0] || EXPEDITION_DEFS[0];
+          if (!src) return false;
+          const fakeRun = {
+            id: "debug_threat_" + Date.now(),
+            expeditionId: src.id,
+            zoneId: src.zoneId,
+            result: { success: true },
+            isThreat: false
+          };
+          delete exp.threatRolledRuns[fakeRun.id];
+          const threat = createThreatFromSourceRun(fakeRun);
+          if (!threat) return false;
+          exp.activeThreat = threat;
+          exp.threatRolledRuns[fakeRun.id] = 1;
+          updateExpeditionHubBadges();
+          saveGame(true);
+          showNotification("⚠️ DEV", "Menace forcée : " + threat.name);
+          if (document.getElementById("panel-expedition-threats")?.classList.contains("active")) {
+            renderExpeditionThreatsPanel();
+          }
+          return true;
+        };
+        window.DCDebug.THREAT_DISCOVERY_CHANCE = THREAT_DISCOVERY_CHANCE;
+        window.DCDebug.generateDailyContracts = generateDailyContractsForDev;
+        window.DCDebug.getContractDateKey = getContractDateKey;
+      } catch (e) { /* ignore */ }
+      if (expBack) {
+        expBack.addEventListener("click", () => {
+          playSound("button");
+          if (expBack.dataset.prepareBack === "1" || expeditionUi.mode === "prepare") {
+            leaveExpeditionPrepare();
+            return;
+          }
+          closeExpeditionDrawer();
+        });
+      }
+      if (expClose) {
+        expClose.addEventListener("click", () => {
+          playSound("button");
+          closeExpeditionDrawer({ skipHubReturn: true });
+        });
+      }
       const expRoot = document.getElementById("expeditions-root");
       if (expRoot && !expRoot.dataset.claimDelegate) {
         expRoot.dataset.claimDelegate = "1";
@@ -13154,6 +15206,7 @@
         } else {
           lastFrameTime = performance.now();
           updateRegularChestUI();
+          checkDailyContractsRollover();
         }
       });
     }
@@ -13181,6 +15234,23 @@
       }
 
       calculateProduction();
+      ensureExpeditionState();
+      {
+        const beforeKey =
+          gameState.expeditions &&
+          gameState.expeditions.dailyContracts &&
+          gameState.expeditions.dailyContracts.dateKey;
+        ensureDailyContracts(false);
+        const afterKey =
+          gameState.expeditions &&
+          gameState.expeditions.dailyContracts &&
+          gameState.expeditions.dailyContracts.dateKey;
+        if (afterKey && afterKey !== beforeKey) saveGame(true);
+      }
+      updateExpeditionHubBadges();
+      ensureInventory();
+      ensureChestInventory();
+      updateInventoryBadge();
       applyEggScene(getEquippedEggDef());
       renderEgg();
       renderEggPicker();
@@ -13284,6 +15354,11 @@
         saveGame,
         loadGame,
         resetDragonClickerProgress,
+        getInventoryQuantity,
+        addInventoryItem,
+        removeInventoryItem,
+        hasInventoryItem,
+        ensureInventory,
         getZone1BalanceReport,
         getZone1Completion,
         formatNumber,

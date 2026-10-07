@@ -36,13 +36,37 @@
       --ui-panel-strong: rgba(6, 12, 20, 0.82);
       --ui-gold-edge: rgba(212, 168, 75, 0.45);
       --ui-gold-soft: rgba(240, 208, 120, 0.18);
+
+      /* ---------- Responsive foundation (fluide) ---------- */
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --ui-gap: clamp(6px, 1.2vw, 14px);
+      --ui-padding: clamp(8px, 1.6vw, 18px);
+      --panel-radius: clamp(12px, 1.4vw, 18px);
+      --menu-max-width: min(1480px, calc(100vw - 2 * clamp(8px, 2vw, 28px)));
+      --menu-max-height: min(92dvh, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 16px));
+      --menu-edge: clamp(6px, 1.5vw, 18px);
+      --touch-min: 44px;
+      --side-badge-size: clamp(48px, 5.2vw, 68px);
+      --side-badge-label: clamp(0.52rem, 1.1vw, 0.68rem);
+      --nav-pad-y: clamp(8px, 1.2vw, 12px);
+      --font-ui: clamp(0.75rem, 1.35vw, 0.95rem);
+      --font-title: clamp(1.05rem, 2.2vw, 1.65rem);
+      --font-caption: clamp(0.68rem, 1.1vw, 0.82rem);
+      --app-height: 100vh;
+      --app-height: 100dvh;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
       height: 100%;
+      height: var(--app-height);
+      max-width: 100%;
       overflow: hidden;
+      overflow-x: hidden;
       background: #071018;
       color: var(--text);
       font-family: var(--font-body);
@@ -119,9 +143,13 @@
       display: grid;
       grid-template-rows: auto 1fr auto;
       height: 100%;
-      height: 100dvh;
-      max-width: none;
+      height: var(--app-height);
+      max-width: 100%;
+      width: 100%;
       margin: 0;
+      overflow-x: clip;
+      padding-left: var(--safe-left);
+      padding-right: var(--safe-right);
       --altar-x: 50%;
       --altar-y: 73%;
       /* Remonte le bloc central (titre → progression) au-dessus de la nav */
@@ -129,9 +157,9 @@
       --game-center-x: 50%;
       --hud-pad-top: 0px;
       --dock-pad-bottom: 0px;
-      /* Source unique : taille Å“uf principal (Zone 1 = rÃ©fÃ©rence = Zone 2 actif) */
-      --egg-main-width: clamp(220px, 20vw, 360px);
-      --egg-main-max-height: 46vh;
+      /* Source unique : taille œuf — largeur ET hauteur limitent */
+      --egg-main-width: clamp(200px, min(20vw, 42dvh), 360px);
+      --egg-main-max-height: min(46vh, 46dvh, 52svh);
     }
 
     /* Scene backdrop (full viewport behind UI) */
@@ -697,6 +725,39 @@
       z-index: 10;
     }
 
+    /* Backdrop global partagé — grands menus uniquement (pas tooltips / toasts) */
+    .dc-menu-backdrop {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      background: rgba(6, 12, 22, 0.3);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      transition: opacity 150ms ease, visibility 150ms ease;
+    }
+    .dc-menu-backdrop.is-visible {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+    @media (max-width: 768px) {
+      .dc-menu-backdrop {
+        background: rgba(6, 12, 22, 0.28);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .dc-menu-backdrop {
+        transition: none;
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+      }
+    }
+
     .panel {
       display: none;
       height: 100%;
@@ -715,9 +776,12 @@
     #panel-kingdom.dimmed .team-module,
     #panel-kingdom.dimmed .scene-actions,
     #panel-kingdom.dimmed .scene-left-stack,
+    #panel-kingdom.dimmed .scene-right-stack,
     #panel-kingdom.dimmed .mobile-team-rail,
     #panel-kingdom.dimmed .scene-chests-btn,
-    #panel-kingdom.dimmed .scene-events-btn {
+    #panel-kingdom.dimmed .scene-events-btn,
+    #panel-kingdom.dimmed .scene-expeditions-btn,
+    #panel-kingdom.dimmed .scene-inventory-btn {
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
@@ -734,9 +798,10 @@
       position: absolute;
       inset: 0;
       z-index: 25;
-      background: rgba(8, 10, 14, 0.84);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      /* Flou / assombrissement → .dc-menu-backdrop (plus de gros rectangle noir opaque) */
+      background: transparent;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
       border: none;
       border-radius: 0;
       box-shadow: none;
@@ -1605,468 +1670,180 @@
 
     .mobile-scene-actions .scene-btn { flex: 1; }
 
-    /* ---------- Expedition edge tab + drawer ---------- */
+    /* ---------- Hall des Expéditions — overlay natif (Bestiaire / Succès) ---------- */
     .expedition-drawer {
-      --exp-drawer-w: clamp(500px, 36vw, 600px);
-      --exp-frame-pad-x: clamp(12px, 4.5%, 20px);
-      --exp-frame-pad-y: clamp(10px, 2.8%, 18px);
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      /* Largeur = cadre image (pas plus large) pour coller lâ€™onglet au panneau. */
-      width: auto;
-      max-width: 100%;
-      z-index: 28;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      justify-content: flex-end;
-      padding: 8px 24px 8px 0;
-      background: transparent;
-      border: none;
-      box-shadow: none;
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
-      transform: translateX(100%);
-      transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-      pointer-events: none;
-      visibility: visible;
-      overflow: visible;
-    }
-    .expedition-drawer.open {
-      transform: translateX(0);
-    }
-
-    /* Conteneur : ~550px large, hauteur max 80vh, ancre a droite. */
-    .expedition-frame-shell {
-      position: relative;
-      width: var(--exp-drawer-w);
-      max-width: min(100%, var(--exp-drawer-w));
-      height: min(80vh, calc(var(--exp-drawer-w) * 1536 / 1024));
-      aspect-ratio: auto;
-      flex: 0 0 auto;
-      margin-left: auto;
-      margin-right: 0;
-      background: transparent;
-      border: none;
-      box-shadow: none;
-      overflow: visible;
-      pointer-events: none;
-    }
-    .expedition-drawer.open .expedition-frame-shell {
-      pointer-events: auto;
-    }
-
-    .expedition-frame {
       position: absolute;
       inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: fill;
-      object-position: center center;
-      pointer-events: none;
-      user-select: none;
-      -webkit-user-drag: none;
-      z-index: 0;
-      display: block;
-      border: none;
-      filter: drop-shadow(-4px 2px 14px rgba(0, 0, 0, 0.35));
-    }
-
-    /* Bande header uniquement (position inchangÃ©e). */
-    .expedition-overlay-content {
-      --exp-header-h: 52px;
-      position: absolute;
-      top: 5.8%;
-      right: 6.2%;
-      left: 6.2%;
-      height: var(--exp-header-h);
-      bottom: auto;
-      z-index: 20;
-      display: block;
-      min-height: 0;
-      overflow: visible;
-      pointer-events: none;
-      background: transparent;
-    }
-
-    /* Masque TECHNIQUE invisible â€” % du PNG 1024Ã—1536, mÃªme referentiel que .expedition-frame-shell. */
-    .expedition-inner-frame {
-      position: absolute;
-      top: 15.1%;
-      right: 8.2%;
-      bottom: 6.45%;
-      left: 8.2%;
-      z-index: 5;
-      overflow: hidden;
-      background: transparent;
-      border: none;
-      box-shadow: none;
-      border-radius: 0;
-      box-sizing: border-box;
-      pointer-events: none;
-    }
-
-    /* Onglet latÃ©ral : enfant du drawer, collÃ© au bord dorÃ© visible du PNG. */
-    .expedition-edge-tab {
-      position: absolute;
-      /* FermÃ© : left 0 pour rester accessible au bord de lâ€™Ã©cran. */
-      left: 0;
-      top: 50%;
-      right: auto;
-      transform: translate(calc(-100% + 2px), -50%);
-      z-index: 20;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      width: 44px;
-      min-height: 156px;
-      margin: 0;
-      padding: 18px 7px;
-      border: 1px solid rgba(201, 158, 70, 0.7);
-      border-right: none;
-      border-radius: 12px 0 0 12px;
-      background: linear-gradient(180deg, rgba(18, 28, 42, 0.98), rgba(8, 13, 21, 0.99));
-      box-shadow: -6px 0 18px rgba(0, 0, 0, 0.45);
-      color: #f2e6c8;
-      cursor: pointer;
-      pointer-events: auto;
-      transition:
-        left 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-        border-color 0.15s ease,
-        background 0.15s ease,
-        box-shadow 0.15s ease;
-    }
-    /* Ouvert : dÃ©cale vers la droite jusquâ€™au bord dorÃ© extÃ©rieur du PNG (~x59/1024). */
-    .expedition-drawer.open .expedition-edge-tab {
-      display: none !important;
-    }
-    .expedition-edge-tab:hover {
-      border-color: rgba(240, 208, 120, 0.9);
-      background: linear-gradient(180deg, rgba(24, 34, 50, 0.99), rgba(12, 18, 28, 0.99));
-    }
-    .expedition-edge-tab .exp-tab-ico {
-      font-size: 1.1rem;
-      line-height: 1;
-    }
-    .expedition-edge-tab .exp-tab-label {
-      writing-mode: vertical-rl;
-      text-orientation: mixed;
-      transform: rotate(180deg);
-      font-family: var(--font-display);
-      font-size: 0.74rem;
-      font-weight: 700;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      line-height: 1;
-    }
-    .expedition-edge-tab .exp-btn-status {
-      writing-mode: vertical-rl;
-      text-orientation: mixed;
-      transform: rotate(180deg);
-      font-size: 0.62rem;
-      font-weight: 700;
-      color: #9ad0ff;
-      font-variant-numeric: tabular-nums;
-      letter-spacing: 0.04em;
-      max-height: 72px;
-      overflow: hidden;
-    }
-    .expedition-edge-tab .exp-btn-status[hidden] { display: none; }
-    .expedition-edge-tab .exp-btn-badge {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      font-size: 0.72rem;
-      font-weight: 800;
-      color: #2a1606;
-      background: linear-gradient(180deg, #ffd873, #f0a030);
-      box-shadow: 0 0 10px rgba(255, 170, 50, 0.45);
-    }
-    .expedition-edge-tab .exp-btn-badge[hidden] { display: none; }
-    .expedition-edge-tab.has-claim {
-      border-color: rgba(240, 208, 120, 0.95);
-      box-shadow: -6px 0 18px rgba(0, 0, 0, 0.4), 0 0 14px rgba(255, 180, 60, 0.32);
-    }
-    .expedition-edge-tab.is-running .exp-btn-status { color: #9ad0ff; }
-    .expedition-edge-tab[aria-expanded="true"] {
-      border-color: rgba(240, 208, 120, 0.9);
-      background: linear-gradient(180deg, rgba(24, 34, 48, 0.99), rgba(12, 18, 28, 0.99));
-    }
-    .expedition-edge-tab.is-locked {
-      filter: grayscale(0.85) brightness(0.72);
-      opacity: 0.72;
-      cursor: not-allowed;
-      border-color: rgba(140, 140, 150, 0.45);
-      box-shadow: -4px 0 12px rgba(0, 0, 0, 0.35);
-      color: rgba(190, 190, 200, 0.75);
-    }
-    .expedition-edge-tab.is-locked:hover {
-      border-color: rgba(140, 140, 150, 0.45);
-      background: linear-gradient(180deg, rgba(18, 28, 42, 0.98), rgba(8, 13, 21, 0.99));
-    }
-    .expedition-edge-tab.is-locked .exp-btn-status {
-      color: rgba(180, 180, 190, 0.85);
-    }
-
-    .expedition-drawer-head {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 20;
-      display: flex;
+      z-index: 30;
+      display: none;
       flex-direction: column;
       align-items: center;
       justify-content: flex-start;
-      text-align: center;
-      gap: 2px;
-      flex: none;
-      height: 100%;
-      min-height: 0;
-      max-height: none;
-      padding: 0 56px 8px;
+      overflow: hidden;
+      padding: 72px 1.5% 14px;
       box-sizing: border-box;
-      border-bottom: none;
+      /* Backdrop partagé .dc-menu-backdrop — panneau net au-dessus */
       background: transparent;
-      overflow: visible;
       pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.22s ease;
     }
-    .expedition-drawer-head .expedition-drawer-close {
+    .expedition-drawer.open {
+      display: flex;
       pointer-events: auto;
+      opacity: 1;
+      visibility: visible;
+      /* Contenu en haut — pas d’étirement plein écran */
+      justify-content: flex-start;
+      animation: sheetIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
-    .expedition-drawer-title {
-      margin: 0;
-      flex-shrink: 0;
-      width: auto;
-      max-width: 100%;
-      font-family: var(--font-display);
-      font-size: clamp(21px, 2.2vw, 28px);
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #f8ecd0;
-      text-shadow:
-        0 1px 0 rgba(40, 22, 6, 0.85),
-        0 0 16px rgba(255, 190, 80, 0.28),
-        -1px -1px 0 rgba(20, 10, 2, 0.7),
-        1px 1px 0 rgba(20, 10, 2, 0.7);
-      line-height: 1;
-      text-align: center;
-      white-space: nowrap;
-      word-break: keep-all;
-      overflow-wrap: normal;
-      overflow: visible;
-      text-overflow: clip;
-      transform: translateY(-4px);
-    }
-    .expedition-drawer-sub {
-      margin: 0;
-      font-size: 0.62rem;
-      color: rgba(210, 190, 155, 0.72);
-      line-height: 1.2;
+    /*
+      Fond du Hall = même bleu nuit opaque que .game-large-panel (Bestiaire / Succès).
+      Le voile / blur extérieur est géré à part (.dc-menu-backdrop) — désactivé pour le Hall.
+    */
+    .expedition-drawer .expedition-hall-panel.game-large-panel,
+    .expedition-drawer .expedition-hall-panel {
+      width: 97%;
       max-width: none;
-      white-space: nowrap;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
-      transform: translateY(-3px);
+      flex: 0 1 auto;
+      align-self: center;
+      min-height: 0;
+      height: auto;
+      max-height: min(85vh, 100%);
+      pointer-events: auto;
+      overflow: hidden;
+      /* Identique à .game-large-panel — opaque */
+      background:
+        radial-gradient(ellipse 70% 40% at 50% 0%, rgba(40, 70, 120, 0.28) 0%, transparent 55%),
+        linear-gradient(180deg, rgba(10, 25, 48, 0.97), rgba(4, 10, 20, 0.98));
+      box-shadow:
+        inset 0 0 0 2px rgba(255, 210, 100, 0.12),
+        inset 0 0 28px rgba(0, 0, 0, 0.55),
+        0 0 18px rgba(210, 160, 60, 0.15),
+        0 10px 28px rgba(0, 0, 0, 0.35);
     }
-    .expedition-drawer-close {
+    .expedition-hall-head {
+      position: relative;
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      margin-bottom: 4px;
+    }
+    /*
+      Hub / Hall / préparation Expéditions :
+      aucun blur ni voile noir autour du panneau.
+      Le .overlay-panel (transparent) reste pour bloquer les clics.
+      Le .game-large-panel du Hub reste bleu nuit opaque (Bestiaire).
+    */
+    .main:has(.expedition-drawer.open) > .dc-menu-backdrop,
+    .main:has(.expedition-drawer.open) > .dc-menu-backdrop.is-visible,
+    .main:has(#panel-expeditions-hub.active) > .dc-menu-backdrop,
+    .main:has(#panel-expeditions-hub.active) > .dc-menu-backdrop.is-visible,
+    .main:has(#panel-expedition-contracts.active) > .dc-menu-backdrop,
+    .main:has(#panel-expedition-contracts.active) > .dc-menu-backdrop.is-visible,
+    .main:has(#panel-expedition-threats.active) > .dc-menu-backdrop,
+    .main:has(#panel-expedition-threats.active) > .dc-menu-backdrop.is-visible,
+    .main:has(#panel-inventory.active) > .dc-menu-backdrop,
+    .main:has(#panel-inventory.active) > .dc-menu-backdrop.is-visible {
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+    /* Hub : garantir le fond opaque du panneau (ne pas hériter d’un override transparent) */
+    #panel-expeditions-hub .game-large-panel {
+      background:
+        radial-gradient(ellipse 70% 40% at 50% 0%, rgba(40, 70, 120, 0.28) 0%, transparent 55%),
+        linear-gradient(180deg, rgba(10, 25, 48, 0.97), rgba(4, 10, 20, 0.98));
+      box-shadow:
+        inset 0 0 0 2px rgba(255, 210, 100, 0.12),
+        inset 0 0 28px rgba(0, 0, 0, 0.55),
+        0 0 18px rgba(210, 160, 60, 0.15),
+        0 10px 28px rgba(0, 0, 0, 0.35);
+    }
+    .expedition-hall-title {
+      margin: 2px 48px 10px !important;
+      padding-bottom: 10px !important;
+    }
+    .expedition-hall-back,
+    .expedition-hall-close {
       position: absolute;
-      top: 10px;
-      right: 12px;
-      transform: none;
-      width: 28px;
-      height: 28px;
+      top: 2px;
+      z-index: 4;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       display: grid;
       place-items: center;
-      flex: 0 0 auto;
-      border: 1px solid rgba(212, 170, 78, 0.55);
-      background: rgba(8, 14, 24, 0.55);
-      color: #f2e6c8;
-      font-size: 0.88rem;
+      border: 1px solid rgba(212, 168, 75, 0.45);
+      background: rgba(10, 16, 26, 0.9);
+      color: var(--gold-bright, #f0d078);
+      font-size: 1.05rem;
+      line-height: 1;
       cursor: pointer;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-      transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
-      pointer-events: auto;
-      z-index: 2;
+      transition: transform 0.15s ease, border-color 0.15s ease;
     }
-    .expedition-drawer-close:hover {
-      border-color: rgba(240, 208, 120, 0.85);
-      background: rgba(18, 28, 42, 0.8);
-      transform: scale(1.05);
+    .expedition-hall-back { left: 8px; }
+    .expedition-hall-close { right: 8px; }
+    .expedition-hall-back:hover,
+    .expedition-hall-close:hover {
+      transform: scale(1.08);
+      border-color: var(--gold-bright, #f0d078);
     }
-    /* Viewport = entiÃ¨rement Ã  lâ€™intÃ©rieur du masque (cadre dorÃ© PNG). */
-    .expedition-drawer .expeditions-root,
-    .expedition-scroll-viewport {
-      position: absolute;
-      inset: 0;
+    .expedition-hall-summary {
+      flex: 0 0 auto;
+      position: relative;
       z-index: 1;
-      overflow-x: hidden;
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      contain: paint;
-      padding: 12px 10px 16px;
-      max-width: none;
-      max-height: none;
-      margin: 0;
-      width: auto;
-      height: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(160, 120, 55, 0.4) transparent;
-      pointer-events: auto;
-      min-height: 0;
-      background: transparent;
-      border: none;
-      box-shadow: none;
-      box-sizing: border-box;
-    }
-    .expedition-drawer .expeditions-root::-webkit-scrollbar {
-      width: 4px;
-    }
-    .expedition-drawer .expeditions-root::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    .expedition-drawer .expeditions-root::-webkit-scrollbar-thumb {
-      background: rgba(140, 105, 48, 0.5);
-      border-radius: 999px;
-    }
-    .expedition-drawer .expeditions-root::-webkit-scrollbar-thumb:hover {
-      background: rgba(180, 140, 70, 0.7);
-    }
-    .expedition-drawer .expedition-list {
-      gap: 10px;
-      /* DÃ©calage horizontal lÃ©ger pour recentrer les cartes dans le cadre. */
-      margin-left: 10px;
-      padding-top: 8px;
-      padding-bottom: 16px;
-      box-sizing: border-box;
-    }
-    .expedition-drawer .expedition-zone-label {
-      display: none;
-    }
-    .expedition-drawer .expedition-list-hint {
-      text-align: center;
-      font-size: 0.62rem;
-      color: rgba(210, 190, 155, 0.65);
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
-      margin: 0 0 2px;
-    }
-    .expedition-drawer .expedition-card {
-      min-height: 200px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-      /* RÃ©serve lâ€™espace du titre absolu pour ne pas masquer les prÃ©requis. */
-      padding-top: 48px;
-      box-sizing: border-box;
-    }
-    .expedition-drawer .expedition-card-body {
-      gap: 6px;
-      padding: 6px 10px 8px;
-    }
-    .expedition-drawer .expedition-card-lore {
-      display: none;
-    }
-    .expedition-drawer .expedition-card-actions {
-      flex-direction: row;
+      display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 12px;
+      margin: 0 10px 10px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(210, 165, 65, 0.4);
+      background:
+        radial-gradient(circle at 12% 30%, rgba(70, 120, 180, 0.16), transparent 55%),
+        linear-gradient(165deg, rgba(18, 30, 52, 0.94), rgba(6, 12, 22, 0.96));
+      box-shadow: inset 0 1px 0 rgba(255, 220, 140, 0.08);
     }
-    .expedition-drawer .expedition-card-title {
-      top: 8px;
-      left: 50%;
-      right: auto;
-      transform: translateX(-50%);
-      width: calc(100% - 28px);
-      max-width: calc(100% - 28px);
-      padding-inline: 14px;
-      box-sizing: border-box;
-      font-size: clamp(16px, 1.2vw, 21px);
-      letter-spacing: 0.04em;
-      line-height: 1.12;
-      text-align: center;
-      white-space: normal;
-      word-break: normal;
-      overflow-wrap: normal;
-      hyphens: none;
-      text-wrap: balance;
-      overflow: hidden;
-      text-overflow: clip;
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
-      max-height: 2.2em;
+    .expedition-hall-summary[hidden] { display: none !important; }
+    .expedition-hall-summary-label {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(240, 208, 120, 0.85);
     }
-    .expedition-drawer .expedition-card.is-locked .expedition-card-title,
-    .expedition-drawer .expedition-card.is-running .expedition-card-title,
-    .expedition-drawer .expedition-card.is-done .expedition-card-title {
-      left: 12px;
-      right: 102px;
-      width: auto;
-      max-width: none;
-      transform: none;
-      text-align: left;
-      padding-left: 14px;
-      padding-right: 10px;
-      text-wrap: pretty;
+    .expedition-hall-summary-value {
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: #f6ebcf;
+      font-variant-numeric: tabular-nums;
     }
-    .expedition-drawer .expedition-card-meta {
-      gap: 5px;
-      font-size: 0.7rem;
-      position: relative;
-      z-index: 4;
-    }
-    .expedition-drawer .expedition-card-actions .btn,
-    .expedition-drawer .expedition-card-actions button {
-      min-height: 38px;
-      padding: 0 12px;
-      font-size: 0.74rem;
-    }
-    .expedition-drawer .expedition-btn-rewards {
-      width: auto;
+    .expedition-hall-scroll {
       flex: 1 1 auto;
       min-height: 0;
-      min-width: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .expedition-drawer .expeditions-root {
+      position: relative;
+      width: 100%;
+      max-width: none;
+      margin: 0;
       padding: 0;
-      border: none;
+      overflow: visible;
       background: transparent;
-      box-shadow: none;
-      border-radius: 0;
-      text-align: left;
-      font-size: 0.68rem;
-      letter-spacing: 0.04em;
-      font-family: var(--font-body);
-      font-weight: 700;
-      text-transform: uppercase;
-      color: rgba(232, 214, 170, 0.9);
-      opacity: 1;
-      cursor: pointer;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.2;
-      text-decoration: underline;
-      text-decoration-color: rgba(212, 168, 75, 0.4);
-      text-underline-offset: 3px;
-    }
-    .expedition-drawer .expedition-btn-rewards:hover,
-    .expedition-drawer .expedition-btn-rewards:focus-visible {
-      color: #f0d078;
-      text-decoration-color: rgba(240, 208, 120, 0.8);
-    }
-    .expedition-drawer .expedition-btn-rewards .soon {
-      margin-left: 4px;
-      letter-spacing: 0;
-      color: rgba(170, 160, 140, 0.85);
     }
 
     /* Singleton rewards tooltip (expeditions) */
@@ -2076,7 +1853,8 @@
       width: min(300px, 84vw);
       max-width: 320px;
       padding: 10px 12px 10px;
-      pointer-events: auto;
+      /* Ne doit pas étendre la zone hover du trigger Récompenses */
+      pointer-events: none;
       border-radius: 12px;
       border: 1px solid rgba(212, 168, 75, 0.55);
       background: rgba(10, 14, 22, 0.96);
@@ -2147,67 +1925,24 @@
         width: 280px;
       }
     }
-    .expedition-drawer .expedition-btn-launch,
-    .expedition-drawer .expedition-btn-claim {
-      width: auto;
-      min-width: 120px;
-      max-width: 140px;
-      height: 38px;
-      min-height: 38px;
-      flex: 0 0 auto;
-      border-radius: 10px;
-      color: #f2e6c8;
-      border: 1px solid rgba(212, 170, 78, 0.72);
-      background: linear-gradient(180deg, rgba(18, 32, 52, 0.98) 0%, rgba(8, 14, 24, 0.98) 100%);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 220, 150, 0.12);
-    }
-    .expedition-drawer .expedition-btn-launch:hover:not(:disabled),
-    .expedition-drawer .expedition-btn-claim:hover:not(:disabled) {
-      filter: brightness(1.1);
-      border-color: rgba(240, 208, 120, 0.95);
-    }
-    .expedition-drawer .expedition-btn-launch:disabled,
-    .expedition-drawer .expedition-btn-launch.is-status {
-      opacity: 0.55;
-      cursor: not-allowed;
-      filter: grayscale(0.2);
-    }
-    #panel-kingdom.dimmed .expedition-drawer {
-      opacity: 0;
-      pointer-events: none !important;
-      visibility: hidden;
-    }
-
-    @media (max-width: 1100px) {
-      .expedition-drawer { --exp-drawer-w: clamp(460px, 42vw, 560px); width: auto; max-width: 100%; padding-right: 16px; }
-    }
-    @media (max-width: 799px) {
-      .expedition-drawer { --exp-drawer-w: 94vw; width: auto; max-width: 100%; padding-right: 3vw; }
-      .expedition-drawer-title {
-        font-size: clamp(18px, 4.5vw, 24px);
-        letter-spacing: 0.1em;
-        white-space: nowrap;
+    @media (max-width: 899px) {
+      .expedition-drawer {
+        padding: 64px 1.2% 12px;
       }
-      .expedition-drawer-head {
-        min-height: 0;
-        max-height: none;
-        padding: 0 48px 6px;
+    }
+    @media (max-width: 599px) {
+      .expedition-drawer {
+        padding: 60px 1% 10px;
       }
-      .expedition-overlay-content {
-        --exp-header-h: 54px;
-        top: 5.5%;
-        right: 6.5%;
-        left: 6.5%;
-        height: var(--exp-header-h);
-        bottom: auto;
+      .expedition-hall-back,
+      .expedition-hall-close {
+        width: 34px;
+        height: 34px;
       }
-      .expedition-drawer .expedition-card { min-height: 190px; padding-top: 44px; }
-      .expedition-edge-tab {
-        width: 38px;
-        min-height: 132px;
-        padding: 14px 5px;
+      .expedition-hall-summary {
+        margin: 0 4px 8px;
+        padding: 9px 12px;
       }
-      .expedition-edge-tab .exp-tab-label { font-size: 0.64rem; letter-spacing: 0.14em; }
     }
 
     /* Floating click text — durée +~30 % (lisibilité), toujours transform+opacity */
@@ -2490,7 +2225,7 @@
       animation-duration: 300ms;
     }
 
-    .expedition-edge-tab.has-claim {
+    .scene-expeditions-btn.has-claim {
       animation: expBadgePulse 1.6s ease-in-out infinite;
     }
     @keyframes expBadgePulse {
@@ -2529,7 +2264,7 @@
       .anim-slide-in, .anim-slide-out, .anim-success,
       .anim-critical, .anim-purchase, .anim-unlock,
       .float-text, .float-text.critical, .particle, .crit-flash,
-      .panel.overlay-panel.active, .expedition-edge-tab.has-claim,
+      .panel.overlay-panel.active, .scene-expeditions-btn.has-claim,
       .entity-wrap.breathe, .altar-light {
         animation: none !important;
         transition: none !important;
@@ -3424,8 +3159,8 @@
     @media (min-width: 900px) {
       #app {
         --altar-y: 71%;
-        --egg-main-width: clamp(250px, 21vw, 380px);
-        --egg-main-max-height: 48vh;
+        --egg-main-width: clamp(240px, min(21vw, 44dvh), 380px);
+        --egg-main-max-height: min(48vh, 48dvh);
       }
 
       .game-logo {
@@ -3510,8 +3245,8 @@
         width: 94vw;
       }
       #app {
-        --egg-main-width: clamp(230px, 66vw, 330px);
-        --egg-main-max-height: 42vh;
+        --egg-main-width: clamp(200px, min(66vw, 48dvh), 330px);
+        --egg-main-max-height: min(42vh, 42dvh, 48svh);
       }
       .egg-hero {
         min-height: 0;
@@ -5059,11 +4794,16 @@
       padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0));
     }
 
-    /* Menu sheet â€” ouverture partagÃ©e (Monde, Boutique, overlays) */
+    /* Menu sheet — ouverture partagée (Monde, Boutique, overlays) */
     .panel.overlay-panel.active {
       padding: 72px 14px 24px;
-      background: linear-gradient(180deg, rgba(6, 10, 16, 0.9) 0%, rgba(8, 12, 18, 0.86) 100%);
+      background: transparent;
       animation: sheetIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    /* Menus sans grand panneau (Réglages / Stats / Œufs) : feuille lisible, pas un mur noir */
+    .panel.overlay-panel.active:not(.game-large-panel-overlay):not(.shop-panel):not(.world-panel) {
+      background:
+        linear-gradient(180deg, rgba(10, 18, 32, 0.72) 0%, rgba(6, 12, 22, 0.68) 100%);
     }
     @keyframes sheetIn {
       from { opacity: 0; transform: translateY(10px) scale(0.985); }
@@ -6058,12 +5798,16 @@
       background: linear-gradient(180deg, rgba(6, 10, 16, 0.96) 60%, rgba(6, 10, 16, 0));
       pointer-events: auto;
     }
-    /* Succès / Dragons / Événements / Stats / Boutique : plus de bande noire derrière les tabs */
+    /* Succès / Dragons / Événements / Stats / Boutique / Expéditions : plus de bande noire derrière les tabs */
     .main:has(#panel-achievements.active) .sheet-bar,
     .main:has(#panel-dragons.active) .sheet-bar,
     .main:has(#panel-events.active) .sheet-bar,
     .main:has(#panel-stats.active) .sheet-bar,
-    .main:has(#panel-shop.active) .sheet-bar {
+    .main:has(#panel-shop.active) .sheet-bar,
+    .main:has(#panel-expeditions-hub.active) .sheet-bar,
+    .main:has(#panel-expedition-contracts.active) .sheet-bar,
+    .main:has(#panel-expedition-threats.active) .sheet-bar,
+    .main:has(#panel-inventory.active) .sheet-bar {
       background: transparent !important;
       background-image: none !important;
       box-shadow: none !important;
@@ -6079,7 +5823,15 @@
     .main:has(#panel-stats.active) .sheet-bar::before,
     .main:has(#panel-stats.active) .sheet-bar::after,
     .main:has(#panel-shop.active) .sheet-bar::before,
-    .main:has(#panel-shop.active) .sheet-bar::after {
+    .main:has(#panel-shop.active) .sheet-bar::after,
+    .main:has(#panel-expeditions-hub.active) .sheet-bar::before,
+    .main:has(#panel-expeditions-hub.active) .sheet-bar::after,
+    .main:has(#panel-expedition-contracts.active) .sheet-bar::before,
+    .main:has(#panel-expedition-contracts.active) .sheet-bar::after,
+    .main:has(#panel-expedition-threats.active) .sheet-bar::before,
+    .main:has(#panel-expedition-threats.active) .sheet-bar::after,
+    .main:has(#panel-inventory.active) .sheet-bar::before,
+    .main:has(#panel-inventory.active) .sheet-bar::after {
       background: transparent !important;
       box-shadow: none !important;
     }
@@ -6087,17 +5839,25 @@
     .sheet-bar.is-shop-close-only .sheet-tabs {
       display: none !important;
     }
-    /* Dragons / Événements / Succès / Stats : barre transparente sans bloquer le cadre ; X reste cliquable */
+    /* Dragons / Événements / Succès / Stats / Expéditions : barre transparente sans bloquer le cadre ; X reste cliquable */
     .main:has(#panel-dragons.active) .sheet-bar.is-shop-close-only,
     .main:has(#panel-events.active) .sheet-bar.is-shop-close-only,
     .main:has(#panel-achievements.active) .sheet-bar.is-shop-close-only,
-    .main:has(#panel-stats.active) .sheet-bar.is-shop-close-only {
+    .main:has(#panel-stats.active) .sheet-bar.is-shop-close-only,
+    .main:has(#panel-expeditions-hub.active) .sheet-bar.is-shop-close-only,
+    .main:has(#panel-expedition-contracts.active) .sheet-bar.is-shop-close-only,
+    .main:has(#panel-expedition-threats.active) .sheet-bar.is-shop-close-only,
+    .main:has(#panel-inventory.active) .sheet-bar.is-shop-close-only {
       pointer-events: none;
     }
     .main:has(#panel-dragons.active) .sheet-bar.is-shop-close-only .sheet-close,
     .main:has(#panel-events.active) .sheet-bar.is-shop-close-only .sheet-close,
     .main:has(#panel-achievements.active) .sheet-bar.is-shop-close-only .sheet-close,
-    .main:has(#panel-stats.active) .sheet-bar.is-shop-close-only .sheet-close {
+    .main:has(#panel-stats.active) .sheet-bar.is-shop-close-only .sheet-close,
+    .main:has(#panel-expeditions-hub.active) .sheet-bar.is-shop-close-only .sheet-close,
+    .main:has(#panel-expedition-contracts.active) .sheet-bar.is-shop-close-only .sheet-close,
+    .main:has(#panel-expedition-threats.active) .sheet-bar.is-shop-close-only .sheet-close,
+    .main:has(#panel-inventory.active) .sheet-bar.is-shop-close-only .sheet-close {
       pointer-events: auto;
     }
     .sheet-bar[hidden] { display: none !important; }
@@ -6212,16 +5972,22 @@
       Succès : overlay paddé (réduit après retrait des onglets) + panel 97% centré.
       sheet-bar en haut de .main → décalage vertical jusqu’au cadre.
     */
-    .main:has(#panel-achievements.active) .sheet-close {
+    .main:has(#panel-achievements.active) .sheet-close,
+    .main:has(#panel-expeditions-hub.active) .sheet-close,
+    .main:has(#panel-inventory.active) .sheet-close {
       top: calc(12px + 18px);
       right: calc(1.2% + 18px);
       transform: none;
     }
-    .main:has(#panel-achievements.active) .sheet-close:hover {
+    .main:has(#panel-achievements.active) .sheet-close:hover,
+    .main:has(#panel-expeditions-hub.active) .sheet-close:hover,
+    .main:has(#panel-inventory.active) .sheet-close:hover {
       transform: scale(1.08);
     }
     @media (max-width: 899px) {
-      .main:has(#panel-achievements.active) .sheet-close {
+      .main:has(#panel-achievements.active) .sheet-close,
+      .main:has(#panel-expeditions-hub.active) .sheet-close,
+      .main:has(#panel-inventory.active) .sheet-close {
         top: calc(40px + 22px);
         right: calc(2.4% + 20px);
       }
@@ -6230,7 +5996,9 @@
       }
     }
     @media (max-width: 599px) {
-      .main:has(#panel-achievements.active) .sheet-close {
+      .main:has(#panel-achievements.active) .sheet-close,
+      .main:has(#panel-expeditions-hub.active) .sheet-close,
+      .main:has(#panel-inventory.active) .sheet-close {
         top: calc(36px + 20px);
         right: calc(2% + 16px);
       }
@@ -9301,13 +9069,331 @@
       margin: 0;
       width: 100%;
     }
-    .expedition-list,
+    .expedition-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      padding-bottom: 8px;
+      box-sizing: border-box;
+    }
+    @media (min-width: 900px) {
+      .expedition-list {
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .expedition-list > .expedition-zone-label,
+      .expedition-list > .expedition-list-hint {
+        grid-column: 1 / -1;
+      }
+      .expedition-card-media {
+        height: 200px;
+      }
+    }
+    @media (max-width: 768px) {
+      .expedition-card-media {
+        height: 150px;
+      }
+      .expedition-card-body {
+        gap: 4px;
+        padding: 7px 10px 9px;
+      }
+    }
     .expedition-prepare,
     .expedition-active,
     .expedition-claim {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
+    }
+    .expedition-prepare {
+      gap: 10px;
+      max-width: 520px;
+      margin: 0 auto;
+      width: 100%;
+      padding-bottom: 8px;
+    }
+    .expedition-prepare-hero {
+      width: 100%;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(210, 165, 65, 0.45);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+      background: #081018;
+    }
+    .expedition-prepare-media {
+      position: relative;
+      width: 100%;
+      height: 190px;
+      overflow: hidden;
+    }
+    .expedition-prepare-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+    }
+    .expedition-prepare-media-fade {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(
+        180deg,
+        rgba(6, 12, 22, 0.05) 0%,
+        rgba(6, 12, 22, 0.2) 50%,
+        rgba(4, 10, 20, 0.55) 100%
+      );
+    }
+    .expedition-prepare-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .expedition-prepare-team {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 4px 0 2px;
+    }
+    .expedition-prepare-team-title {
+      margin: 0;
+      text-align: center;
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(240, 208, 120, 0.85);
+    }
+    .expedition-prepare .expedition-party-slots {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: clamp(6px, 1.5vw, 12px);
+      margin: 0;
+    }
+    .expedition-prepare .expedition-party-slot {
+      min-height: 0;
+      aspect-ratio: 1;
+      max-height: min(120px, 28vw);
+      flex-direction: column;
+      gap: 4px;
+      padding: clamp(6px, 1.2vw, 10px) clamp(4px, 1vw, 8px);
+      border-radius: 14px;
+      cursor: pointer;
+      color: inherit;
+      font: inherit;
+      -webkit-tap-highlight-color: transparent;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .expedition-prepare .expedition-party-slot.is-empty {
+      border-style: dashed;
+      border-color: rgba(212, 170, 78, 0.4);
+      background: rgba(6, 12, 20, 0.45);
+    }
+    .expedition-prepare .expedition-party-slot.is-empty:hover,
+    .expedition-prepare .expedition-party-slot.is-empty:focus-visible {
+      border-color: rgba(240, 208, 120, 0.75);
+      background: rgba(14, 24, 38, 0.7);
+    }
+    .expedition-prepare .expedition-party-slot .eps-plus {
+      font-size: 1.85rem;
+      font-weight: 300;
+      line-height: 1;
+      color: rgba(240, 208, 120, 0.55);
+    }
+    .expedition-prepare .expedition-party-slot.filled {
+      justify-content: center;
+      position: relative;
+      padding-top: 12px;
+      padding-bottom: 10px;
+    }
+    .expedition-prepare .expedition-party-slot .eps-art {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(212, 168, 75, 0.35);
+    }
+    .expedition-prepare .expedition-party-slot .eps-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .expedition-prepare .expedition-party-slot .eps-label {
+      max-width: 100%;
+      font-size: 0.68rem;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .expedition-prepare .expedition-party-slot .eps-remove {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1px solid rgba(212, 170, 78, 0.4);
+      background: rgba(8, 14, 24, 0.85);
+      color: #f2e6c8;
+      font-size: 0.62rem;
+      display: grid;
+      place-items: center;
+      line-height: 1;
+      pointer-events: none;
+    }
+    .expedition-prepare-power {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 12px;
+      font-size: 0.82rem;
+      color: rgba(220, 205, 175, 0.9);
+    }
+    .expedition-prepare-power-val strong {
+      color: #f5d98a;
+      font-variant-numeric: tabular-nums;
+    }
+    .expedition-prepare-outlook {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .expedition-prepare-outlook .dot {
+      font-size: 0.65rem;
+      line-height: 1;
+    }
+    .expedition-prepare-power.is-empty .expedition-prepare-outlook,
+    .expedition-prepare-power.is-bad .expedition-prepare-outlook {
+      color: #e0a090;
+    }
+    .expedition-prepare-power.is-mid .expedition-prepare-outlook {
+      color: #f0d078;
+    }
+    .expedition-prepare-power.is-good .expedition-prepare-outlook {
+      color: #9ed4a8;
+    }
+    .expedition-prepare-rewards {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 2px 0;
+    }
+    .expedition-prepare-rewards-trigger,
+    .expedition-prepare-details {
+      flex: 0 0 auto;
+      width: max-content;
+      max-width: 100%;
+    }
+    .expedition-prepare-details {
+      margin: 0;
+      padding: 4px 2px;
+      border: none;
+      background: transparent;
+      box-shadow: none;
+      font-family: var(--font-display);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: rgba(232, 214, 170, 0.85);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .expedition-prepare-details:hover,
+    .expedition-prepare-details:focus-visible {
+      color: #f0d078;
+    }
+    .expedition-prepare .expedition-launch {
+      width: min(100%, 320px);
+      align-self: center;
+      min-height: 58px;
+      height: 58px;
+      margin-top: 4px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 230, 160, 0.9);
+      font-family: var(--font-display);
+      font-size: 0.92rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #2a1606;
+      background: linear-gradient(180deg, #ffe08a 0%, #f0a030 52%, #c8761a 100%);
+      box-shadow:
+        0 5px 16px rgba(0, 0, 0, 0.34),
+        inset 0 1px 0 rgba(255, 245, 210, 0.5),
+        0 0 16px rgba(210, 165, 65, 0.22);
+    }
+    .expedition-prepare .expedition-launch:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      filter: grayscale(0.25);
+      color: rgba(230, 214, 180, 0.75);
+      border-color: rgba(212, 170, 78, 0.35);
+      background: rgba(10, 16, 26, 0.75);
+      box-shadow: none;
+    }
+    .expedition-prepare-picker {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(212, 168, 75, 0.22);
+    }
+    .expedition-prepare-picker.is-open {
+      display: flex;
+    }
+    .expedition-prepare-picker-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .expedition-prepare-picker-head .expedition-subtitle {
+      margin: 0;
+    }
+    .expedition-prepare-picker-close {
+      margin: 0;
+      padding: 4px 8px;
+      border: 1px solid rgba(212, 170, 78, 0.35);
+      border-radius: 8px;
+      background: rgba(8, 14, 24, 0.7);
+      color: rgba(230, 214, 180, 0.9);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .expedition-drawer.is-prepare .expedition-hall-summary {
+      display: none !important;
+    }
+    @media (max-width: 768px) {
+      .expedition-prepare-media {
+        height: 136px;
+      }
+      .expedition-prepare .expedition-party-slot {
+        min-height: 80px;
+      }
+      .expedition-prepare .expedition-launch {
+        width: 100%;
+        min-width: 0;
+        min-height: 54px;
+        height: 54px;
+      }
     }
     .expedition-list-hint {
       margin: 0;
@@ -9404,20 +9490,28 @@
     .expedition-card {
       position: relative;
       width: 100%;
-      min-height: 210px;
-      border-radius: 16px;
+      min-height: 0;
+      border-radius: 14px;
       overflow: hidden;
-      border: 1px solid rgba(212, 170, 78, 0.4);
-      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
-      background: #0a121c;
+      border: 1px solid rgba(210, 165, 65, 0.55);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 220, 140, 0.1),
+        inset 0 0 0 1px rgba(40, 70, 110, 0.2),
+        0 4px 14px rgba(0, 0, 0, 0.32);
+      background:
+        radial-gradient(circle at 50% 0%, rgba(60, 100, 160, 0.16), transparent 55%),
+        linear-gradient(165deg, rgba(18, 30, 52, 0.98), rgba(6, 12, 22, 0.98));
       display: flex;
       flex-direction: column;
-      justify-content: flex-end;
     }
     .expedition-card-media {
-      position: absolute;
-      inset: 0;
+      position: relative;
       z-index: 0;
+      width: 100%;
+      height: 190px;
+      flex: 0 0 auto;
+      overflow: hidden;
+      background: #081018;
     }
     .expedition-card-media img {
       width: 100%;
@@ -9431,46 +9525,41 @@
       inset: 0;
       z-index: 1;
       pointer-events: none;
-      background:
-        linear-gradient(
-          to bottom,
-          rgba(5, 10, 18, 0.78) 0%,
-          rgba(5, 10, 18, 0.42) 18%,
-          rgba(5, 10, 18, 0.12) 36%,
-          transparent 48%
-        ),
-        linear-gradient(
-          to top,
-          rgba(5, 10, 18, 0.96) 0%,
-          rgba(5, 10, 18, 0.58) 38%,
-          rgba(5, 10, 18, 0.14) 62%,
-          transparent 100%
-        );
+      background: linear-gradient(
+        180deg,
+        rgba(6, 12, 22, 0.1) 0%,
+        rgba(6, 12, 22, 0.25) 45%,
+        rgba(4, 10, 20, 0.78) 100%
+      );
+    }
+    .expedition-card-media .expedition-card-overlay {
+      position: absolute;
     }
     .expedition-card-body {
       position: relative;
       z-index: 2;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      padding: 10px 12px 10px;
-      margin-top: auto;
+      gap: 5px;
+      padding: 8px 11px 10px;
+      margin-top: 0;
     }
     .expedition-card-badge {
       position: absolute;
-      top: 12px;
-      right: 12px;
+      top: 10px;
+      right: 10px;
       left: auto;
       z-index: 4;
       padding: 5px 10px;
       border-radius: 999px;
-      font-size: 0.68rem;
+      font-size: 0.66rem;
       font-weight: 800;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       border: 1px solid rgba(212, 170, 78, 0.45);
-      background: rgba(8, 14, 24, 0.82);
+      background: rgba(8, 14, 24, 0.88);
       color: #f2e6c8;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
     }
     .expedition-card-badge.locked {
       color: rgba(210, 210, 220, 0.9);
@@ -9486,38 +9575,30 @@
       background: linear-gradient(180deg, #ffd873, #f0a030);
     }
     .expedition-card-title {
-      position: absolute;
-      top: 14px;
-      left: 14px;
-      right: 14px;
+      position: relative;
+      top: auto;
+      left: auto;
+      right: auto;
       z-index: 3;
       margin: 0;
-      padding: 0 4px;
+      padding: 0;
       font-family: var(--font-display);
-      font-size: clamp(16px, 1.2vw, 21px);
-      line-height: 1.12;
-      letter-spacing: 0.04em;
+      font-size: clamp(0.95rem, 1.5vw, 1.15rem);
+      line-height: 1.2;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      text-align: center;
-      color: #f8ecd2;
-      -webkit-text-stroke: 0.6px rgba(16, 8, 2, 0.95);
-      paint-order: stroke fill;
-      text-shadow:
-        -1.5px -1.5px 0 rgba(10, 5, 1, 0.92),
-        1.5px -1.5px 0 rgba(10, 5, 1, 0.92),
-        -1.5px 1.5px 0 rgba(10, 5, 1, 0.92),
-        1.5px 1.5px 0 rgba(10, 5, 1, 0.92),
-        0 -1px 0 rgba(18, 10, 3, 0.9),
-        0 2px 3px rgba(0, 0, 0, 0.55),
-        0 1px 0 rgba(28, 14, 4, 0.75);
+      text-align: left;
+      color: #f6ebcf;
+      -webkit-text-stroke: 0;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55), 0 0 10px rgba(210, 165, 65, 0.12);
       pointer-events: none;
     }
     .expedition-card.is-locked .expedition-card-title,
     .expedition-card.is-running .expedition-card-title,
     .expedition-card.is-done .expedition-card-title {
-      right: 102px;
+      right: auto;
       text-align: left;
-      padding-left: 2px;
+      padding-left: 0;
     }
     .expedition-card-meta {
       display: flex;
@@ -9528,11 +9609,11 @@
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      padding: 4px 9px;
+      padding: 3px 8px;
       border-radius: 999px;
       border: 1px solid rgba(212, 170, 78, 0.35);
-      background: rgba(6, 12, 20, 0.72);
-      font-size: 0.72rem;
+      background: rgba(6, 12, 20, 0.55);
+      font-size: 0.68rem;
       color: rgba(230, 214, 180, 0.92);
       white-space: nowrap;
     }
@@ -9541,86 +9622,157 @@
       font-weight: 700;
       font-variant-numeric: tabular-nums;
     }
+    .expedition-card-outlook {
+      margin: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 8px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: rgba(210, 220, 235, 0.88);
+      line-height: 1.2;
+    }
+    .expedition-card-outlook-status {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(210, 165, 65, 0.35);
+      background: rgba(8, 14, 24, 0.55);
+      font-size: 0.64rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .expedition-card-outlook.is-empty .expedition-card-outlook-status {
+      color: rgba(180, 170, 150, 0.85);
+      border-color: rgba(150, 150, 160, 0.35);
+    }
+    .expedition-card-outlook.is-good .expedition-card-outlook-status {
+      color: #9ed4a8;
+      border-color: rgba(120, 180, 130, 0.5);
+    }
+    .expedition-card-outlook.is-mid .expedition-card-outlook-status {
+      color: #f0d078;
+      border-color: rgba(210, 165, 65, 0.5);
+    }
+    .expedition-card-outlook.is-bad .expedition-card-outlook-status {
+      color: #e0a090;
+      border-color: rgba(200, 120, 100, 0.5);
+    }
     .expedition-card-actions {
       display: flex;
-      flex-direction: column;
-      gap: 8px;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       margin-top: 2px;
     }
-    .expedition-btn-rewards,
-    .expedition-btn-launch,
-    .expedition-btn-claim {
-      width: 100%;
-      min-height: 44px;
-      border-radius: 12px;
-      font-family: var(--font-display);
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      border: 1px solid rgba(212, 170, 78, 0.45);
-      cursor: pointer;
-    }
     .expedition-btn-rewards {
-      color: rgba(232, 214, 170, 0.88);
+      /* Hitbox = texte uniquement (pas toute la rangée) — corrige le tooltip fantôme */
+      flex: 0 0 auto;
+      width: max-content;
+      max-width: 100%;
+      min-width: 0;
+      min-height: 0;
+      height: auto;
+      margin: 0;
+      padding: 4px 2px;
+      border: none;
+      border-radius: 0;
       background: transparent;
-      border-color: transparent;
-      cursor: pointer;
-      opacity: 1;
-      text-decoration: underline;
-      text-decoration-color: rgba(212, 168, 75, 0.35);
-      text-underline-offset: 3px;
       box-shadow: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-display);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(232, 214, 170, 0.9);
+      text-align: left;
+      text-decoration: underline;
+      text-decoration-color: rgba(212, 168, 75, 0.4);
+      text-underline-offset: 3px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
       transition: color 0.15s ease, text-decoration-color 0.15s ease;
     }
     .expedition-btn-rewards:hover,
     .expedition-btn-rewards:focus-visible {
       color: #f0d078;
-      text-decoration-color: rgba(240, 208, 120, 0.75);
+      text-decoration-color: rgba(240, 208, 120, 0.8);
       filter: none;
-    }
-    .expedition-btn-rewards .soon {
-      margin-left: 6px;
-      font-size: 0.68rem;
-      letter-spacing: 0.06em;
-      text-transform: none;
-      font-family: var(--font-body);
-      color: rgba(170, 160, 140, 0.75);
-      font-weight: 600;
     }
     .expedition-btn-launch,
     .expedition-btn-claim {
+      flex: 0 0 auto;
+      width: auto;
+      min-width: 170px;
+      min-height: 56px;
+      height: 56px;
+      padding: 0 22px;
+      border-radius: 13px;
+      border: 1px solid rgba(255, 230, 160, 0.92);
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
       color: #2a1606;
-      border-color: rgba(255, 230, 160, 0.8);
-      background: linear-gradient(180deg, #ffd873 0%, #f0a030 55%, #c8761a 100%);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 245, 210, 0.35);
+      background: linear-gradient(180deg, #ffe08a 0%, #f0a030 52%, #c8761a 100%);
+      box-shadow:
+        0 5px 16px rgba(0, 0, 0, 0.34),
+        inset 0 1px 0 rgba(255, 245, 210, 0.5),
+        0 0 16px rgba(210, 165, 65, 0.22);
     }
     .expedition-btn-launch:hover:not(:disabled),
     .expedition-btn-claim:hover:not(:disabled) {
-      filter: brightness(1.06);
+      filter: brightness(1.07);
+      transform: translateY(-1px);
+      box-shadow:
+        0 6px 18px rgba(0, 0, 0, 0.36),
+        inset 0 1px 0 rgba(255, 245, 210, 0.55),
+        0 0 18px rgba(210, 165, 65, 0.28);
     }
-    .expedition-btn-launch:disabled {
-      opacity: 0.45;
+    .expedition-btn-launch:disabled,
+    .expedition-btn-launch.is-status {
+      opacity: 0.5;
       cursor: not-allowed;
-      filter: grayscale(0.35);
+      filter: grayscale(0.25);
+      color: rgba(230, 214, 180, 0.75);
+      border-color: rgba(212, 170, 78, 0.35);
+      background: rgba(10, 16, 26, 0.75);
+      box-shadow: none;
     }
     .expedition-card.is-locked .expedition-card-media img {
       filter: brightness(0.45) saturate(0.7);
-    }
-    .expedition-card.is-locked .expedition-card-overlay {
-      background: linear-gradient(
-        to top,
-        rgba(5, 10, 18, 0.97) 0%,
-        rgba(5, 10, 18, 0.72) 50%,
-        rgba(5, 10, 18, 0.45) 100%
-      );
     }
     .expedition-card.is-running {
       border-color: rgba(120, 180, 240, 0.55);
     }
     .expedition-card.is-done {
-      border-color: rgba(240, 200, 100, 0.75);
-      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35), 0 0 18px rgba(255, 180, 60, 0.18);
+      border-color: rgba(240, 200, 100, 0.8);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 220, 140, 0.14),
+        0 4px 14px rgba(0, 0, 0, 0.32),
+        0 0 16px rgba(255, 180, 60, 0.16);
+    }
+    .expedition-card-sent {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .expedition-card-sent .expedition-chip {
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(210, 165, 65, 0.35);
+      background: rgba(8, 14, 24, 0.65);
+      font-size: 0.66rem;
+      color: rgba(230, 214, 180, 0.9);
     }
     .expedition-card-progress {
       display: flex;
@@ -9928,36 +10080,35 @@
     }
 
     @media (max-width: 799px) {
-      .expedition-card { min-height: 230px; }
-      .expedition-drawer .expedition-card { min-height: 184px; padding-top: 46px; }
-      .expedition-card-title {
-        top: 12px;
-        left: 12px;
-        right: 12px;
-        font-size: 1.05rem;
-        line-height: 1.18;
-        -webkit-text-stroke: 0.5px rgba(16, 8, 2, 0.95);
+      /* Ancien overlay titre désactivé — layout Hall = image + body empilés */
+      .expedition-card { min-height: 0; }
+      .expedition-drawer .expedition-card {
+        min-height: 0;
+        padding-top: 0;
       }
-      .expedition-drawer .expedition-card-title {
-        top: 8px;
-        left: 50%;
-        font-size: clamp(14px, 3.2vw, 17px);
-        transform: translateX(-50%);
-      }
+      .expedition-card-title,
+      .expedition-drawer .expedition-card-title,
       .expedition-drawer .expedition-card.is-locked .expedition-card-title,
       .expedition-drawer .expedition-card.is-running .expedition-card-title,
-      .expedition-drawer .expedition-card.is-done .expedition-card-title {
-        left: 12px;
-        transform: none;
-      }
+      .expedition-drawer .expedition-card.is-done .expedition-card-title,
       .expedition-card.is-locked .expedition-card-title,
       .expedition-card.is-running .expedition-card-title,
       .expedition-card.is-done .expedition-card-title {
-        right: 96px;
+        position: relative;
+        top: auto;
+        left: auto;
+        right: auto;
+        transform: none;
+        -webkit-text-stroke: 0;
+        text-align: left;
+        font-size: clamp(0.95rem, 3.2vw, 1.1rem);
+        line-height: 1.2;
       }
-      .expedition-btn-rewards,
       .expedition-btn-launch,
-      .expedition-btn-claim { min-height: 46px; }
+      .expedition-btn-claim {
+        min-height: 54px;
+        height: 54px;
+      }
     }
 
     @media (max-width: 599px) {
@@ -10812,17 +10963,26 @@ html {
     gap: 12px;
   }
 
-  /* ExpÃ©ditions */
+  /* Expéditions */
   .expedition-drawer,
   .expedition-drawer.open {
     width: 100%;
     max-width: 100%;
     left: 0;
     right: 0;
+    padding: 60px 1% 10px;
   }
 
-  .expedition-drawer .expedition-card {
-    min-height: 200px;
+  .expedition-drawer .expedition-hall-panel.game-large-panel,
+  .expedition-drawer .expedition-hall-panel {
+    width: 100%;
+    height: auto;
+    max-height: min(90vh, 100%);
+    /* Fond opaque inchangé (hérite / même gradient que desktop Hall) */
+  }
+
+  .expedition-card-media {
+    height: 150px;
   }
 
   .expedition-card-meta {
@@ -10830,11 +10990,26 @@ html {
     gap: 6px;
   }
 
-  .expedition-btn-rewards,
+  .expedition-card-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
   .expedition-btn-launch,
   .expedition-btn-claim {
-    min-height: 44px;
-    font-size: 0.78rem;
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    min-height: 52px;
+    height: 52px;
+    margin-left: 0;
+    font-size: 0.86rem;
+  }
+
+  .expedition-btn-rewards {
+    min-height: 0;
+    padding: 6px 2px;
+    width: max-content;
   }
 
   /* Modales gÃ©nÃ©riques */
@@ -11151,18 +11326,6 @@ html {
   }
   #panel-achievements .achievements-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .expedition-drawer-head {
-    padding: 10px 12px;
-  }
-
-  .expedition-drawer-title {
-    font-size: 1rem;
-  }
-
-  .expedition-drawer .expeditions-root {
-    padding: 8px 10px 14px;
   }
 
   .modal {
@@ -12530,20 +12693,21 @@ html {
   }
 }
 
-@media (max-width: 375px) {
+/* Petit mobile — slots équipe fluides (remplace patchs 375/430) */
+@media (max-width: 480px) {
   .game-header {
     min-height: calc(env(safe-area-inset-top, 0px) + 158px) !important;
   }
 
   .game-header-inner {
-    grid-template-columns: clamp(112px, 32vw, 130px) minmax(0, 1fr) clamp(112px, 32vw, 130px) !important;
+    grid-template-columns: clamp(108px, 31vw, 130px) minmax(0, 1fr) clamp(108px, 31vw, 130px) !important;
     padding-left: 4px !important;
     padding-right: 4px !important;
   }
 
   .mobile-team-slot {
-    width: clamp(44px, 12vw, 50px);
-    height: clamp(44px, 12vw, 50px);
+    width: clamp(44px, 12vw, 54px);
+    height: clamp(44px, 12vw, 54px);
   }
 
   button.mobile-team-open {
@@ -12552,10 +12716,10 @@ html {
   }
 }
 
-@media (min-width: 376px) and (max-width: 430px) {
+@media (min-width: 481px) and (max-width: 767px) {
   .mobile-team-slot {
-    width: clamp(50px, 13vw, 58px);
-    height: clamp(50px, 13vw, 58px);
+    width: clamp(50px, 12vw, 58px);
+    height: clamp(50px, 12vw, 58px);
   }
 }
 
@@ -13109,6 +13273,1258 @@ html {
     bottom: auto;
     transform: none;
     z-index: 1;
+  }
+}
+
+/* =========================================================
+   SCÈNE DROITE — Badges Expéditions + Inventaire
+   ========================================================= */
+.scene-right-stack {
+  position: absolute;
+  right: max(12px, 1.2vw);
+  top: clamp(22%, calc(var(--altar-y, 64%) - 28%), 34%);
+  z-index: 22;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.scene-right-stack > * {
+  pointer-events: auto;
+}
+
+.scene-expeditions-btn,
+.scene-inventory-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: auto;
+  min-width: 0;
+  padding: 6px 4px;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #f2e6c8;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, opacity 0.15s ease, filter 0.15s ease;
+}
+.scene-expeditions-btn:hover,
+.scene-inventory-btn:hover { transform: translateY(-1px); }
+.scene-expeditions-btn:active,
+.scene-inventory-btn:active { transform: translateY(0) scale(0.96); }
+.scene-expeditions-btn.has-claim .scene-expeditions-art {
+  filter: drop-shadow(0 0 10px rgba(255, 180, 60, 0.45));
+}
+.scene-expeditions-art,
+.scene-inventory-art {
+  width: var(--side-badge-size, 52px);
+  height: var(--side-badge-size, 52px);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.scene-expeditions-art img,
+.scene-inventory-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  filter: drop-shadow(0 2px 7px rgba(0, 0, 0, 0.65))
+    drop-shadow(0 0 8px rgba(100, 170, 255, 0.28));
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.scene-expeditions-label,
+.scene-inventory-label {
+  font-family: var(--font-display);
+  font-size: var(--side-badge-label, 0.62rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  color: #f2e6c8;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+  text-align: center;
+  max-width: min(88px, 22vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scene-expeditions-status {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #9ad0ff;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scene-expeditions-status[hidden] { display: none; }
+.scene-expeditions-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #2a1606;
+  background: linear-gradient(180deg, #ffd873, #f0a030);
+  box-shadow: 0 0 10px rgba(255, 170, 50, 0.45);
+  pointer-events: none;
+}
+.scene-expeditions-badge[hidden] { display: none; }
+
+@media (min-width: 769px) {
+  .scene-expeditions-art,
+  .scene-inventory-art {
+    width: var(--side-badge-size);
+    height: var(--side-badge-size);
+  }
+}
+
+@media (max-width: 768px) {
+  .scene-right-stack {
+    position: fixed;
+    right: max(2px, env(safe-area-inset-right, 0px));
+    top: max(
+      calc(env(safe-area-inset-top, 0px) + 112px),
+      112px
+    );
+    z-index: 28;
+    align-items: center;
+    width: max-content;
+    max-width: min(84px, 22vw);
+    gap: clamp(2px, 0.8vh, 6px);
+  }
+  .scene-expeditions-btn,
+  .scene-inventory-btn {
+    padding: 4px 2px;
+    gap: 2px;
+    min-width: var(--touch-min);
+    min-height: var(--touch-min);
+  }
+}
+
+@media (max-width: 768px) and (max-height: 700px) {
+  .scene-right-stack {
+    top: max(
+      calc(env(safe-area-inset-top, 0px) + 104px),
+      104px
+    );
+    gap: 2px;
+  }
+  :root {
+    --side-badge-size: clamp(40px, 10vw, 46px);
+    --side-badge-label: 0.5rem;
+  }
+}
+
+/* =========================================================
+   Hub Expéditions — même famille visuelle que Bestiaire / Succès
+   (cadre .game-large-panel + coins ; contenu spécifique ci-dessous)
+   ========================================================= */
+#panel-expeditions-hub .expeditions-hub-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+  padding-bottom: 14px;
+}
+
+/* Hero Card — Hall des Expéditions (carte entière cliquable, sans bouton Entrer) */
+#panel-expeditions-hub .exp-hub-hero {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: clamp(168px, 28vw, 300px);
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(210, 165, 65, 0.7);
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  color: #f2e6c8;
+  background-color: #0a1424;
+  background-image: url("../assets/expedition/Hall%20des%20expedition.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 140, 0.14),
+    inset 0 0 0 1px rgba(40, 70, 110, 0.22),
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    0 0 18px rgba(210, 160, 60, 0.1);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+#panel-expeditions-hub .exp-hub-hero:hover {
+  border-color: rgba(245, 215, 130, 0.95);
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 230, 160, 0.2),
+    inset 0 0 0 1px rgba(80, 130, 190, 0.28),
+    0 12px 28px rgba(0, 0, 0, 0.42),
+    0 0 22px rgba(210, 165, 65, 0.28),
+    0 0 28px rgba(70, 140, 220, 0.12);
+}
+#panel-expeditions-hub .exp-hub-hero:hover .exp-hub-hero-veil {
+  opacity: 1;
+  background: linear-gradient(
+    180deg,
+    rgba(6, 12, 22, 0.1) 0%,
+    rgba(8, 16, 30, 0.22) 34%,
+    rgba(4, 10, 20, 0.78) 68%,
+    rgba(2, 6, 14, 0.92) 100%
+  );
+}
+#panel-expeditions-hub .exp-hub-hero:hover .exp-hub-access {
+  border-color: rgba(245, 215, 130, 0.85);
+  background: linear-gradient(180deg, rgba(28, 42, 64, 0.92), rgba(10, 16, 28, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 230, 160, 0.16),
+    0 0 14px rgba(210, 165, 65, 0.22);
+}
+#panel-expeditions-hub .exp-hub-hero:active {
+  transform: translateY(0) scale(0.992);
+  filter: brightness(1.03);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 140, 0.12),
+    0 4px 14px rgba(0, 0, 0, 0.38),
+    0 0 14px rgba(210, 165, 65, 0.16);
+}
+#panel-expeditions-hub .exp-hub-hero-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 1;
+  transition: background 0.18s ease, opacity 0.18s ease;
+  background:
+    radial-gradient(ellipse 70% 55% at 70% 20%, rgba(80, 140, 210, 0.12), transparent 60%),
+    linear-gradient(
+      180deg,
+      rgba(6, 12, 22, 0.06) 0%,
+      rgba(8, 16, 30, 0.16) 36%,
+      rgba(4, 10, 20, 0.7) 70%,
+      rgba(2, 6, 14, 0.9) 100%
+    );
+}
+#panel-expeditions-hub .exp-hub-hero-edge {
+  position: absolute;
+  inset: 8px;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: 10px;
+  border: 1px solid rgba(220, 175, 75, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(80, 140, 200, 0.06);
+}
+#panel-expeditions-hub .exp-hub-hero-content {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 22px 18px;
+  pointer-events: none;
+}
+#panel-expeditions-hub .exp-hub-hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: min(520px, 72%);
+}
+#panel-expeditions-hub .exp-hub-hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(210, 180, 110, 0.88);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75);
+}
+#panel-expeditions-hub .exp-hub-hero-kicker::before,
+#panel-expeditions-hub .exp-hub-hero-kicker::after {
+  content: "";
+  width: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(220, 175, 75, 0.75), transparent);
+  box-shadow: 0 0 4px rgba(210, 165, 65, 0.25);
+}
+#panel-expeditions-hub .exp-hub-hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 2.4vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.15;
+  color: #f8efd4;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.7),
+    0 2px 10px rgba(0, 0, 0, 0.55),
+    0 0 18px rgba(210, 165, 65, 0.22);
+}
+#panel-expeditions-hub .exp-hub-hero-desc {
+  margin-top: 2px;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: rgba(220, 228, 240, 0.9);
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.8);
+  max-width: 38ch;
+}
+/* Capsule décorative — repère uniquement (clic = toute la carte) */
+#panel-expeditions-hub .exp-hub-access {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(210, 165, 65, 0.55);
+  background: linear-gradient(180deg, rgba(18, 28, 44, 0.82), rgba(8, 12, 22, 0.88));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 140, 0.1),
+    0 2px 10px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+#panel-expeditions-hub .exp-hub-access-ico {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  line-height: 1;
+  color: #9ec8ef;
+  text-shadow: 0 0 8px rgba(120, 180, 255, 0.45);
+}
+#panel-expeditions-hub .exp-hub-access-label {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #f2e6c8;
+}
+#panel-expeditions-hub .exp-hub-access-arrow {
+  font-size: 1.15rem;
+  line-height: 1;
+  color: #d4b46a;
+  transform: translateY(-1px);
+}
+
+/* Contrats / Menaces — cartes illustrées secondaires */
+#panel-expeditions-hub .exp-hub-secondary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+#panel-expeditions-hub .exp-hub-module {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(210, 165, 65, 0.5);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(70, 120, 180, 0.18), transparent 55%),
+    linear-gradient(165deg, rgba(18, 30, 52, 0.97), rgba(6, 12, 22, 0.98));
+  color: #f2e6c8;
+  text-align: left;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 140, 0.1),
+    inset 0 0 0 1px rgba(40, 70, 110, 0.22),
+    0 3px 8px rgba(0, 0, 0, 0.28);
+  transition: transform 0.14s ease, border-color 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+#panel-expeditions-hub .exp-hub-module:hover {
+  border-color: rgba(235, 195, 95, 0.78);
+  transform: translateY(-1px);
+}
+#panel-expeditions-hub .exp-hub-module:active {
+  transform: translateY(0) scale(0.985);
+}
+#panel-expeditions-hub .exp-hub-module.is-soon {
+  cursor: pointer;
+}
+#panel-expeditions-hub .exp-hub-module.is-soon:not(.exp-hub-illu) {
+  opacity: 0.78;
+  filter: saturate(0.88);
+}
+#panel-expeditions-hub .exp-hub-module.is-soon:not(.exp-hub-illu):hover {
+  transform: none;
+}
+#panel-expeditions-hub .exp-hub-ico {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(8, 14, 24, 0.55);
+  border: 1px solid rgba(201, 158, 70, 0.32);
+  overflow: hidden;
+  pointer-events: none;
+}
+#panel-expeditions-hub .exp-hub-ico-glyph {
+  font-size: 1.1rem;
+  color: #d4b46a;
+  line-height: 1;
+}
+#panel-expeditions-hub .exp-hub-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  pointer-events: none;
+}
+#panel-expeditions-hub .exp-hub-name {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #f6ebcf;
+}
+#panel-expeditions-hub .exp-hub-desc {
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: rgba(210, 220, 235, 0.78);
+}
+#panel-expeditions-hub .exp-hub-soon {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 158, 70, 0.42);
+  background: rgba(12, 18, 30, 0.88);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d4b46a;
+  pointer-events: none;
+}
+
+/* Contrats / Menaces — fond illustré compact */
+#panel-expeditions-hub .exp-hub-module.exp-hub-illu {
+  display: block;
+  position: relative;
+  height: 132px;
+  padding: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: #0a1424;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center 42%;
+  opacity: 1;
+  filter: none;
+}
+#panel-expeditions-hub .exp-hub-module.exp-hub-illu[data-exp-hub="contracts"] {
+  background-image: url("../assets/expedition/contrats.png");
+  background-position: center 40%;
+}
+#panel-expeditions-hub .exp-hub-module.exp-hub-illu[data-exp-hub="threats"] {
+  background-image: url("../assets/expedition/menaces.png");
+  background-position: center 38%;
+}
+#panel-expeditions-hub .exp-hub-illu-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(6, 12, 22, 0.05) 0%,
+    rgba(6, 12, 22, 0.18) 40%,
+    rgba(4, 10, 20, 0.72) 78%,
+    rgba(2, 6, 14, 0.88) 100%
+  );
+  transition: background 0.15s ease;
+}
+#panel-expeditions-hub .exp-hub-illu-content {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 12px 11px;
+  pointer-events: none;
+}
+#panel-expeditions-hub .exp-hub-illu-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+#panel-expeditions-hub .exp-hub-module.exp-hub-illu .exp-hub-name {
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 2px 8px rgba(0, 0, 0, 0.55);
+}
+#panel-expeditions-hub .exp-hub-module.exp-hub-illu .exp-hub-desc {
+  font-size: 0.68rem;
+  color: rgba(220, 228, 240, 0.9);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+#panel-expeditions-hub .exp-hub-module.exp-hub-illu .exp-hub-soon {
+  background: rgba(8, 12, 22, 0.82);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+#panel-expeditions-hub .exp-hub-module.exp-hub-illu:hover {
+  border-color: rgba(245, 215, 130, 0.9);
+  transform: translateY(-1px) scale(1.015);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 140, 0.14),
+    0 6px 16px rgba(0, 0, 0, 0.35),
+    0 0 14px rgba(210, 165, 65, 0.18);
+}
+#panel-expeditions-hub .exp-hub-module.exp-hub-illu:hover .exp-hub-illu-veil {
+  background: linear-gradient(
+    180deg,
+    rgba(6, 12, 22, 0.08) 0%,
+    rgba(8, 16, 30, 0.22) 38%,
+    rgba(4, 10, 20, 0.78) 76%,
+    rgba(2, 6, 14, 0.92) 100%
+  );
+}
+#panel-expeditions-hub .exp-hub-module.exp-hub-illu:active {
+  transform: translateY(0) scale(0.985);
+}
+
+/* Badge notification Contrats / Menaces */
+#panel-expeditions-hub .exp-hub-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 4;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 220, 140, 0.75);
+  background: linear-gradient(180deg, #ffd873, #f0a030);
+  color: #2a1606;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+/* Registre — carte horizontale fine (non illustrée pour l’instant) */
+#panel-expeditions-hub .exp-hub-ledger {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  min-height: 0;
+  padding: 11px 12px;
+}
+
+/* ---------- Menus Contrats / Menaces ---------- */
+.expedition-subpanel-head {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin-bottom: 4px;
+}
+.expedition-subpanel-head .game-large-panel-title {
+  margin: 2px 48px 10px !important;
+  padding-bottom: 10px !important;
+}
+.exp-subpanel-hint {
+  margin: 0 0 12px;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: rgba(210, 220, 235, 0.78);
+}
+.exp-contracts-meta {
+  margin: 0 0 10px;
+}
+.exp-contracts-renewal {
+  margin: 0 0 4px;
+  text-align: center;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(190, 205, 225, 0.72);
+}
+.exp-contracts-renewal strong {
+  font-variant-numeric: tabular-nums;
+  color: rgba(230, 210, 150, 0.95);
+  font-weight: 700;
+}
+.exp-contracts-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .exp-contracts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+@media (min-width: 1024px) {
+  .exp-contracts-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+.exp-contract-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(80, 110, 150, 0.45);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(60, 100, 160, 0.16), transparent 55%),
+    linear-gradient(165deg, rgba(18, 30, 52, 0.98), rgba(6, 12, 22, 0.98));
+  box-shadow: inset 0 1px 0 rgba(255, 220, 140, 0.06);
+  --contract-rarity: #b0a090;
+  --contract-glow: rgba(176, 160, 144, 0.22);
+  border-left: 3px solid var(--contract-rarity);
+}
+.exp-contract-card.rarity-common {
+  --contract-rarity: #b0a090;
+  --contract-glow: rgba(176, 160, 144, 0.22);
+}
+.exp-contract-card.rarity-rare {
+  --contract-rarity: #4a9eff;
+  --contract-glow: rgba(74, 158, 255, 0.35);
+}
+.exp-contract-card.rarity-epic {
+  --contract-rarity: #b44aff;
+  --contract-glow: rgba(180, 74, 255, 0.38);
+}
+.exp-contract-card.rarity-legendary {
+  --contract-rarity: #ffb020;
+  --contract-glow: rgba(255, 176, 32, 0.42);
+}
+.exp-contract-card.is-ready {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 140, 0.1),
+    0 0 12px var(--contract-glow);
+}
+.exp-contract-card.is-claimed {
+  opacity: 0.78;
+}
+.exp-contract-rarity-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.exp-contract-gem {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: var(--contract-rarity);
+  box-shadow: 0 0 8px var(--contract-glow);
+  flex: 0 0 auto;
+}
+.exp-contract-rarity-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--contract-rarity);
+  text-shadow: 0 0 8px var(--contract-glow);
+}
+.exp-contract-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.exp-contract-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f6ebcf;
+}
+.exp-contract-status {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(240, 208, 120, 0.85);
+}
+.exp-contract-card.is-ready .exp-contract-status {
+  color: #9ed4a8;
+}
+.exp-contract-card.is-claimed .exp-contract-status {
+  color: rgba(180, 195, 210, 0.85);
+}
+.exp-contract-desc {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(220, 205, 175, 0.9);
+  line-height: 1.35;
+}
+.exp-contract-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.exp-contract-bar {
+  flex: 1 1 auto;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(210, 165, 65, 0.28);
+  overflow: hidden;
+}
+.exp-contract-fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c8761a, #ffd873);
+}
+.exp-contract-count {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: #f5d98a;
+  font-size: 0.78rem;
+}
+.exp-contract-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+}
+.exp-contract-reward {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(232, 214, 170, 0.95);
+}
+.exp-contract-claim {
+  min-width: 130px;
+  min-height: 48px;
+  height: 48px;
+  margin: 0;
+}
+.exp-threat-empty {
+  text-align: center;
+  padding: 28px 16px;
+}
+.exp-threat-empty-title {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #f0d078;
+}
+.exp-threat-card {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(210, 165, 65, 0.55);
+  background: linear-gradient(165deg, rgba(18, 30, 52, 0.98), rgba(6, 12, 22, 0.98));
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+.exp-threat-media {
+  height: 160px;
+  background: #081018;
+  overflow: hidden;
+}
+.exp-threat-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.exp-threat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 14px 16px;
+}
+.exp-threat-kicker {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #e0a090;
+}
+.exp-threat-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f6ebcf;
+}
+.exp-threat-region,
+.exp-threat-reward,
+.exp-threat-running {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(220, 205, 175, 0.9);
+}
+.exp-threat-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.exp-threat-prepare {
+  width: 100%;
+  min-height: 52px;
+  height: 52px;
+  margin-top: 4px;
+}
+#panel-expedition-contracts .game-large-panel,
+#panel-expedition-threats .game-large-panel {
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(40, 70, 120, 0.28) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(10, 25, 48, 0.97), rgba(4, 10, 20, 0.98));
+}
+@media (max-width: 768px) {
+  .exp-threat-media { height: 130px; }
+  .exp-contract-claim {
+    width: 100%;
+    min-width: 0;
+  }
+  .exp-contract-foot {
+    flex-wrap: wrap;
+  }
+}
+
+@media (min-width: 769px) {
+  #panel-expeditions-hub .exp-hub-hero {
+    height: clamp(200px, 26vw, 300px);
+    background-position: center;
+  }
+  #panel-expeditions-hub .exp-hub-hero-content {
+    padding: 24px 26px 20px;
+  }
+  #panel-expeditions-hub .exp-hub-secondary-row {
+    gap: 12px;
+  }
+  #panel-expeditions-hub .exp-hub-module.exp-hub-illu {
+    height: clamp(120px, 12vw, 140px);
+  }
+}
+
+@media (max-width: 768px) {
+  #panel-expeditions-hub .exp-hub-hero {
+    height: clamp(168px, 52vw, 220px);
+    background-position: center;
+    border-radius: 14px;
+  }
+  #panel-expeditions-hub .exp-hub-hero-edge {
+    inset: 6px;
+    border-radius: 9px;
+  }
+  #panel-expeditions-hub .exp-hub-hero-content {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 14px 14px 12px;
+  }
+  #panel-expeditions-hub .exp-hub-hero-copy {
+    max-width: none;
+    flex: 1 1 auto;
+  }
+  #panel-expeditions-hub .exp-hub-hero-kicker {
+    font-size: 0.56rem;
+    letter-spacing: 0.14em;
+    gap: 6px;
+  }
+  #panel-expeditions-hub .exp-hub-hero-kicker::before,
+  #panel-expeditions-hub .exp-hub-hero-kicker::after {
+    width: 12px;
+  }
+  #panel-expeditions-hub .exp-hub-hero-title {
+    font-size: 1.05rem;
+    letter-spacing: 0.08em;
+  }
+  #panel-expeditions-hub .exp-hub-hero-desc {
+    font-size: 0.74rem;
+    max-width: none;
+  }
+  #panel-expeditions-hub .exp-hub-access {
+    padding: 7px 10px 7px 8px;
+    gap: 6px;
+  }
+  #panel-expeditions-hub .exp-hub-access-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+  }
+  #panel-expeditions-hub .exp-hub-access-ico {
+    width: 16px;
+    height: 16px;
+    font-size: 0.7rem;
+  }
+  #panel-expeditions-hub .exp-hub-secondary-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  #panel-expeditions-hub .exp-hub-module.exp-hub-illu {
+    height: 118px;
+  }
+  #panel-expeditions-hub .exp-hub-illu-content {
+    padding: 10px 10px 9px;
+    gap: 6px;
+  }
+  #panel-expeditions-hub .exp-hub-module.exp-hub-illu .exp-hub-name {
+    font-size: 0.8rem;
+  }
+  #panel-expeditions-hub .exp-hub-module.exp-hub-illu .exp-hub-desc {
+    font-size: 0.62rem;
+  }
+  #panel-expeditions-hub .exp-hub-module.exp-hub-illu .exp-hub-soon {
+    padding: 3px 6px;
+    font-size: 0.55rem;
+  }
+  #panel-expeditions-hub .exp-hub-module:not(.exp-hub-illu) {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    justify-items: start;
+    gap: 6px;
+    padding: 10px 10px 11px;
+  }
+  #panel-expeditions-hub .exp-hub-ico {
+    width: 34px;
+    height: 34px;
+  }
+  #panel-expeditions-hub .exp-hub-ledger .exp-hub-name { font-size: 0.8rem; }
+  #panel-expeditions-hub .exp-hub-ledger .exp-hub-desc { font-size: 0.64rem; }
+  #panel-expeditions-hub .exp-hub-ledger {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    grid-template-rows: none;
+    align-items: center;
+    justify-items: stretch;
+    gap: 10px;
+    padding: 10px 11px;
+  }
+  #panel-expeditions-hub .exp-hub-ledger .exp-hub-soon {
+    justify-self: center;
+    margin-top: 0;
+  }
+}
+
+/* Petit mobile — hub Contrats/Menaces en colonne (breakpoint global ≤480) */
+@media (max-width: 480px) {
+  #panel-expeditions-hub .exp-hub-secondary-row {
+    grid-template-columns: 1fr;
+  }
+  #panel-expeditions-hub .exp-hub-module.exp-hub-illu {
+    height: clamp(112px, 34vw, 128px);
+  }
+  #panel-expeditions-hub .exp-hub-hero {
+    height: clamp(168px, 48vw, 210px);
+  }
+  #panel-expeditions-hub .exp-hub-hero-content {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  #panel-expeditions-hub .exp-hub-access {
+    margin-left: auto;
+  }
+  #panel-expeditions-hub .exp-hub-module:not(.exp-hub-illu) {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    grid-template-rows: none;
+    align-items: center;
+    gap: 8px;
+  }
+  #panel-expeditions-hub .exp-hub-ledger .exp-hub-soon {
+    justify-self: center;
+    margin-top: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #panel-expeditions-hub .exp-hub-hero,
+  #panel-expeditions-hub .exp-hub-hero-veil,
+  #panel-expeditions-hub .exp-hub-access,
+  #panel-expeditions-hub .exp-hub-module.exp-hub-illu {
+    transition: none;
+  }
+  #panel-expeditions-hub .exp-hub-hero:hover,
+  #panel-expeditions-hub .exp-hub-hero:active,
+  #panel-expeditions-hub .exp-hub-module.exp-hub-illu:hover,
+  #panel-expeditions-hub .exp-hub-module.exp-hub-illu:active {
+    transform: none;
+  }
+}
+
+/* =========================================================
+   Inventaire V1 — Matériaux / Reliques / Coffres
+   (style Bestiaire / Succès ; coffres = gameState.chests)
+   ========================================================= */
+#panel-inventory.inventory-panel.game-large-panel-overlay.overlay-panel.active {
+  justify-content: stretch;
+}
+#panel-inventory .inventory-shell {
+  width: min(100%, var(--menu-max-width, 1100px));
+  max-width: min(1100px, calc(100vw - 16px));
+  margin: 0 auto;
+}
+#panel-inventory .inventory-head {
+  flex: 0 0 auto;
+}
+#panel-inventory .inventory-head-spacer {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+}
+#panel-inventory .inventory-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: clamp(4px, 1.2vw, 8px);
+  margin: 0 4px 10px;
+  padding: 0 2px;
+  flex: 0 0 auto;
+}
+#panel-inventory .inventory-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  padding: clamp(6px, 1.2vw, 10px) clamp(4px, 1vw, 10px);
+  border-radius: 10px;
+  border: 1px solid rgba(90, 130, 180, 0.35);
+  background: rgba(8, 14, 24, 0.88);
+  color: rgba(210, 200, 175, 0.72);
+  font-family: var(--font-display);
+  font-size: clamp(0.62rem, 2.4vw, 0.78rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+#panel-inventory .inventory-tab.is-active {
+  border-color: rgba(230, 190, 90, 0.75);
+  color: #f6ebcf;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 140, 0.12),
+    0 0 10px rgba(212, 170, 78, 0.18);
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(70, 110, 170, 0.22), transparent 70%),
+    rgba(12, 22, 38, 0.95);
+}
+#panel-inventory .inventory-body {
+  padding: 4px 6px 14px;
+  min-height: 0;
+}
+#panel-inventory .inventory-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 180px;
+  padding: 28px 18px;
+  text-align: center;
+  border-radius: 14px;
+  border: 1px solid rgba(210, 165, 65, 0.35);
+  background:
+    radial-gradient(circle at 50% 20%, rgba(60, 100, 160, 0.16), transparent 55%),
+    linear-gradient(165deg, rgba(14, 24, 40, 0.96), rgba(6, 12, 22, 0.98));
+}
+#panel-inventory .inventory-empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(0.95rem, 2.5vw, 1.15rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f0d078;
+}
+#panel-inventory .inventory-empty-text {
+  margin: 0;
+  max-width: 340px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: rgba(210, 220, 235, 0.78);
+}
+#panel-inventory .inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: clamp(8px, 1.4vw, 12px);
+}
+#panel-inventory .inv-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 12px 10px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(90, 130, 180, 0.4);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(60, 100, 160, 0.14), transparent 55%),
+    linear-gradient(165deg, rgba(16, 28, 48, 0.97), rgba(6, 12, 22, 0.98));
+  box-shadow: inset 0 1px 0 rgba(255, 220, 140, 0.06);
+  text-align: center;
+  --inv-rarity: #b0a090;
+  --inv-glow: rgba(176, 160, 144, 0.2);
+  border-left: 3px solid var(--inv-rarity);
+}
+#panel-inventory .inv-card.rarity-common { --inv-rarity: #b0a090; --inv-glow: rgba(176, 160, 144, 0.22); }
+#panel-inventory .inv-card.rarity-rare,
+#panel-inventory .inv-card.chest-rare { --inv-rarity: #4a9eff; --inv-glow: rgba(74, 158, 255, 0.32); }
+#panel-inventory .inv-card.rarity-epic,
+#panel-inventory .inv-card.chest-epic { --inv-rarity: #b44aff; --inv-glow: rgba(180, 74, 255, 0.34); }
+#panel-inventory .inv-card.rarity-legendary { --inv-rarity: #ffb020; --inv-glow: rgba(255, 176, 32, 0.38); }
+#panel-inventory .inv-card.chest-draconic { --inv-rarity: #c9a227; --inv-glow: rgba(201, 162, 39, 0.28); }
+#panel-inventory .inv-card-art {
+  width: clamp(56px, 12vw, 72px);
+  height: clamp(56px, 12vw, 72px);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+#panel-inventory .inv-card-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+#panel-inventory .inv-card-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(0.72rem, 2vw, 0.86rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #f6ebcf;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 100%;
+}
+#panel-inventory .inv-card-meta {
+  margin: 0;
+  font-size: 0.68rem;
+  color: rgba(190, 205, 225, 0.75);
+  line-height: 1.25;
+}
+#panel-inventory .inv-card-qty {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: 0.92rem;
+  color: #f5d98a;
+}
+#panel-inventory .inv-card-rarity {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--inv-rarity);
+  text-shadow: 0 0 8px var(--inv-glow);
+}
+#panel-inventory .inv-card-open {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 2px;
+  border-radius: 8px;
+  border: 1px solid rgba(240, 170, 70, 0.55);
+  background: linear-gradient(180deg, rgba(180, 80, 30, 0.95) 0%, rgba(110, 40, 20, 0.98) 100%);
+  color: #ffe7b8;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 220, 140, 0.25);
+}
+#panel-inventory .inv-card-open:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.scene-inventory-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #2a1606;
+  background: linear-gradient(180deg, #ffd873, #f0a030);
+  box-shadow: 0 0 10px rgba(255, 170, 50, 0.45);
+  pointer-events: none;
+}
+.scene-inventory-badge[hidden] { display: none; }
+.scene-inventory-btn { position: relative; }
+
+@media (max-width: 480px) {
+  #panel-inventory .inventory-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  #panel-inventory .inventory-tab {
+    letter-spacing: 0.04em;
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+}
+@media (max-width: 340px) {
+  #panel-inventory .inventory-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (min-width: 900px) {
+  #panel-inventory .inventory-grid {
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
   }
 }
 
@@ -14125,7 +15541,10 @@ html.is-mobile-team-open #panel-kingdom::before {
   html.is-mobile-team-open .scene-chests-btn,
   html.is-mobile-team-open .scene-events-btn,
   html.is-mobile-team-open .mobile-team-rail,
-  html.is-mobile-team-open .scene-left-stack {
+  html.is-mobile-team-open .scene-left-stack,
+  html.is-mobile-team-open .scene-right-stack,
+  html.is-mobile-team-open .scene-expeditions-btn,
+  html.is-mobile-team-open .scene-inventory-btn {
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none !important;
@@ -14748,4 +16167,411 @@ html.is-mobile-team-open #panel-kingdom::before {
     transition: none;
     transform: none;
   }
+}
+
+/* =========================================================
+   RESPONSIVE GLOBAL V2 — fondation fluide consolidée
+   Breakpoints : ≤480 | 481–767 | 768–1023 | ≥1024
+   CSS first — pas de recalcul JS. Préserve le design actuel.
+   ========================================================= */
+
+/* ----- Tokens par famille d’écran ----- */
+@media (max-width: 480px) {
+  :root {
+    --ui-gap: clamp(4px, 1.8vw, 10px);
+    --ui-padding: clamp(6px, 2.2vw, 12px);
+    --menu-edge: clamp(6px, 2vw, 10px);
+    --side-badge-size: clamp(42px, 12vw, 50px);
+    --side-badge-label: clamp(0.48rem, 2.6vw, 0.56rem);
+    --font-title: clamp(1rem, 4.6vw, 1.35rem);
+    --nav-h: 56px;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 767px) {
+  :root {
+    --side-badge-size: clamp(48px, 11vw, 56px);
+    --side-badge-label: clamp(0.5rem, 2.2vw, 0.6rem);
+    --menu-edge: clamp(8px, 1.8vw, 14px);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root {
+    --side-badge-size: clamp(54px, 6.5vw, 64px);
+    --side-badge-label: clamp(0.56rem, 1.3vw, 0.66rem);
+    --menu-max-width: min(960px, calc(100vw - 24px));
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --side-badge-size: clamp(58px, 4.6vw, 72px);
+    --menu-max-width: min(1480px, calc(100vw - 36px));
+  }
+}
+
+@media (min-width: 1600px) {
+  :root {
+    --menu-max-width: min(1560px, calc(100vw - 64px));
+  }
+}
+
+/* Ultrawide : ne pas étirer les grands menus */
+@media (min-aspect-ratio: 21/9) {
+  :root {
+    --menu-max-width: min(1400px, calc(100vw - 8vw));
+  }
+}
+
+/* Hauteur basse (laptops 720/768, paysage) */
+@media (max-height: 780px) {
+  :root {
+    --menu-max-height: min(90dvh, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 8px));
+  }
+  #app {
+    --egg-main-max-height: min(40vh, 40dvh, 46svh);
+    --egg-stage-lift: 18px;
+  }
+}
+
+@media (max-height: 640px) {
+  #app {
+    --egg-main-width: clamp(140px, min(28vw, 36dvh), 240px);
+    --egg-main-max-height: min(36vh, 36dvh, 42svh);
+    --egg-stage-lift: 12px;
+  }
+}
+
+/* ----- Shell anti scroll horizontal ----- */
+html,
+body,
+#app {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* ----- Menus / overlays génériques ----- */
+.game-large-panel-overlay.overlay-panel.active {
+  padding-left: max(var(--menu-edge), var(--safe-left));
+  padding-right: max(var(--menu-edge), var(--safe-right));
+  box-sizing: border-box;
+}
+
+.game-large-panel {
+  width: min(100%, var(--menu-max-width));
+  max-width: var(--menu-max-width);
+  border-radius: var(--panel-radius);
+  margin-inline: auto;
+}
+
+.game-large-panel-title {
+  font-size: var(--font-title);
+  line-height: 1.2;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.expedition-hall-back,
+.expedition-hall-close,
+.sheet-close,
+.header-gear,
+.game-large-panel .btn-icon,
+button.modal-close {
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+}
+
+/* ----- Navigation basse ----- */
+.nav {
+  width: min(720px, 100%);
+  max-width: 100%;
+  padding-bottom: calc(var(--nav-pad-y) + var(--safe-bottom));
+  gap: clamp(4px, 1.2vw, 10px);
+}
+
+.nav-btn {
+  min-height: max(52px, var(--touch-min));
+  padding: clamp(6px, 1.2vw, 11px) clamp(4px, 1vw, 8px);
+}
+
+.nav-btn .nav-label {
+  font-size: clamp(0.52rem, 2.4vw, 0.68rem);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-btn .nav-ico {
+  font-size: clamp(1.05rem, 3.4vw, 1.35rem);
+}
+
+/* ----- Badges latéraux fluides ----- */
+.scene-expeditions-art,
+.scene-inventory-art,
+.scene-events-art {
+  width: var(--side-badge-size) !important;
+  height: var(--side-badge-size) !important;
+}
+
+.scene-chests-art {
+  width: calc(var(--side-badge-size) * 1.12) !important;
+  height: calc(var(--side-badge-size) * 1.12) !important;
+}
+
+.scene-expeditions-label,
+.scene-inventory-label,
+.scene-events-label {
+  font-size: var(--side-badge-label) !important;
+  max-width: min(92px, 24vw);
+}
+
+.scene-left-stack,
+.scene-right-stack {
+  max-width: min(96px, 26vw);
+}
+
+/* ----- Œuf / progression ----- */
+.egg-progress-block {
+  width: min(420px, calc(100vw - 24px - var(--safe-left) - var(--safe-right)));
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.egg-stage {
+  max-width: 100%;
+}
+
+.game-logo {
+  max-width: min(200px, 46vw);
+  height: auto;
+}
+@media (max-width: 767px) {
+  .game-logo {
+    max-width: min(172px, 42vw);
+  }
+}
+
+/* ----- Boutique / cartes ----- */
+@media (max-width: 480px) {
+  #panel-shop .shop-grid,
+  #upgrades-list.upgrades-card-list {
+    grid-template-columns: 1fr !important;
+  }
+
+  #panel-shop .card-action .btn,
+  #upgrades-list .card-action .btn,
+  .shop-card .btn,
+  .upgrade-card .btn {
+    min-height: var(--touch-min);
+  }
+}
+
+@media (min-width: 481px) and (max-width: 1023px) {
+  #panel-shop .shop-grid {
+    gap: clamp(8px, 1.5vw, 14px);
+  }
+}
+
+/* ----- Bestiaire / dragons ----- */
+@media (max-width: 767px) {
+  #panel-dragons .dragons-grid,
+  .dragons-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(140px, 42vw), 1fr)) !important;
+    gap: clamp(6px, 2vw, 12px);
+  }
+
+  .dragon-tile .dt-name,
+  .dragon-sheet .ds-name {
+    font-size: clamp(0.72rem, 3.2vw, 0.9rem);
+    line-clamp: 2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+/* ----- Succès : mobile vertical déjà géré — renforcer lisibilité ----- */
+@media (max-width: 767px) {
+  #panel-achievements .ach-cat-btn,
+  #panel-achievements .achievements-cat {
+    min-height: var(--touch-min);
+    font-size: clamp(0.68rem, 2.8vw, 0.82rem);
+  }
+}
+
+/* ----- Hub / Hall / Contrats / Menaces ----- */
+@media (max-width: 767px) {
+  #panel-expeditions-hub .exp-hub-module.exp-hub-illu {
+    height: clamp(110px, 32vw, 130px);
+  }
+
+  .expedition-card,
+  .expeditions-list .expedition-card {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .expedition-launch,
+  .exp-contract-claim,
+  .exp-threat-prepare {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .exp-contracts-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .expeditions-list,
+  #expeditions-root .expeditions-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ----- Inventaire ----- */
+#panel-inventory .game-large-panel,
+#panel-inventory .inventory-body {
+  width: min(100%, var(--menu-max-width));
+  max-width: 100%;
+}
+
+/* ----- Monde : scroll horizontal local OK ; clamp viewport ----- */
+.world-panel .world-menu,
+#panel-world .world-menu {
+  width: min(100%, var(--menu-max-width));
+  max-width: 100%;
+  max-height: var(--menu-max-height);
+}
+
+.world-zones-viewport {
+  max-width: 100%;
+}
+
+/* ----- Paramètres / modals ----- */
+.modal,
+.settings-panel,
+#panel-settings .settings-body {
+  width: min(100%, 560px);
+  max-width: calc(100vw - 2 * var(--menu-edge));
+  box-sizing: border-box;
+}
+
+.settings-row,
+.bonus-codes-row,
+.volume-row {
+  min-height: var(--touch-min);
+  flex-wrap: wrap;
+  gap: var(--ui-gap);
+}
+
+input[type="range"] {
+  min-height: 28px;
+}
+
+/* ----- Coffres ----- */
+.chest-modal {
+  width: min(94vw, 480px);
+  max-width: calc(100vw - 2 * var(--menu-edge));
+  max-height: min(86dvh, calc(100dvh - 64px - var(--safe-bottom)));
+}
+
+/* ----- Tooltips dans le viewport ----- */
+.exp-rewards-tooltip,
+.tooltip,
+[role="tooltip"] {
+  max-width: min(320px, calc(100vw - 16px));
+  box-sizing: border-box;
+}
+
+/* ----- Typo menus (sans toucher au HUD compact mobile) ----- */
+@media (min-width: 768px) {
+  .exp-contract-desc,
+  .exp-hub-desc,
+  .card-desc {
+    font-size: max(0.75rem, 12px);
+  }
+}
+
+/* ----- Paysage mobile ----- */
+@media (max-height: 480px) and (orientation: landscape) {
+  :root {
+    --side-badge-size: clamp(36px, 9vh, 46px);
+    --side-badge-label: 0.48rem;
+  }
+  .header,
+  .game-header {
+    min-height: 0 !important;
+  }
+  .game-logo {
+    max-height: 32px !important;
+    width: clamp(100px, 18vw, 140px) !important;
+  }
+  .egg-progress-block {
+    width: min(360px, 70vw);
+    padding: 6px 8px;
+  }
+  .nav {
+    min-height: 64px;
+    padding-top: 4px;
+  }
+  .nav-btn .nav-label {
+    font-size: 0.5rem;
+  }
+}
+
+/* ----- Petit mobile hauteur critique ----- */
+@media (max-width: 480px) and (max-height: 700px) {
+  .scene-left-stack,
+  .scene-right-stack {
+    gap: 2px !important;
+  }
+  :root {
+    --side-badge-size: clamp(40px, 11vw, 46px);
+  }
+}
+
+/* ----- Desktop / laptop hauteur 720–768 ----- */
+@media (min-width: 1024px) and (max-height: 800px) {
+  .game-large-panel-overlay.overlay-panel.active {
+    padding-top: max(48px, calc(var(--safe-top) + 36px));
+    padding-bottom: 8px;
+  }
+  #panel-expeditions-hub .exp-hub-hero {
+    height: clamp(160px, 22vh, 220px);
+  }
+}
+
+/* Images UI — contain pour assets transparents */
+.scene-expeditions-art img,
+.scene-inventory-art img,
+.scene-events-art img,
+.scene-chests-art img,
+.egg-hero img,
+.egg-carousel-item img,
+.eps-art img,
+.dragon-tile .dt-art img,
+.team-slot img {
+  object-fit: contain;
+}
+
+/* Images cinématiques */
+.exp-hub-hero,
+.exp-threat-media img,
+.expedition-card-media img,
+.expedition-prepare-media img,
+.events-card-visual-img,
+.world-map-img {
+  object-fit: cover;
 }
