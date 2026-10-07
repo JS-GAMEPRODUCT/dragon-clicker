@@ -12374,31 +12374,45 @@ html {
     max-height: min(78vh, calc(100dvh - 88px - env(safe-area-inset-bottom, 0px) - 24px)) !important;
   }
 
-  /* ----- HUD : colonnes Gauche / Logo / Droite ----- */
+  /* ----- HUD mobile : 2 colonnes, SANS logo -----
+     Gauche : Essence / CPS
+     Droite : Essence/sec → Puissance clic → Puissance → Paramètres
+     Puis badges scène Expéditions / Inventaire sous Paramètres.
+  */
+  #app {
+    --hud-card-h: clamp(40px, 10.5vw, 46px);
+    --hud-row-gap: 4px;
+    --hud-pad-y: 6px;
+    /* Bas colonne droite HUD → ancrage badges Expéditions / Inventaire */
+    --mobile-hud-right-bottom: calc(
+      env(safe-area-inset-top, 0px) + var(--hud-pad-y) +
+      (3 * var(--hud-card-h)) + (3 * var(--hud-row-gap)) +
+      44px + 10px
+    );
+  }
+
   .header,
   .game-header {
     --hud-scale: 1;
     padding: 0 !important;
     padding-top: 0 !important;
     padding-bottom: 0 !important;
-    /* +1 rangée droite (Paramètres sous Puissance) */
-    min-height: calc(env(safe-area-inset-top, 0px) + 214px);
+    min-height: calc(env(safe-area-inset-top, 0px) + (4 * var(--hud-card-h)) + (3 * var(--hud-row-gap)) + 20px);
     overflow: visible;
   }
 
   .game-header-inner {
     display: grid !important;
-    /* Colonnes latérales un peu plus étroites → place pour logo +12 % sans chevauchement */
-    grid-template-columns: clamp(110px, 31vw, 136px) minmax(0, 1fr) clamp(110px, 31vw, 136px) !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
     grid-template-rows: auto auto auto auto !important;
     align-items: start !important;
     justify-items: stretch !important;
-    column-gap: 4px !important;
-    row-gap: 5px !important;
+    column-gap: clamp(6px, 2vw, 12px) !important;
+    row-gap: var(--hud-row-gap) !important;
     width: 100% !important;
     max-width: 100% !important;
     transform: none !important;
-    padding: max(6px, env(safe-area-inset-top, 0px)) 6px 4px !important;
+    padding: max(var(--hud-pad-y), env(safe-area-inset-top, 0px)) 8px 4px !important;
     box-sizing: border-box;
   }
 
@@ -12408,29 +12422,13 @@ html {
     display: contents !important;
   }
 
-  .header-logo-wrap {
-    grid-column: 2 !important;
-    grid-row: 1 / span 2 !important;
-    justify-self: center !important;
-    align-self: start !important;
-    z-index: 2;
-    padding: 0 !important;
-    order: unset !important;
-    width: auto !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    pointer-events: none;
-  }
-
+  /* Logo retiré sur mobile — place libérée pour Essence/sec en haut à droite */
+  .header-logo-wrap,
   .game-logo {
-    /* +~12 % vs clamp(110px, 28vw, 148px) / max-height 44px — mobile only */
-    width: clamp(123px, 31.5vw, 166px) !important;
-    max-width: 100% !important;
-    max-height: 50px !important;
-    height: auto !important;
+    display: none !important;
   }
 
-  /* Gauche : ESSENCE puis CPS juste dessous */
+  /* Gauche : ESSENCE puis CPS */
   .hud-resource-card.essence-stat {
     grid-column: 1 !important;
     grid-row: 1 !important;
@@ -12443,24 +12441,23 @@ html {
 
   /* Droite : ESSENCE/SEC → PUISSANCE CLIC → PUISSANCE → PARAMÈTRES */
   .hud-badge-prod {
-    grid-column: 3 !important;
+    grid-column: 2 !important;
     grid-row: 1 !important;
   }
 
   .hud-badge-click {
-    grid-column: 3 !important;
+    grid-column: 2 !important;
     grid-row: 2 !important;
   }
 
   .hud-resource-card.hud-power-card {
-    grid-column: 3 !important;
+    grid-column: 2 !important;
     grid-row: 3 !important;
   }
 
-  /* Paramètres : sous Puissance, même axe (bande 92 % alignée à droite) */
   .header-gear,
   #btn-open-settings {
-    grid-column: 3 !important;
+    grid-column: 2 !important;
     grid-row: 4 !important;
     justify-self: end !important;
     align-self: start !important;
@@ -12470,7 +12467,7 @@ html {
     left: auto !important;
     width: 40px !important;
     height: 40px !important;
-    margin: 2px max(0px, calc(46% - 20px)) 0 0 !important;
+    margin: 2px 4px 0 0 !important;
     z-index: 3;
     pointer-events: auto;
   }
@@ -12480,21 +12477,16 @@ html {
     max-width: none !important;
     flex: none !important;
     min-width: 0 !important;
-    height: clamp(42px, 11vw, 48px) !important;
+    height: var(--hud-card-h) !important;
     box-sizing: border-box;
   }
 
-  /* Essence/sec, Puissance clic, Puissance : même axe droit (sous-alignés) */
-  .hud-resource-card.hud-badge-prod {
-    width: 82% !important;
-    max-width: 82% !important;
-    justify-self: end !important;
-  }
+  .hud-resource-card.hud-badge-prod,
   .hud-resource-card.hud-badge-click,
   .hud-resource-card.hud-power-card {
-    width: 92% !important;
-    max-width: 92% !important;
-    justify-self: end !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    justify-self: stretch !important;
   }
 
   .hud-resource-label {
@@ -12539,17 +12531,16 @@ html {
     display: none !important;
   }
 
-  /* ----- Colonne gauche : Événement → Coffre → équipe (Paramètres = HUD droite) ----- */
+  /* ----- Colonne gauche : sous Essence/CPS (2 rangées) ----- */
   .scene-left-stack {
-    /*
-      position:fixed : remonte sous les badges GAUCHE (ESSENCE/CPS, 2 rangées)
-      sans être clipée par #panel-kingdom (overflow:hidden, top = bas du HUD 4 rangées).
-    */
     position: fixed;
     left: max(2px, env(safe-area-inset-left, 0px));
     top: max(
-      calc(env(safe-area-inset-top, 0px) + 108px),
-      108px
+      calc(
+        env(safe-area-inset-top, 0px) + var(--hud-pad-y, 6px) +
+        (2 * var(--hud-card-h, 44px)) + var(--hud-row-gap, 4px) + 8px
+      ),
+      96px
     );
     gap: 8px;
     z-index: 28;
@@ -12693,16 +12684,12 @@ html {
   }
 }
 
-/* Petit mobile — slots équipe fluides (remplace patchs 375/430) */
+/* Petit mobile — slots équipe fluides (HUD 2 colonnes conservé) */
 @media (max-width: 480px) {
-  .game-header {
-    min-height: calc(env(safe-area-inset-top, 0px) + 158px) !important;
-  }
-
   .game-header-inner {
-    grid-template-columns: clamp(108px, 31vw, 130px) minmax(0, 1fr) clamp(108px, 31vw, 130px) !important;
-    padding-left: 4px !important;
-    padding-right: 4px !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    column-gap: 6px !important;
   }
 
   .mobile-team-slot {
@@ -12784,7 +12771,7 @@ html {
 
 @media (max-width: 768px) {
   #app:has(#panel-shop.active) {
-    --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + 58px);
+    --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + var(--hud-card-h, 44px) + 16px);
   }
 
   #app:has(#panel-shop.active) .header,
@@ -12793,13 +12780,15 @@ html {
   }
 
   #app:has(#panel-shop.active) .game-header-inner {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
     grid-template-rows: auto !important;
     padding-bottom: 4px !important;
   }
 
-  #app:has(#panel-shop.active) .header-logo-wrap {
-    grid-column: 2 !important;
-    grid-row: 1 !important;
+  /* Boutique mobile : pas de logo — Essence | Essence/sec */
+  #app:has(#panel-shop.active) .header-logo-wrap,
+  #app:has(#panel-shop.active) .game-logo {
+    display: none !important;
   }
 
   #app:has(#panel-shop.active) .hud-resource-card.essence-stat {
@@ -12808,7 +12797,7 @@ html {
   }
 
   #app:has(#panel-shop.active) .hud-resource-card.hud-badge-prod {
-    grid-column: 3 !important;
+    grid-column: 2 !important;
     grid-row: 1 !important;
   }
 
@@ -13398,18 +13387,16 @@ html {
 }
 
 @media (max-width: 768px) {
+  /* Expéditions + Inventaire : sous Paramètres (colonne droite HUD) */
   .scene-right-stack {
     position: fixed;
     right: max(2px, env(safe-area-inset-right, 0px));
-    top: max(
-      calc(env(safe-area-inset-top, 0px) + 112px),
-      112px
-    );
+    top: var(--mobile-hud-right-bottom, calc(env(safe-area-inset-top, 0px) + 220px));
     z-index: 28;
     align-items: center;
     width: max-content;
     max-width: min(84px, 22vw);
-    gap: clamp(2px, 0.8vh, 6px);
+    gap: clamp(4px, 1vh, 8px);
   }
   .scene-expeditions-btn,
   .scene-inventory-btn {
@@ -13422,15 +13409,15 @@ html {
 
 @media (max-width: 768px) and (max-height: 700px) {
   .scene-right-stack {
-    top: max(
-      calc(env(safe-area-inset-top, 0px) + 104px),
-      104px
-    );
-    gap: 2px;
+    gap: 3px;
   }
   :root {
     --side-badge-size: clamp(40px, 10vw, 46px);
     --side-badge-label: 0.5rem;
+  }
+  #app {
+    --hud-card-h: clamp(36px, 9.5vw, 42px);
+    --hud-row-gap: 3px;
   }
 }
 
@@ -16574,4 +16561,111 @@ input[type="range"] {
 .events-card-visual-img,
 .world-map-img {
   object-fit: cover;
+}
+
+/* =========================================================
+   MOBILE UI FIX V2 — HUD / badges / hub / hall (≤768 only)
+   Desktop (≥769) inchangé.
+   ========================================================= */
+@media (max-width: 768px) {
+  /* Hub Expéditions : remonté, utilise l’espace au-dessus de la nav */
+  #app:has(#panel-expeditions-hub.active) #panel-expeditions-hub.game-large-panel-overlay.overlay-panel.active {
+    padding: max(6px, env(safe-area-inset-top, 0px)) clamp(4px, 1.5vw, 10px) 6px !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    top: 0 !important;
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  #app:has(#panel-expeditions-hub.active) #panel-expeditions-hub .game-large-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    flex: 1 1 auto !important;
+    margin: 0 !important;
+    align-self: stretch !important;
+  }
+
+  #app:has(#panel-expeditions-hub.active) #panel-expeditions-hub .game-large-panel-title {
+    margin-top: 2px !important;
+    margin-bottom: 6px !important;
+    font-size: clamp(1.05rem, 4.5vw, 1.35rem);
+  }
+
+  #app:has(#panel-expeditions-hub.active) #panel-expeditions-hub .expeditions-hub-body,
+  #app:has(#panel-expeditions-hub.active) #panel-expeditions-hub .game-large-panel-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #app:has(#panel-expeditions-hub.active) .sheet-close {
+    top: calc(env(safe-area-inset-top, 0px) + 8px) !important;
+    right: clamp(10px, 3vw, 16px) !important;
+  }
+
+  /* Hall des Expéditions : quasi plein écran au-dessus de la bottom nav */
+  .expedition-drawer,
+  .expedition-drawer.open {
+    position: fixed !important;
+    top: max(4px, env(safe-area-inset-top, 0px)) !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    padding: 4px clamp(4px, 1.5vw, 8px) 6px !important;
+    justify-content: stretch !important;
+    align-items: stretch !important;
+    box-sizing: border-box !important;
+    z-index: 85 !important;
+  }
+
+  .expedition-drawer .expedition-hall-panel.game-large-panel,
+  .expedition-drawer .expedition-hall-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    flex: 1 1 auto !important;
+    align-self: stretch !important;
+    min-height: 0 !important;
+  }
+
+  .expedition-drawer .expeditions-root,
+  .expedition-drawer .game-large-panel-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .expedition-drawer .expedition-hall-back,
+  .expedition-drawer .expedition-hall-close {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Empêcher les badges de chevaucher la barre de progression / nav */
+  .scene-right-stack {
+    max-height: calc(
+      100dvh - var(--mobile-hud-right-bottom, 220px) -
+      (88px + env(safe-area-inset-bottom, 0px)) - 12px
+    );
+    overflow: visible;
+  }
+}
+
+@media (max-width: 768px) and (max-height: 640px) {
+  #panel-expeditions-hub .exp-hub-hero {
+    height: clamp(120px, 28vh, 160px) !important;
+  }
+  #panel-expeditions-hub .exp-hub-module.exp-hub-illu {
+    height: clamp(88px, 18vh, 110px) !important;
+  }
 }
