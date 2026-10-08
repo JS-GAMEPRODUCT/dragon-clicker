@@ -17533,11 +17533,11 @@ html.realm-view-active .main {
 
 
 /* =========================================================
-   ROYAUME — responsive mobile (camera zoom-out + menus)
-   Desktop >=1024 : inchange (cover + positions calibrees).
+   ROYAUME — mobile cible : camera + menus (badges taille globale)
+   Desktop >=1024 inchange. Pas de --side-badge-size Royaume.
    ========================================================= */
 
-/* Tablette : leger downscale batiments seulement */
+/* Tablette : scale batiments seulement */
 @media (min-width: 768px) and (max-width: 1023px) {
   html.realm-view-active .kingdom-building {
     --kb-scale: 0.9;
@@ -17545,10 +17545,12 @@ html.realm-view-active .main {
 }
 
 /*
-  MOBILE PORTRAIT :
-  Cover coupe trop les cotes (visible ~30% du design).
-  Camera = fit LARGEUR (voir les 4 plateformes),
-  backdrop cover remplit le reste sans bande noire.
+  PORTRAIT MOBILE — camera zoom-out :
+  Cover classique ne montre ~30% du design → batiments hors ecran.
+  On affiche ~74% de la largeur design (centree sur plateformes),
+  assez pour Forge/Elevage/Autel/Sanctuaire + petite marge.
+  Backdrop cover remplit le reste (assombri).
+  BADGES : aucune reduction — tokens globaux inchanges.
 */
 @media (max-width: 767px) and (orientation: portrait) {
   html.realm-view-active,
@@ -17573,155 +17575,72 @@ html.realm-view-active .main {
     overflow: hidden;
     touch-action: manipulation;
     background: #070e18;
+    --kingdom-nav-h: calc(var(--nav-h, 56px) + env(safe-area-inset-bottom, 0px));
+    --kingdom-menu-top: var(
+      --mobile-hud-right-bottom,
+      calc(
+        env(safe-area-inset-top, 0px) +
+        (2 * var(--hud-card-h, 40px)) +
+        var(--hud-row-gap, 4px) + 52px
+      )
+    );
   }
 
   html.realm-view-active .kingdom-backdrop {
     display: block;
   }
+  html.realm-view-active .kingdom-backdrop-img {
+    object-position: center 58%;
+    opacity: 0.38;
+    filter: brightness(0.55) saturate(0.85);
+  }
 
   /*
-    Camera : largeur = viewport (marge 2%) → les 4 batiments restent dans l'ecran.
-    Hauteur = ratio 3:2. Centree sur la bande plateformes (~56%).
+    Visible ≈ 74% du design → width = 100cqw / 0.74
+    Batiments (≈24–80%) restent dans le cadre.
   */
   html.realm-view-active .kingdom-stage-inner,
   html.realm-view-active .kingdom-canvas,
   html.realm-view-active .kingdom-camera {
     left: 50%;
-    top: 52%;
-    width: 96cqw;
-    height: calc(96cqw * 2 / 3);
+    top: 50%;
+    width: calc(100cqw / 0.74);
+    height: calc(100cqw / 0.74 * 2 / 3);
     max-width: none;
     max-height: none;
-    transform: translate(-50%, -56%);
+    transform: translate(-50%, -54%);
     z-index: 1;
   }
   @supports not (width: 1cqw) {
     html.realm-view-active .kingdom-stage-inner,
     html.realm-view-active .kingdom-canvas,
     html.realm-view-active .kingdom-camera {
-      width: 96vw;
-      height: calc(96vw * 2 / 3);
+      width: calc(100vw / 0.74);
+      height: calc(100vw / 0.74 * 2 / 3);
     }
   }
 
   html.realm-view-active .kingdom-building {
-    --kb-scale: 0.82;
+    --kb-scale: 0.88;
     min-width: 44px;
     min-height: 44px;
-  }
-
-  html.realm-view-active .scene-right-stack {
-    right: max(2px, env(safe-area-inset-right, 0px));
-    gap: clamp(2px, 0.55vh, 6px);
-    max-width: min(72px, 20vw);
-    max-height: calc(
-      100dvh
-      - var(--mobile-hud-right-bottom, 200px)
-      - (64px + env(safe-area-inset-bottom, 0px))
-      - 8px
-    );
-    overflow: visible;
-    z-index: 28;
-  }
-
-  html.realm-view-active {
-    --side-badge-size: clamp(34px, 8.2vw, 42px);
-    --side-badge-label: clamp(0.4rem, 2.2vw, 0.48rem);
-    --kingdom-nav-h: calc(56px + env(safe-area-inset-bottom, 0px));
-  }
-
-  html.realm-view-active .scene-left-stack {
-    left: max(2px, env(safe-area-inset-left, 0px));
-    gap: clamp(4px, 0.8vh, 10px);
-    max-width: min(88px, 24vw);
-    z-index: 28;
-  }
-
-  html.realm-view-active .nav {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    width: 100%;
-    max-width: 100%;
-    gap: clamp(2px, 1vw, 6px);
-    padding: 4px max(4px, env(safe-area-inset-left, 0px))
-      calc(4px + env(safe-area-inset-bottom, 0px))
-      max(4px, env(safe-area-inset-right, 0px));
-    min-height: 56px;
-    box-sizing: border-box;
-  }
-  html.realm-view-active .nav-btn {
-    flex: 1 1 0;
-    min-width: 0;
-    max-width: none;
-    min-height: 48px;
-    padding: 6px 1px 7px;
-  }
-  html.realm-view-active .nav-btn .nav-label {
-    font-size: clamp(0.42rem, 2.4vw, 0.58rem);
-    letter-spacing: 0.04em;
-  }
-  html.realm-view-active .nav-btn .nav-ico {
-    font-size: clamp(1rem, 4.5vw, 1.2rem);
-  }
-  html.realm-view-active .nav-btn-main {
-    flex: 1.08 1 0;
-    min-height: 52px;
-  }
-
-  html.realm-view-active .kingdom-building-label {
-    font-size: 0.45rem;
-    padding: 2px 6px;
-    max-width: min(40vw, 140px);
   }
 }
 
 @media (max-width: 380px) and (orientation: portrait) {
-  html.realm-view-active .kingdom-building {
-    --kb-scale: 0.76;
-  }
   html.realm-view-active .kingdom-stage-inner,
   html.realm-view-active .kingdom-canvas,
   html.realm-view-active .kingdom-camera {
-    width: 98cqw;
-    height: calc(98cqw * 2 / 3);
+    /* Un peu plus de marge laterale sur tres etroit */
+    width: calc(100cqw / 0.78);
+    height: calc(100cqw / 0.78 * 2 / 3);
   }
-  html.realm-view-active {
-    --side-badge-size: clamp(30px, 8vw, 38px);
-    --side-badge-label: 0.38rem;
-  }
-  html.realm-view-active .scene-right-stack {
-    gap: 2px;
-    max-width: min(64px, 19vw);
-  }
-  html.realm-view-active .nav {
-    min-height: 52px;
-    gap: 2px;
-  }
-  html.realm-view-active .nav-btn {
-    min-height: 44px;
-    padding: 4px 0 5px;
-  }
-  html.realm-view-active .nav-btn .nav-label {
-    font-size: clamp(0.36rem, 2.2vw, 0.48rem);
-  }
-}
-
-@media (max-width: 767px) and (orientation: portrait) and (max-height: 700px) {
   html.realm-view-active .kingdom-building {
-    --kb-scale: 0.78;
-  }
-  html.realm-view-active .scene-right-stack {
-    gap: 2px;
-    max-height: calc(
-      100dvh
-      - var(--mobile-hud-right-bottom, 180px)
-      - (56px + env(safe-area-inset-bottom, 0px))
-      - 6px
-    );
+    --kb-scale: 0.84;
   }
 }
 
-/* Mobile landscape : cover ok (largeur), leger bias plateformes */
+/* Landscape mobile : cover + leger bias plateformes — pas de shrink badges/nav */
 @media (max-width: 1023px) and (orientation: landscape) and (max-height: 520px) {
   html.realm-view-active .kingdom-backdrop {
     display: none;
@@ -17729,46 +17648,22 @@ html.realm-view-active .main {
   html.realm-view-active .kingdom-stage-inner,
   html.realm-view-active .kingdom-canvas,
   html.realm-view-active .kingdom-camera {
-    /* Cover paysage : voir la bande centrale */
     width: max(100cqw, calc(100cqh * 3 / 2));
     height: max(100cqh, calc(100cqw * 2 / 3));
     transform: translate(-50%, -54%);
   }
   html.realm-view-active .kingdom-building {
-    --kb-scale: 0.72;
-  }
-  html.realm-view-active .scene-right-stack {
-    top: max(8px, env(safe-area-inset-top, 0px) + 4px);
-    max-height: calc(100dvh - (52px + env(safe-area-inset-bottom, 0px)) - 12px);
-    gap: 2px;
-  }
-  html.realm-view-active .nav {
-    min-height: 48px;
-    padding-top: 2px;
-    padding-bottom: calc(2px + env(safe-area-inset-bottom, 0px));
-  }
-  html.realm-view-active .nav-btn {
-    min-height: 40px;
-  }
-  html.realm-view-active .nav-btn .nav-label {
-    font-size: 0.4rem;
+    --kb-scale: 0.78;
   }
 }
 
 /* =========================================================
-   MENUS BATIMENTS — mobile : HUD/rails masques, panel plein
+   MENUS BATIMENTS mobile
+   HUD reste visible. Panel opaque SOUS le HUD / AU-DESSUS nav.
+   Rails masques. Scene Royaume cachee.
    ========================================================= */
 @media (max-width: 767px) {
-  /*
-    Cause menus sous HUD : .main (z:20) < .header (z:30).
-    Remonter .main au-dessus du HUD, sous la nav (z:120).
-  */
-  html.kingdom-building-menu-open .main {
-    z-index: 50 !important;
-  }
-
-  html.kingdom-building-menu-open .header,
-  html.kingdom-building-menu-open .game-header,
+  /* Rails / parametres : masques pendant menu (taille inchangee, juste visibility) */
   html.kingdom-building-menu-open .scene-left-stack,
   html.kingdom-building-menu-open .scene-right-stack,
   html.kingdom-building-menu-open .mobile-team-rail,
@@ -17783,27 +17678,63 @@ html.realm-view-active .main {
     pointer-events: none !important;
   }
 
-  /* Nav reste visible (z 120) */
+  /* HUD + nav restent */
+  html.kingdom-building-menu-open .header,
+  html.kingdom-building-menu-open .game-header,
+  html.kingdom-building-menu-open .nav {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
   html.kingdom-building-menu-open .nav {
     position: relative;
     z-index: 120 !important;
-    opacity: 1 !important;
-    visibility: visible !important;
     pointer-events: auto !important;
+  }
+
+  /* Scene Royaume invisible derriere le menu opaque */
+  html.kingdom-building-menu-open .kingdom-backdrop,
+  html.kingdom-building-menu-open .kingdom-camera,
+  html.kingdom-building-menu-open .kingdom-stage-inner,
+  html.kingdom-building-menu-open .kingdom-canvas,
+  html.kingdom-building-menu-open .kingdom-building {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  html.kingdom-building-menu-open .kingdom-stage {
+    background: #0a1424 !important;
+  }
+
+  /*
+    Panel : entre bas du HUD et haut de la nav.
+    HUD (header z:30) reste au-dessus ; titre ne passe plus sous les stats.
+  */
+  html.kingdom-building-menu-open .main {
+    z-index: 25 !important;
   }
 
   html.kingdom-building-menu-open .kingdom-building-panel {
     position: fixed !important;
-    top: env(safe-area-inset-top, 0px) !important;
+    top: var(
+      --kingdom-menu-top,
+      var(
+        --mobile-hud-right-bottom,
+        calc(
+          env(safe-area-inset-top, 0px) +
+          (2 * var(--hud-card-h, 40px)) +
+          var(--hud-row-gap, 4px) + 52px
+        )
+      )
+    ) !important;
     left: 0 !important;
     right: 0 !important;
-    bottom: var(--kingdom-nav-h, calc(56px + env(safe-area-inset-bottom, 0px))) !important;
+    bottom: var(--kingdom-nav-h, calc(var(--nav-h, 56px) + env(safe-area-inset-bottom, 0px))) !important;
     inset: auto !important;
-    z-index: 55 !important;
+    z-index: 40 !important;
     display: flex !important;
     padding: 0 !important;
     margin: 0 !important;
-    background: rgba(5, 10, 18, 0.96) !important;
+    background: #0a1424 !important;
     overflow: hidden !important;
     box-sizing: border-box;
   }
@@ -17814,16 +17745,17 @@ html.realm-view-active .main {
     height: 100% !important;
     max-height: 100% !important;
     border-radius: 0 !important;
-    border-left: 0 !important;
-    border-right: 0 !important;
-    border-bottom: 0 !important;
+    border: 0 !important;
     box-shadow: none !important;
+    background:
+      radial-gradient(ellipse 80% 40% at 50% 0%, rgba(50, 90, 150, 0.18), transparent 55%),
+      linear-gradient(165deg, #101c30 0%, #0a1424 55%, #070e18 100%) !important;
   }
 
   html.kingdom-building-menu-open .kingdom-building-panel-header {
-    padding: 10px 12px 10px;
-    padding-top: max(10px, env(safe-area-inset-top, 0px));
+    padding: 10px 12px;
     gap: 8px;
+    flex: 0 0 auto;
   }
 
   html.kingdom-building-menu-open .kingdom-building-title {
@@ -17841,23 +17773,24 @@ html.realm-view-active .main {
   }
 
   html.kingdom-building-menu-open .kingdom-building-panel-body {
-    padding: 12px 14px 18px;
+    padding: 12px 16px 18px;
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
 
   html.kingdom-building-menu-open .kingdom-empty-state {
-    min-height: min(42dvh, 280px);
+    min-height: min(40dvh, 260px);
     padding: 20px 12px;
   }
 
   html.kingdom-building-menu-open .kingdom-empty-state p {
     max-width: min(100%, 340px);
+    width: 100%;
     font-size: clamp(0.86rem, 3.8vw, 1rem);
+    text-align: center;
   }
 
-  /* Sanctuaire : 1 carte / ligne */
   html.kingdom-building-menu-open .guardian-sanctum-grid {
     grid-template-columns: 1fr !important;
     gap: 10px;
@@ -17877,8 +17810,6 @@ html.realm-view-active .main {
     grid-template-columns: 1fr;
   }
 }
-
-/* Desktop lock : rien ne change a partir de 1024px */
 
 /* =========================================================
    DRAGONS LAYOUT FIX ? centrage desktop + X integre
