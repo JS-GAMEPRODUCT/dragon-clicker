@@ -17133,7 +17133,7 @@ html.realm-view-active .main {
   background: #070e18;
 }
 
-/* Backdrop : masquÃ© desktop ; actif en portrait mobile */
+/* Backdrop : masqu? desktop ; actif en portrait mobile */
 .kingdom-backdrop {
   display: none;
   position: absolute;
@@ -17159,30 +17159,32 @@ html.realm-view-active .main {
 }
 
 /*
-  kingdom-canvas = espace design 3:2 (ratio image Royaume).
-  Mode COVER du viewport : bg + b?timents partagent les m?mes %.
+  kingdom-canvas = espace design vertical 941?1672 (royaume-mobile.png).
+  Ratio identique ? l'image : pas de cover/crop ? coords b?timents synchronis?es.
 */
 .kingdom-stage-inner,
 .kingdom-canvas {
+  --kingdom-ratio-w: 941;
+  --kingdom-ratio-h: 1672;
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: max(100cqw, calc(100cqh * 3 / 2));
-  height: max(100cqh, calc(100cqw * 2 / 3));
+  /* Contenir dans le viewport sans d?former ni recadrer */
+  width: min(100cqw, calc(100cqh * 941 / 1672));
+  height: auto;
+  aspect-ratio: 941 / 1672;
   margin: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
   max-width: none;
   max-height: none;
-  aspect-ratio: auto;
 }
 @supports not (width: 1cqw) {
   .kingdom-stage-inner,
   .kingdom-canvas {
-    width: max(100vw, calc(100dvh * 3 / 2));
-    height: max(100dvh, calc(100vw * 2 / 3));
+    width: min(100vw, calc(100dvh * 941 / 1672));
   }
 }
 
@@ -17191,6 +17193,7 @@ html.realm-view-active .main {
   inset: 0;
   width: 100%;
   height: 100%;
+  /* Canvas = m?me ratio que l'image ? fill sans stretch r?el */
   object-fit: fill;
   object-position: center center;
   pointer-events: none;
@@ -17279,38 +17282,38 @@ html.realm-view-active .main {
 }
 
 /*
-  Source unique ? design space 1536x1024 (image Royaume).
-  left/top = centre du socle (etoile).
+  Source unique ? design space 941?1672 (royaume-mobile.png).
+  left/top = centre du socle (?toile).
   --kb-ax/--kb-ay = pied opaque du PNG (bottom-center visuel).
 */
 .kb-forge {
-  left: 32.03%;
-  top: 50.59%;
-  width: 13.8%;
+  left: 27%;
+  top: 44%;
+  width: 26%;
   --kb-ax: 53.82%;
   --kb-ay: 96.49%;
   z-index: 2;
 }
 .kb-breeding {
-  left: 27.28%;
-  top: 67.87%;
-  width: 15.2%;
+  left: 25%;
+  top: 64%;
+  width: 28%;
   --kb-ax: 46.87%;
   --kb-ay: 97.77%;
   z-index: 3;
 }
 .kb-altar {
-  left: 69.08%;
-  top: 50.59%;
-  width: 13.8%;
+  left: 76%;
+  top: 44%;
+  width: 26%;
   --kb-ax: 62.74%;
   --kb-ay: 97.53%;
   z-index: 2;
 }
 .kb-guardians {
-  left: 72.66%;
-  top: 67.87%;
-  width: 15.2%;
+  left: 77%;
+  top: 64%;
+  width: 28%;
   --kb-ax: 53.91%;
   --kb-ay: 99.04%;
   z-index: 3;
@@ -17533,7 +17536,7 @@ html.realm-view-active .main {
 
 
 /* =========================================================
-   ROYAUME â€” mobile cible : camera + menus (badges taille globale)
+   ROYAUME ? mobile cible : camera + menus (badges taille globale)
    Desktop >=1024 inchange. Pas de --side-badge-size Royaume.
    ========================================================= */
 
@@ -17545,12 +17548,10 @@ html.realm-view-active .main {
 }
 
 /*
-  PORTRAIT MOBILE â€” camera zoom-out :
-  Cover classique ne montre ~30% du design â†’ batiments hors ecran.
-  On affiche ~74% de la largeur design (centree sur plateformes),
-  assez pour Forge/Elevage/Autel/Sanctuaire + petite marge.
-  Backdrop cover remplit le reste (assombri).
-  BADGES : aucune reduction â€” tokens globaux inchanges.
+  PORTRAIT MOBILE ? fond vertical natif 941×1672.
+  Largeur = 100% du stage ; hauteur suit le ratio (plus haute que le viewport).
+  Scroll vertical fluide plutôt que crop/cover (coords bâtiments intactes).
+  BADGES : aucune réduction ? tokens globaux inchangés.
 */
 @media (max-width: 767px) and (orientation: portrait) {
   html.realm-view-active,
@@ -17572,8 +17573,11 @@ html.realm-view-active .main {
   }
 
   html.realm-view-active .kingdom-stage {
-    overflow: hidden;
-    touch-action: manipulation;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
     background: #070e18;
     --kingdom-nav-h: calc(var(--nav-h, 56px) + env(safe-area-inset-bottom, 0px));
     --kingdom-menu-top: var(
@@ -17584,76 +17588,73 @@ html.realm-view-active .main {
         var(--hud-row-gap, 4px) + 52px
       )
     );
+    /* Espace sous la scène pour scroller les socles au-dessus de la nav */
+    padding-bottom: var(--kingdom-nav-h);
+    box-sizing: content-box;
   }
 
+  /* Plus de backdrop dim : l'image verticale remplit la largeur */
   html.realm-view-active .kingdom-backdrop {
-    display: block;
-  }
-  html.realm-view-active .kingdom-backdrop-img {
-    object-position: center 58%;
-    opacity: 0.38;
-    filter: brightness(0.55) saturate(0.85);
+    display: none;
   }
 
   /*
-    Visible â‰ˆ 74% du design â†’ width = 100cqw / 0.74
-    Batiments (â‰ˆ24â€“80%) restent dans le cadre.
+    Flow normal pour que le scroll stage fonctionne
+    (absolute ne contribue pas a la hauteur scrollable).
   */
   html.realm-view-active .kingdom-stage-inner,
   html.realm-view-active .kingdom-canvas,
   html.realm-view-active .kingdom-camera {
-    left: 50%;
-    top: 50%;
-    width: calc(100cqw / 0.74);
-    height: calc(100cqw / 0.74 * 2 / 3);
+    position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 941 / 1672;
     max-width: none;
     max-height: none;
-    transform: translate(-50%, -54%);
+    margin: 0 auto;
     z-index: 1;
-  }
-  @supports not (width: 1cqw) {
-    html.realm-view-active .kingdom-stage-inner,
-    html.realm-view-active .kingdom-canvas,
-    html.realm-view-active .kingdom-camera {
-      width: calc(100vw / 0.74);
-      height: calc(100vw / 0.74 * 2 / 3);
-    }
   }
 
   html.realm-view-active .kingdom-building {
-    --kb-scale: 0.88;
+    --kb-scale: 1;
     min-width: 44px;
     min-height: 44px;
   }
 }
 
 @media (max-width: 380px) and (orientation: portrait) {
-  html.realm-view-active .kingdom-stage-inner,
-  html.realm-view-active .kingdom-canvas,
-  html.realm-view-active .kingdom-camera {
-    /* Un peu plus de marge laterale sur tres etroit */
-    width: calc(100cqw / 0.78);
-    height: calc(100cqw / 0.78 * 2 / 3);
-  }
   html.realm-view-active .kingdom-building {
-    --kb-scale: 0.84;
+    --kb-scale: 0.96;
   }
 }
 
-/* Landscape mobile : cover + leger bias plateformes â€” pas de shrink badges/nav */
+/* Landscape mobile : contenir le ratio vertical sans crop */
 @media (max-width: 1023px) and (orientation: landscape) and (max-height: 520px) {
   html.realm-view-active .kingdom-backdrop {
     display: none;
   }
+  html.realm-view-active .kingdom-stage {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
   html.realm-view-active .kingdom-stage-inner,
   html.realm-view-active .kingdom-canvas,
   html.realm-view-active .kingdom-camera {
-    width: max(100cqw, calc(100cqh * 3 / 2));
-    height: max(100cqh, calc(100cqw * 2 / 3));
-    transform: translate(-50%, -54%);
+    position: relative;
+    left: auto;
+    top: auto;
+    transform: none;
+    height: 100%;
+    width: auto;
+    aspect-ratio: 941 / 1672;
+    margin: 0 auto;
   }
   html.realm-view-active .kingdom-building {
-    --kb-scale: 0.78;
+    --kb-scale: 0.92;
   }
 }
 

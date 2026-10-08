@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=royaume-mobile-fix-v3" />
+  <link rel="stylesheet" href="css/style.css?v=royaume-vertical-v1" />
 
 </head>
 <body>
@@ -606,7 +606,7 @@
       <!-- Royaume — scène principale full-bleed (remplace le décor Œuf) -->
       <section id="panel-realm" class="panel main-view-panel" data-panel="realm" aria-label="Royaume Draconique">
         <div class="kingdom-stage" id="kingdom-stage">
-          <!-- Backdrop plein écran (mobile) : fill sans déformer la composition -->
+          <!-- Backdrop assombri (fallback landscape étroit) -->
           <div class="kingdom-backdrop" id="kingdom-backdrop" aria-hidden="true">
             <img
               class="kingdom-backdrop-img"
@@ -614,12 +614,12 @@
               alt=""
               draggable="false"
               decoding="async"
-              width="1536"
-              height="1024"
-              data-src="assets/royaume/background.png"
+              width="941"
+              height="1672"
+              data-src="assets/backgrounds/royaume-mobile.png"
             />
           </div>
-          <!-- Camera / design-space 3:2 : bg + bâtiments synchronisés -->
+          <!-- Design-space vertical 941×1672 : bg + bâtiments partagent les mêmes % -->
           <div class="kingdom-stage-inner kingdom-canvas kingdom-camera" id="kingdom-stage-inner">
             <img
               class="kingdom-bg"
@@ -627,9 +627,9 @@
               alt=""
               draggable="false"
               decoding="async"
-              width="1536"
-              height="1024"
-              data-src="assets/royaume/background.png"
+              width="941"
+              height="1672"
+              data-src="assets/backgrounds/royaume-mobile.png"
             />
 
             <button
@@ -968,7 +968,7 @@
   <script src="js/animations/egg-animations.js?v=egg-press-simple-v1"></script>
   <script src="js/animations/dragon-reveal.js"></script>
   <script src="js/animations/ui-animations.js"></script>
-  <script src="js/game.js?v=royaume-mobile-fix-v3"></script>
+  <script src="js/game.js?v=royaume-vertical-v1"></script>
   <script src="js/main.js"></script>
 
 </body>

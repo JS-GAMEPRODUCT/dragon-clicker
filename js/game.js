@@ -15663,18 +15663,19 @@
     /* -------------------------------------------------------
        ROYAUME — scène interactive + menus bâtiments
        ------------------------------------------------------- */
-    /* Layout Royaume — design space = background 1536x1024.
+    /* Layout Royaume — design space = background vertical 941×1672.
        platformX/Y = centres des socles (etoiles). footX/Y = pied opaque PNG (0-1).
        applyKingdomBuildingLayout() synchronise le DOM ; CSS .kb-* = fallback. */
-    const KINGDOM_DESIGN = { width: 1536, height: 1024 };
+    const KINGDOM_DESIGN = { width: 941, height: 1672 };
     const KINGDOM_BUILDINGS = {
       forge: {
         id: "forge",
         title: "Forge des Reliques",
         asset: "assets/royaume/forge.png",
-        platformX: 492,
-        platformY: 518,
-        widthPct: 13.8,
+        /* Socle supérieur gauche ≈ 27% / 44% */
+        platformX: 254,
+        platformY: 736,
+        widthPct: 26,
         footX: 0.5382,
         footY: 0.9649
       },
@@ -15682,9 +15683,10 @@
         id: "breeding",
         title: "Élevage Draconique",
         asset: "assets/royaume/elevage.png",
-        platformX: 419,
-        platformY: 695,
-        widthPct: 15.2,
+        /* Socle inférieur gauche ≈ 25% / 64% */
+        platformX: 235,
+        platformY: 1070,
+        widthPct: 28,
         footX: 0.4687,
         footY: 0.9777
       },
@@ -15692,9 +15694,10 @@
         id: "altar",
         title: "Autel Draconique",
         asset: "assets/royaume/autel draconique.png",
-        platformX: 1061,
-        platformY: 518,
-        widthPct: 13.8,
+        /* Socle supérieur droit ≈ 76% / 44% */
+        platformX: 715,
+        platformY: 736,
+        widthPct: 26,
         footX: 0.6274,
         footY: 0.9753
       },
@@ -15702,9 +15705,10 @@
         id: "guardians",
         title: "Sanctuaire des Gardiens",
         asset: "assets/royaume/sanctuaire.png",
-        platformX: 1116,
-        platformY: 695,
-        widthPct: 15.2,
+        /* Socle inférieur droit ≈ 77% / 64% */
+        platformX: 724,
+        platformY: 1070,
+        widthPct: 28,
         footX: 0.5391,
         footY: 0.9904
       }
