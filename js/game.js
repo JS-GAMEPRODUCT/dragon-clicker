@@ -15720,7 +15720,7 @@
 
     function loadKingdomSceneAssets() {
       if (kingdomAssetsLoaded) return;
-      const root = document.getElementById("kingdom-stage-inner");
+      const root = document.getElementById("kingdom-stage") || document.getElementById("kingdom-stage-inner");
       if (!root) return;
       root.querySelectorAll("img[data-src]").forEach((img) => {
         const src = img.getAttribute("data-src");
@@ -15728,6 +15728,10 @@
         if (!img.getAttribute("src")) img.src = src;
       });
       kingdomAssetsLoaded = true;
+    }
+
+    function setKingdomBuildingMenuOpen(open) {
+      document.documentElement.classList.toggle("kingdom-building-menu-open", !!open);
     }
 
     function clearKingdomBuildingLabelSoon() {
@@ -15742,6 +15746,7 @@
 
     function closeKingdomBuildingPanel() {
       currentKingdomBuilding = null;
+      setKingdomBuildingMenuOpen(false);
       const panel = document.getElementById("kingdom-building-panel");
       const body = document.getElementById("kingdom-building-body");
       if (body) body.innerHTML = "";
@@ -15936,6 +15941,7 @@
       else renderKingdomEmptyState(body, def.title, "Bientôt disponible.");
       panel.classList.remove("hidden");
       panel.hidden = false;
+      setKingdomBuildingMenuOpen(true);
       playSound("button");
     }
 

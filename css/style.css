@@ -17133,6 +17133,31 @@ html.realm-view-active .main {
   background: #070e18;
 }
 
+/* Backdrop : masqué desktop ; actif en portrait mobile */
+.kingdom-backdrop {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.kingdom-backdrop-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 56%;
+  opacity: 0.5;
+  filter: brightness(0.7) saturate(0.92);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.kingdom-camera {
+  z-index: 1;
+}
+
 /*
   kingdom-canvas = espace design 3:2 (ratio image Royaume).
   Mode COVER du viewport : bg + b?timents partagent les m?mes %.
@@ -17508,19 +17533,24 @@ html.realm-view-active .main {
 
 
 /* =========================================================
-   ROYAUME — responsive mobile / tablette (desktop >=1024 intact)
-   Scaling coherent via --kb-scale. Positions % design-space inchangees.
+   ROYAUME — responsive mobile (camera zoom-out + menus)
+   Desktop >=1024 : inchange (cover + positions calibrees).
    ========================================================= */
 
-/* Tablette : leger downscale, positions inchangees */
+/* Tablette : leger downscale batiments seulement */
 @media (min-width: 768px) and (max-width: 1023px) {
   html.realm-view-active .kingdom-building {
     --kb-scale: 0.9;
   }
 }
 
-/* Mobile portrait / general <=767 : scene immersive, scale coherent */
-@media (max-width: 767px) {
+/*
+  MOBILE PORTRAIT :
+  Cover coupe trop les cotes (visible ~30% du design).
+  Camera = fit LARGEUR (voir les 4 plateformes),
+  backdrop cover remplit le reste sans bande noire.
+*/
+@media (max-width: 767px) and (orientation: portrait) {
   html.realm-view-active,
   html.realm-view-active body,
   html.realm-view-active #app {
@@ -17534,9 +17564,7 @@ html.realm-view-active .main {
   html.realm-view-active #panel-realm.main-view-panel.active {
     position: fixed !important;
     inset: 0 !important;
-    width: 100% !important;
     width: 100vw !important;
-    height: 100% !important;
     height: 100dvh !important;
     overflow: hidden !important;
   }
@@ -17544,24 +17572,44 @@ html.realm-view-active .main {
   html.realm-view-active .kingdom-stage {
     overflow: hidden;
     touch-action: manipulation;
+    background: #070e18;
   }
 
-  /* Cover conserve ; composition entiere centree (pas de repositionnement par batiment) */
+  html.realm-view-active .kingdom-backdrop {
+    display: block;
+  }
+
+  /*
+    Camera : largeur = viewport (marge 2%) → les 4 batiments restent dans l'ecran.
+    Hauteur = ratio 3:2. Centree sur la bande plateformes (~56%).
+  */
   html.realm-view-active .kingdom-stage-inner,
-  html.realm-view-active .kingdom-canvas {
+  html.realm-view-active .kingdom-canvas,
+  html.realm-view-active .kingdom-camera {
     left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    top: 52%;
+    width: 96cqw;
+    height: calc(96cqw * 2 / 3);
+    max-width: none;
+    max-height: none;
+    transform: translate(-50%, -56%);
+    z-index: 1;
+  }
+  @supports not (width: 1cqw) {
+    html.realm-view-active .kingdom-stage-inner,
+    html.realm-view-active .kingdom-canvas,
+    html.realm-view-active .kingdom-camera {
+      width: 96vw;
+      height: calc(96vw * 2 / 3);
+    }
   }
 
-  /* Scale global coherent — socles restent visibles, hitbox min 44px */
   html.realm-view-active .kingdom-building {
-    --kb-scale: 0.72;
+    --kb-scale: 0.82;
     min-width: 44px;
     min-height: 44px;
   }
 
-  /* Badges droite : tous visibles au-dessus de la nav */
   html.realm-view-active .scene-right-stack {
     right: max(2px, env(safe-area-inset-right, 0px));
     gap: clamp(2px, 0.55vh, 6px);
@@ -17573,21 +17621,22 @@ html.realm-view-active .main {
       - 8px
     );
     overflow: visible;
+    z-index: 28;
   }
 
   html.realm-view-active {
     --side-badge-size: clamp(34px, 8.2vw, 42px);
     --side-badge-label: clamp(0.4rem, 2.2vw, 0.48rem);
+    --kingdom-nav-h: calc(56px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* Rail gauche : bord exterieur, collision reduite */
   html.realm-view-active .scene-left-stack {
     left: max(2px, env(safe-area-inset-left, 0px));
     gap: clamp(4px, 0.8vh, 10px);
     max-width: min(88px, 24vw);
+    z-index: 28;
   }
 
-  /* Bottom nav : 5 boutons une ligne + safe area */
   html.realm-view-active .nav {
     display: flex !important;
     flex-wrap: nowrap !important;
@@ -17619,7 +17668,6 @@ html.realm-view-active .main {
     min-height: 52px;
   }
 
-  /* Labels batiments : compacts, pas permanents (etat JS is-label-on) */
   html.realm-view-active .kingdom-building-label {
     font-size: 0.45rem;
     padding: 2px 6px;
@@ -17627,10 +17675,15 @@ html.realm-view-active .main {
   }
 }
 
-/* Tres petits telephones */
-@media (max-width: 380px) {
+@media (max-width: 380px) and (orientation: portrait) {
   html.realm-view-active .kingdom-building {
-    --kb-scale: 0.66;
+    --kb-scale: 0.76;
+  }
+  html.realm-view-active .kingdom-stage-inner,
+  html.realm-view-active .kingdom-canvas,
+  html.realm-view-active .kingdom-camera {
+    width: 98cqw;
+    height: calc(98cqw * 2 / 3);
   }
   html.realm-view-active {
     --side-badge-size: clamp(30px, 8vw, 38px);
@@ -17643,7 +17696,6 @@ html.realm-view-active .main {
   html.realm-view-active .nav {
     min-height: 52px;
     gap: 2px;
-    padding-top: 3px;
   }
   html.realm-view-active .nav-btn {
     min-height: 44px;
@@ -17654,10 +17706,9 @@ html.realm-view-active .main {
   }
 }
 
-/* Hauteurs critiques (Succès au-dessus de la nav) */
-@media (max-width: 767px) and (max-height: 700px) {
+@media (max-width: 767px) and (orientation: portrait) and (max-height: 700px) {
   html.realm-view-active .kingdom-building {
-    --kb-scale: 0.68;
+    --kb-scale: 0.78;
   }
   html.realm-view-active .scene-right-stack {
     gap: 2px;
@@ -17668,20 +17719,23 @@ html.realm-view-active .main {
       - 6px
     );
   }
-  html.realm-view-active {
-    --side-badge-size: clamp(30px, 7.5vw, 38px);
-  }
 }
 
-/* Mobile landscape : profiter de la largeur, composer vers le centre (plateformes) */
+/* Mobile landscape : cover ok (largeur), leger bias plateformes */
 @media (max-width: 1023px) and (orientation: landscape) and (max-height: 520px) {
+  html.realm-view-active .kingdom-backdrop {
+    display: none;
+  }
   html.realm-view-active .kingdom-stage-inner,
-  html.realm-view-active .kingdom-canvas {
-    /* Decale legerement la composition entiere vers le haut = priorite plateformes */
+  html.realm-view-active .kingdom-canvas,
+  html.realm-view-active .kingdom-camera {
+    /* Cover paysage : voir la bande centrale */
+    width: max(100cqw, calc(100cqh * 3 / 2));
+    height: max(100cqh, calc(100cqw * 2 / 3));
     transform: translate(-50%, -54%);
   }
   html.realm-view-active .kingdom-building {
-    --kb-scale: 0.7;
+    --kb-scale: 0.72;
   }
   html.realm-view-active .scene-right-stack {
     top: max(8px, env(safe-area-inset-top, 0px) + 4px);
@@ -17701,7 +17755,130 @@ html.realm-view-active .main {
   }
 }
 
-/* Desktop lock : rien ne change a partir de 1024px (--kb-scale reste 1) */
+/* =========================================================
+   MENUS BATIMENTS — mobile : HUD/rails masques, panel plein
+   ========================================================= */
+@media (max-width: 767px) {
+  /*
+    Cause menus sous HUD : .main (z:20) < .header (z:30).
+    Remonter .main au-dessus du HUD, sous la nav (z:120).
+  */
+  html.kingdom-building-menu-open .main {
+    z-index: 50 !important;
+  }
+
+  html.kingdom-building-menu-open .header,
+  html.kingdom-building-menu-open .game-header,
+  html.kingdom-building-menu-open .scene-left-stack,
+  html.kingdom-building-menu-open .scene-right-stack,
+  html.kingdom-building-menu-open .mobile-team-rail,
+  html.kingdom-building-menu-open .header-gear,
+  html.kingdom-building-menu-open .scene-chests-btn,
+  html.kingdom-building-menu-open .scene-events-btn,
+  html.kingdom-building-menu-open .scene-expeditions-btn,
+  html.kingdom-building-menu-open .scene-inventory-btn,
+  html.kingdom-building-menu-open .scene-achievements-btn {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  /* Nav reste visible (z 120) */
+  html.kingdom-building-menu-open .nav {
+    position: relative;
+    z-index: 120 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  html.kingdom-building-menu-open .kingdom-building-panel {
+    position: fixed !important;
+    top: env(safe-area-inset-top, 0px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: var(--kingdom-nav-h, calc(56px + env(safe-area-inset-bottom, 0px))) !important;
+    inset: auto !important;
+    z-index: 55 !important;
+    display: flex !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: rgba(5, 10, 18, 0.96) !important;
+    overflow: hidden !important;
+    box-sizing: border-box;
+  }
+
+  html.kingdom-building-menu-open .kingdom-building-panel-inner {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+
+  html.kingdom-building-menu-open .kingdom-building-panel-header {
+    padding: 10px 12px 10px;
+    padding-top: max(10px, env(safe-area-inset-top, 0px));
+    gap: 8px;
+  }
+
+  html.kingdom-building-menu-open .kingdom-building-title {
+    font-size: clamp(0.78rem, 4.2vw, 1.05rem);
+    letter-spacing: 0.08em;
+    line-height: 1.25;
+    padding-right: 4px;
+    word-break: break-word;
+  }
+
+  html.kingdom-building-menu-open .kingdom-building-back {
+    min-height: 40px;
+    padding: 6px 10px;
+    font-size: 0.72rem;
+  }
+
+  html.kingdom-building-menu-open .kingdom-building-panel-body {
+    padding: 12px 14px 18px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  html.kingdom-building-menu-open .kingdom-empty-state {
+    min-height: min(42dvh, 280px);
+    padding: 20px 12px;
+  }
+
+  html.kingdom-building-menu-open .kingdom-empty-state p {
+    max-width: min(100%, 340px);
+    font-size: clamp(0.86rem, 3.8vw, 1rem);
+  }
+
+  /* Sanctuaire : 1 carte / ligne */
+  html.kingdom-building-menu-open .guardian-sanctum-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  html.kingdom-building-menu-open .guardian-card-art {
+    max-height: min(42vw, 200px);
+  }
+
+  html.kingdom-building-menu-open .guardian-card-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 360px) {
+  html.kingdom-building-menu-open .guardian-card-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Desktop lock : rien ne change a partir de 1024px */
 
 /* =========================================================
    DRAGONS LAYOUT FIX ? centrage desktop + X integre
