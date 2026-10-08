@@ -24,13 +24,29 @@
     const FAMILY_META = window.FAMILY_META;
     const ACTIVE_UPGRADE_DEFS = window.ACTIVE_UPGRADE_DEFS;
     const EVENT_DEFS = Array.isArray(window.EVENT_DEFS) ? window.EVENT_DEFS : [];
-
+    const EGG_BOSS_DEFS = Array.isArray(window.EGG_BOSS_DEFS) ? window.EGG_BOSS_DEFS : [];
+    const EGG_BOSS_MIN_HATCHES = Math.max(0, Math.floor(Number(window.EGG_BOSS_MIN_HATCHES) || 3));
+    const EGG_BOSS_SPAWN_CHANCE = Math.max(0, Math.min(1, Number(window.EGG_BOSS_SPAWN_CHANCE != null ? window.EGG_BOSS_SPAWN_CHANCE : 0.15)));
+    const EGG_BOSS_PITY = Math.max(1, Math.floor(Number(window.EGG_BOSS_PITY) || 8));
+    const EGG_BOSS_COOLDOWN_MS = Math.max(0, Number(window.EGG_BOSS_COOLDOWN_MS) || (15 * 60 * 1000));
+    const GUARDIAN_EGG_HATCH_MULT = Math.max(1, Number(window.GUARDIAN_EGG_HATCH_MULT != null ? window.GUARDIAN_EGG_HATCH_MULT : 1.5));
+    const EGG_BOSS_RANK_THRESHOLDS = window.EGG_BOSS_RANK_THRESHOLDS || { S: 15, A: 25, B: 40 };
+    const EGG_BOSS_RANK_ESSENCE_MULT = window.EGG_BOSS_RANK_ESSENCE_MULT || { S: 3, A: 2.25, B: 1.5, C: 1 };
+    const EGG_BOSS_CHEST_CHANCES = window.EGG_BOSS_CHEST_CHANCES || {
+      C: { draconic: 0, rare: 0 },
+      B: { draconic: 0.1, rare: 0 },
+      A: { draconic: 0.2, rare: 0.02 },
+      S: { draconic: 0.3, rare: 0.05 }
+    };
+    const GUARDIAN_EGG_DROP_CHANCE = window.GUARDIAN_EGG_DROP_CHANCE || {
+      C: 0.01, B: 0.02, A: 0.04, S: 0.06
+    };
 
     /* -------------------------------------------------------
        CONSTANTS & CONFIG
        ------------------------------------------------------- */
     const SAVE_KEY = "dragonClicker_save_v1";
-    const SAVE_VERSION = 15;
+    const SAVE_VERSION = 16;
     const AUTO_SAVE_MS = 10000;
     /* Empêche un autre onglet (autosave) d’écraser un reset / nouvelle partie. */
     let progressRevision = 0;
@@ -1525,6 +1541,73 @@
       return EGG_DEFS.filter((e) => ids.indexOf(e.id) !== -1);
     }
 
+    function createDefaultEggBossSystem() {
+      return {
+        activeBoss: null,
+        specialEggHatch: null,
+        lastBossTimestamp: 0,
+        eggSpawnProgress: {},
+        /* Spawn naturel validé mais pas encore affiché (menus / reload). */
+        pendingBossSpawn: null,
+        /* Records Sanctuaire (additif, old saves → défauts). */
+        bossRecords: {}
+      };
+    }
+
+    const EGG_BOSS_RANK_SCORE = { S: 4, A: 3, B: 2, C: 1 };
+
+    function createDefaultBossRecord() {
+      return { bestTime: null, bestRank: null, victories: 0 };
+    }
+
+    function ensureBossRecords(state) {
+      const ebs = ensureEggBossSystem(state);
+      if (!ebs.bossRecords || typeof ebs.bossRecords !== "object") {
+        ebs.bossRecords = {};
+      }
+      return ebs.bossRecords;
+    }
+
+    function getEggBossRecord(bossId, state) {
+      const records = ensureBossRecords(state);
+      if (!bossId) return createDefaultBossRecord();
+      if (!records[bossId] || typeof records[bossId] !== "object") {
+        records[bossId] = createDefaultBossRecord();
+      }
+      const r = records[bossId];
+      if (r.bestTime != null) r.bestTime = Math.max(0, safeNumber(r.bestTime, 0));
+      else r.bestTime = null;
+      if (r.bestRank != null && !EGG_BOSS_RANK_SCORE[r.bestRank]) r.bestRank = null;
+      r.victories = Math.max(0, Math.floor(safeNumber(r.victories, 0)));
+      return r;
+    }
+
+    function isBetterEggBossRank(next, prev) {
+      if (!next) return false;
+      if (!prev) return true;
+      return (EGG_BOSS_RANK_SCORE[next] || 0) > (EGG_BOSS_RANK_SCORE[prev] || 0);
+    }
+
+    /** Enregistre une victoire Boss (bestTime / bestRank / victories) — save via caller. */
+    function recordEggBossVictory(bossId, elapsedSec, rank) {
+      if (!bossId) return;
+      const rec = getEggBossRecord(bossId);
+      const t = Math.max(0, safeNumber(elapsedSec, 0));
+      rec.victories = Math.max(0, Math.floor(safeNumber(rec.victories, 0))) + 1;
+      if (rec.bestTime == null || t < rec.bestTime) rec.bestTime = t;
+      if (isBetterEggBossRank(rank, rec.bestRank)) rec.bestRank = rank;
+    }
+
+    function formatEggBossRecordTime(sec) {
+      if (sec == null || !Number.isFinite(sec)) return "—";
+      const t = Math.max(0, sec);
+      if (t < 60) {
+        const rounded = Math.round(t * 10) / 10;
+        return (Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)) + " s";
+      }
+      return formatDuration(t * 1000);
+    }
+
     function createDefaultState() {
       const producers = {};
       PRODUCER_DEFS.forEach((p) => {
@@ -1640,8 +1723,10 @@
         team: [null, null, null],
         redeemedCodes: [],
         chests: createEmptyChestInventory(),
-        /* Matériaux / Reliques — coffres restent dans gameState.chests */
-        inventory: { materials: {}, relics: {} },
+        /* Matériaux / Reliques / Œufs de Gardien — coffres restent dans gameState.chests */
+        inventory: { materials: {}, relics: {}, eggs: {} },
+        /* Gardiens d'œuf — état combat + hatch spécial + pity / cooldown */
+        eggBossSystem: createDefaultEggBossSystem(),
         /* 0 = coffre régulier Royaume prêt (timestamp ms absolu sinon) */
         nextFreeChestAt: 0,
         expeditions: {
@@ -1694,6 +1779,10 @@
     let hatchSequenceActive = false;
     let isEggCarouselAnimating = false;
     let pendingReveal = null;
+    /** Spawn Boss différé (fin de reveal / menu fermé). */
+    let pendingBossSpawn = null;
+    let lastBossFightUiKey = "";
+    let guardianHatchSequenceActive = false;
     let clickTimestamps = [];
     let lastAffordabilityRefresh = 0;
     let lastWorldAffordabilityRefresh = 0;
@@ -2452,7 +2541,8 @@
         }
       };
 
-      if (!carouselCapable || eggs.length < 2 || hatchSequenceActive) {
+      if (!carouselCapable || eggs.length < 2 || hatchSequenceActive ||
+          isEggBossFightActive() || getSpecialEggHatch() || guardianHatchSequenceActive) {
         hidePeer(peerNext);
         hidePeer(peerPrev);
         if (root) {
@@ -2475,7 +2565,8 @@
     }
 
     function selectCarouselEgg(eggId) {
-      if (isEggCarouselAnimating || hatchSequenceActive || clicksLocked) return;
+      if (isEggCarouselAnimating || hatchSequenceActive || guardianHatchSequenceActive ||
+          clicksLocked || isEggBossFightActive() || getSpecialEggHatch()) return;
       const zoneId = gameState.currentZoneId || "sanctuary";
       if (!zoneSupportsEggCarousel(zoneId)) return;
       const eggs = getZoneCarouselEggs(zoneId);
@@ -2852,6 +2943,37 @@
 
     function syncEggProgressImage(eggDef, pct, force) {
       if (hatchSequenceActive && !force) return;
+      const activeBoss = getActiveEggBoss();
+      if (activeBoss && activeBoss.hp > 0) {
+        const bdef = getEggBossDef(activeBoss.bossId);
+        if (bdef && bdef.image) {
+          applyEggVisualOffset(eggDef, "intact");
+          if (!force && currentEggImageEggId === "boss:" + bdef.id && currentEggImageStage === -1) {
+            applyEggProgressImage(bdef.image);
+            return;
+          }
+          currentEggImageEggId = "boss:" + bdef.id;
+          currentEggImageStage = -1;
+          applyEggProgressImage(bdef.image);
+          return;
+        }
+      }
+      const special = getSpecialEggHatch();
+      if (special) {
+        const bdef = getEggBossDef(special.bossId);
+        if (bdef && bdef.guardianEggImage) {
+          applyEggVisualOffset(eggDef, "intact");
+          const sid = "guardian:" + bdef.id;
+          if (!force && currentEggImageEggId === sid && currentEggImageStage === -2) {
+            applyEggProgressImage(bdef.guardianEggImage);
+            return;
+          }
+          currentEggImageEggId = sid;
+          currentEggImageStage = -2;
+          applyEggProgressImage(bdef.guardianEggImage);
+          return;
+        }
+      }
       const visual = getEggVisualByProgress(pct, eggDef);
       const eggId = eggDef && eggDef.id;
       applyEggVisualOffset(eggDef, visual && visual.key);
@@ -3034,11 +3156,28 @@
 
     function updateCps(now) {
       const cutoff = now - CPS_WINDOW_MS;
-      clickTimestamps = clickTimestamps.filter((t) => t >= cutoff);
+      /* Trim in-place (évite realloc filter à chaque clic / frame). */
+      let drop = 0;
+      while (drop < clickTimestamps.length && clickTimestamps[drop] < cutoff) drop++;
+      if (drop > 0) clickTimestamps.splice(0, drop);
       gameState.currentCps = clickTimestamps.length;
       if (gameState.currentCps > gameState.peakCps) {
         gameState.peakCps = gameState.currentCps;
       }
+    }
+
+    /** Stats combat clic — lit le cache multipliers (pas de rebuild complet). */
+    function getClickCombatStats() {
+      if (!gameState.multipliers) rebuildMultipliers();
+      const m = gameState.multipliers;
+      const clickPower = Number.isFinite(gameState.powerPerClick) && gameState.powerPerClick > 0
+        ? gameState.powerPerClick
+        : 1;
+      return {
+        clickPower: clickPower,
+        critChance: safeNumber(m && m.critChance, CRIT_CHANCE_BASE),
+        critMultiplier: safeNumber(m && m.critMult, CRIT_MULT_BASE)
+      };
     }
 
     /**
@@ -3381,19 +3520,39 @@
     }
 
     function handleClick(clientX, clientY) {
-      if (clicksLocked || hatchSequenceActive || isEggCarouselAnimating) return;
+      if (clicksLocked || hatchSequenceActive || guardianHatchSequenceActive || isEggCarouselAnimating) return;
       if (!isEggGameplayHit(clientX, clientY)) return;
 
       const now = performance.now();
       clickTimestamps.push(now);
       updateCps(now);
 
-      const stats = calculateGlobalStats();
+      /* Cache multipliers — pas de rebuild complet à chaque clic. */
+      const stats = getClickCombatStats();
       const critChance = stats.critChance;
-      const critMult = stats.critMultiplier;
       const clickPower = stats.clickPower;
       const isCrit = Math.random() < critChance;
       const isCharged = tickChargedStrikeOnManualClick();
+
+      /* Combat Boss actif : dégâts uniquement (pas d'Essence / pas de hatch). */
+      if (isEggBossFightActive()) {
+        gameState.totalClicks++;
+        gameState.lifetimeManualClicks = safeNumber(gameState.lifetimeManualClicks, 0) + 1;
+        if (isCrit) gameState.totalCriticalClicks++;
+        damageEggBoss(clickPower, isCrit, isCharged, clientX, clientY);
+        const pressPrimedBoss = (now - eggPressPrimedAt) < 120;
+        if (!pressPrimedBoss) {
+          playEggClickPress(!!isCrit, { charged: isCharged });
+        }
+        eggPressPrimedAt = 0;
+        AudioManager.unlock();
+        playSound("click", isCrit || isCharged);
+        updateChargedAuraVisual();
+        lastHudRefreshAt = 0;
+        return;
+      }
+
+      const critMult = stats.critMultiplier;
       const chargedMult = isCharged ? getChargedStrikeMultiplier() : 1;
       const comboBonus = updateComboOnClick(now);
       const essenceGain = calculateEffectiveManualClickPower(
@@ -3428,11 +3587,36 @@
       AudioManager.unlock();
       playSound("click", isCrit || isCharged);
       updateChargedAuraVisual();
-      checkAchievements();
+      /* Succès : check throttlé dans updateGame (pas à chaque clic). */
       /* Ne pas rebuild boutique / améliorations / picker œufs à chaque clic :
          l'affordability est rafraîchie tant que le panneau shop est ouvert. */
       lastHudRefreshAt = 0;
       lastEggProgressUiAt = 0;
+    }
+
+    let eggHitRectCache = null;
+    let eggHitRectCacheAt = 0;
+    const EGG_HIT_RECT_CACHE_MS = 80;
+
+    function invalidateEggHitRectCache() {
+      eggHitRectCache = null;
+      eggHitRectCacheAt = 0;
+    }
+
+    function getEggHitRect() {
+      const now = performance.now();
+      if (eggHitRectCache && (now - eggHitRectCacheAt) < EGG_HIT_RECT_CACHE_MS) {
+        return eggHitRectCache;
+      }
+      const hit = document.getElementById("egg-hitbox");
+      const el = hit || document.getElementById("egg-visual");
+      if (!el) {
+        eggHitRectCache = null;
+        return null;
+      }
+      eggHitRectCache = el.getBoundingClientRect();
+      eggHitRectCacheAt = now;
+      return eggHitRectCache;
     }
 
     /**
@@ -3440,11 +3624,9 @@
      * Clic hors ellipse = aucun press, aucune Essence, aucune progression.
      */
     function isEggGameplayHit(clientX, clientY) {
-      const hit = document.getElementById("egg-hitbox");
-      const el = hit || document.getElementById("egg-visual");
-      if (!el || clientX == null || clientY == null) return false;
-      const r = el.getBoundingClientRect();
-      if (!(r.width > 0) || !(r.height > 0)) return false;
+      if (clientX == null || clientY == null) return false;
+      const r = getEggHitRect();
+      if (!r || !(r.width > 0) || !(r.height > 0)) return false;
       const rx = r.width * 0.5;
       const ry = r.height * 0.5;
       const dx = (clientX - (r.left + rx)) / rx;
@@ -3454,7 +3636,7 @@
 
     /** Visual-only press feedback — never grants resources */
     function handleEggPointerDown(clientX, clientY) {
-      if (clicksLocked || hatchSequenceActive || isEggCarouselAnimating) return;
+      if (clicksLocked || hatchSequenceActive || guardianHatchSequenceActive || isEggCarouselAnimating) return;
       if (!isEggGameplayHit(clientX, clientY)) return;
       AudioManager.unlock();
       eggPressPrimedAt = performance.now();
@@ -3462,9 +3644,27 @@
     }
 
     function advanceEggProgress(amount) {
-      if (hatchSequenceActive || clicksLocked || isEggCarouselAnimating) return;
+      if (hatchSequenceActive || guardianHatchSequenceActive || clicksLocked || isEggCarouselAnimating) return;
+      if (isEggBossFightActive()) return;
       amount = safeNumber(amount, 0);
       if (amount <= 0) return;
+
+      const special = getSpecialEggHatch();
+      if (special) {
+        const req = Math.max(1, safeNumber(special.required, 1));
+        if (special.progress >= req) {
+          completeGuardianEggHatch();
+          return;
+        }
+        special.progress = Math.min(req, safeNumber(special.progress, 0) + amount);
+        renderEggProgressUI();
+        /* Pas de forceImage : syncEggProgressImage ne recharge qu'au changement de stage. */
+        updateEggVisualState();
+        if (special.progress >= req) {
+          completeGuardianEggHatch();
+        }
+        return;
+      }
 
       const eggDef = getEquippedEggDef();
       if (!eggDef || eggDef.comingSoon) return;
@@ -3801,11 +4001,53 @@
     }
 
     function renderEggProgressUI(force) {
+      if (renderEggBossFightUI(force)) return;
+
+      const special = getSpecialEggHatch();
       const eggDef = getEquippedEggDef();
+      const block = document.getElementById("egg-progress-block");
+      const fill = document.getElementById("hatch-bar-fill");
+      if (fill) fill.classList.remove("is-boss-hp");
+
+      let cur;
+      let req;
+      let pct;
+      if (special) {
+        if (block) {
+          block.classList.add("is-guardian-hatch");
+          block.classList.remove("is-boss-fight");
+        }
+        req = Math.max(1, safeNumber(special.required, 1));
+        cur = Math.min(safeNumber(special.progress, 0), req);
+        pct = (cur / req) * 100;
+        const bdef = getEggBossDef(special.bossId);
+        const labelProg = document.getElementById("hatch-progress-label");
+        if (labelProg) labelProg.textContent = "ŒUF DE GARDIEN";
+        const nums = document.getElementById("hatch-bar-nums");
+        if (nums) nums.textContent = formatNumber(Math.floor(cur)) + " / " + formatNumber(req);
+        const pctEl = document.getElementById("hatch-bar-pct");
+        if (pctEl) pctEl.textContent = pct.toFixed(pct >= 10 ? 0 : 1) + " %";
+        if (fill) fill.style.width = pct + "%";
+        const bar = document.getElementById("hatch-bar");
+        if (bar) bar.setAttribute("aria-valuenow", String(Math.floor(pct)));
+        const etaEl = document.getElementById("ki-eta");
+        if (etaEl) {
+          etaEl.textContent = bdef
+            ? (bdef.name + " — " + bdef.subtitle)
+            : "Éclosion de l'Œuf de Gardien";
+        }
+        const stageLabel = document.getElementById("egg-stage-label");
+        if (stageLabel && bdef) stageLabel.textContent = (bdef.guardianEggName || "ŒUF DE GARDIEN").toUpperCase();
+        lastEggProgressKey = "guardian|" + special.bossId + "|" + Math.floor(cur) + "|" + req;
+        return;
+      }
+
+      if (block) block.classList.remove("is-boss-fight", "is-guardian-hatch");
+
       const prog = getEggProgress(eggDef.id);
-      const req = getEggHatchRequirement(eggDef);
-      const cur = Math.min(safeNumber(prog.progress, 0), req);
-      const pct = getHatchPercent(eggDef, cur);
+      req = getEggHatchRequirement(eggDef);
+      cur = Math.min(safeNumber(prog.progress, 0), req);
+      pct = getHatchPercent(eggDef, cur);
       const poolSize = getEggHatchPool(eggDef.id).length;
       const discovered = countEggPoolDiscovered(eggDef);
       const cps = gameState.currentCps || 0;
@@ -3819,7 +4061,6 @@
       }
       const pctEl = document.getElementById("hatch-bar-pct");
       if (pctEl) pctEl.textContent = pct.toFixed(pct >= 10 ? 0 : 1) + " %";
-      const fill = document.getElementById("hatch-bar-fill");
       if (fill) fill.style.width = pct + "%";
       const bar = document.getElementById("hatch-bar");
       if (bar) bar.setAttribute("aria-valuenow", String(Math.floor(pct)));
@@ -3937,7 +4178,11 @@
       const prog = getEggProgress(eggId);
       const def = getEggDef(eggId);
       if (!prog.unlocked || (def && def.comingSoon)) return;
-      if (hatchSequenceActive || isEggCarouselAnimating) return;
+      if (hatchSequenceActive || guardianHatchSequenceActive || isEggCarouselAnimating) return;
+      if (isEggBossFightActive() || getSpecialEggHatch()) {
+        showNotification("Gardien", "Impossible de changer d'œuf pendant un Gardien.");
+        return;
+      }
       gameState.equippedEggId = eggId;
       const zoneId = def.zoneId || gameState.currentZoneId;
       if (zoneSupportsEggCarousel(zoneId) && (getZoneDef(zoneId).eggIds || []).indexOf(eggId) !== -1) {
@@ -6918,6 +7163,7 @@
       if (changed) {
         expeditionsDirty = true;
         dragonsDirty = true;
+        renderTeamModule();
         saveGame(true);
       }
       const busy = getBusyExpeditionRun();
@@ -7079,13 +7325,35 @@
       return false;
     }
 
+    /**
+     * État UI partagé — vrai tant qu’on est dans le système Expéditions
+     * (Hub / Hall / Préparation / Contrats / Menaces), y compris transitions.
+     * Sert surtout à masquer le HUD mobile (évite le flash Hall←→Hub).
+     */
+    function isExpeditionUiOpen() {
+      if (menuBackdropHold) return true;
+      if (document.querySelector(".expedition-drawer.open")) return true;
+      if (document.querySelector("#panel-expeditions-hub.active")) return true;
+      if (document.querySelector("#panel-expedition-contracts.active")) return true;
+      if (document.querySelector("#panel-expedition-threats.active")) return true;
+      return false;
+    }
+
+    function updateExpeditionUiOpenState() {
+      const open = isExpeditionUiOpen();
+      document.documentElement.classList.toggle("expedition-ui-open", open);
+      document.documentElement.setAttribute("data-expedition-ui", open ? "1" : "0");
+    }
+
     function updateMenuBackdrop() {
       const el = document.getElementById("dc-menu-backdrop");
-      if (!el) return;
-      const open = isMainMenuOverlayOpen();
-      el.classList.toggle("is-visible", open);
-      el.setAttribute("aria-hidden", open ? "false" : "true");
-      document.documentElement.classList.toggle("dc-menu-backdrop-open", open);
+      if (el) {
+        const open = isMainMenuOverlayOpen();
+        el.classList.toggle("is-visible", open);
+        el.setAttribute("aria-hidden", open ? "false" : "true");
+        document.documentElement.classList.toggle("dc-menu-backdrop-open", open);
+      }
+      updateExpeditionUiOpenState();
     }
 
     function openExpeditionsHub() {
@@ -7195,10 +7463,13 @@
       }
       expeditionReturnToHub = false;
       expeditionReturnTarget = "threats";
+      /* Hold : Menaces → Préparation sans flash HUD mobile */
+      menuBackdropHold = true;
       switchPanel("kingdom");
       openExpeditionDrawer({ silent: true });
       resetExpeditionPrepare(threat.id);
       updateExpeditionHallChrome();
+      menuBackdropHold = false;
       updateMenuBackdrop();
     }
 
@@ -7265,8 +7536,9 @@
       if (wasOpen || opts.skipHubReturn) expeditionReturnToHub = false;
       const savedReturn = expeditionReturnTarget;
       if (wasOpen) expeditionReturnTarget = null;
-      /* Hold backdrop pendant la transition Hall → Hub (évite clignotement) */
-      if (backToHub || backToThreats) menuBackdropHold = true;
+      /* Hold pendant Hall → Hub (évite flash HUD / backdrop) ; ne pas écraser un hold externe */
+      const holdTransition = backToHub || backToThreats;
+      if (holdTransition) menuBackdropHold = true;
       drawer.classList.remove("open");
       drawer.setAttribute("aria-hidden", "true");
       drawer.classList.remove("is-prepare");
@@ -7277,7 +7549,7 @@
       else if (backToThreats || savedReturn === "threats") {
         /* X depuis prep menace : fermer sans rouvrir ; ← géré via leaveExpeditionPrepare */
       }
-      menuBackdropHold = false;
+      if (holdTransition) menuBackdropHold = false;
       updateMenuBackdrop();
     }
 
@@ -7521,50 +7793,37 @@
        INVENTAIRE V1 — matériaux / reliques (+ coffres via gameState.chests)
        ------------------------------------------------------- */
     function createEmptyInventory() {
-      return { materials: {}, relics: {} };
+      return { materials: {}, relics: {}, eggs: {} };
+    }
+
+    function sanitizeInventoryBag(rawBag) {
+      const out = {};
+      if (!rawBag || typeof rawBag !== "object") return out;
+      Object.keys(rawBag).forEach((id) => {
+        if (!id) return;
+        const entry = rawBag[id];
+        if (entry == null) return;
+        if (typeof entry === "number") {
+          const n = Math.max(0, Math.floor(safeNumber(entry, 0)));
+          if (n > 0) out[id] = { amount: n };
+          return;
+        }
+        if (typeof entry === "object") {
+          const n = Math.max(0, Math.floor(safeNumber(entry.amount, 0)));
+          if (n > 0) {
+            out[id] = Object.assign({}, entry, { amount: n });
+          }
+        }
+      });
+      return out;
     }
 
     function sanitizeInventory(raw) {
       const out = createEmptyInventory();
       if (!raw || typeof raw !== "object") return out;
-      if (raw.materials && typeof raw.materials === "object") {
-        Object.keys(raw.materials).forEach((id) => {
-          if (!id) return;
-          const entry = raw.materials[id];
-          const amount =
-            typeof entry === "number"
-              ? entry
-              : entry && typeof entry === "object"
-                ? entry.amount
-                : 0;
-          const n = Math.max(0, Math.floor(safeNumber(amount, 0)));
-          if (n > 0) {
-            out.materials[id] =
-              entry && typeof entry === "object"
-                ? Object.assign({}, entry, { amount: n })
-                : { amount: n };
-          }
-        });
-      }
-      if (raw.relics && typeof raw.relics === "object") {
-        Object.keys(raw.relics).forEach((id) => {
-          if (!id) return;
-          const entry = raw.relics[id];
-          if (entry == null) return;
-          if (typeof entry === "number") {
-            const n = Math.max(0, Math.floor(safeNumber(entry, 0)));
-            if (n > 0) out.relics[id] = { amount: n };
-            return;
-          }
-          if (typeof entry === "object") {
-            const n = Math.max(0, Math.floor(safeNumber(entry.amount, 1)));
-            if (n <= 0 && !entry.id) return;
-            out.relics[id] = Object.assign({}, entry, {
-              amount: n > 0 ? n : Math.max(1, Math.floor(safeNumber(entry.amount, 1)))
-            });
-          }
-        });
-      }
+      out.materials = sanitizeInventoryBag(raw.materials);
+      out.relics = sanitizeInventoryBag(raw.relics);
+      out.eggs = sanitizeInventoryBag(raw.eggs);
       return out;
     }
 
@@ -7578,6 +7837,9 @@
       if (!gameState.inventory.relics || typeof gameState.inventory.relics !== "object") {
         gameState.inventory.relics = {};
       }
+      if (!gameState.inventory.eggs || typeof gameState.inventory.eggs !== "object") {
+        gameState.inventory.eggs = {};
+      }
       return gameState.inventory;
     }
 
@@ -7586,6 +7848,7 @@
       if (t === "material" || t === "materials") return "materials";
       if (t === "relic" || t === "relics") return "relics";
       if (t === "chest" || t === "chests") return "chests";
+      if (t === "egg" || t === "eggs" || t === "guardian" || t === "guardian_eggs") return "eggs";
       return null;
     }
 
@@ -7737,7 +8000,7 @@
     }
 
     function setInventoryTab(tab) {
-      if (tab !== "materials" && tab !== "relics" && tab !== "chests") return;
+      if (tab !== "materials" && tab !== "relics" && tab !== "chests" && tab !== "eggs") return;
       inventorySessionTab = tab;
       syncInventoryTabsUi();
       renderInventoryPanel();
@@ -7791,6 +8054,7 @@
           img.alt = "";
           img.draggable = false;
           img.decoding = "async";
+          img.loading = "lazy";
           card.querySelector(".inv-card-art").appendChild(img);
         }
         grid.appendChild(card);
@@ -7844,6 +8108,7 @@
           img.alt = "";
           img.draggable = false;
           img.decoding = "async";
+          img.loading = "lazy";
           card.querySelector(".inv-card-art").appendChild(img);
         }
         grid.appendChild(card);
@@ -7869,7 +8134,7 @@
         const card = document.createElement("article");
         card.className = "inv-card " + (def.css || "chest-draconic");
         card.innerHTML =
-          '<div class="inv-card-art" aria-hidden="true"><img alt="" draggable="false" decoding="async" /></div>' +
+          '<div class="inv-card-art" aria-hidden="true"><img alt="" draggable="false" decoding="async" loading="lazy" /></div>' +
           '<p class="inv-card-name"></p>' +
           '<p class="inv-card-meta"></p>' +
           '<span class="inv-card-rarity"></span>' +
@@ -7895,6 +8160,61 @@
       root.appendChild(grid);
     }
 
+    function renderInventoryEggs(root) {
+      const bag = ensureInventory().eggs;
+      const ids = Object.keys(bag).filter((id) => getInventoryQuantity("eggs", id) > 0);
+      if (!ids.length) {
+        renderInventoryEmpty(
+          root,
+          "Aucun œuf",
+          "Les Œufs de Gardien très rares apparaîtront ici."
+        );
+        return;
+      }
+      const grid = document.createElement("div");
+      grid.className = "inventory-grid";
+      ids.forEach((id) => {
+        const boss = getEggBossDefByGuardianEggId(id);
+        const amount = getInventoryQuantity("eggs", id);
+        const card = document.createElement("article");
+        card.className = "inv-card rarity-legendary inv-card-egg";
+        card.innerHTML =
+          '<div class="inv-card-art"><img alt="" draggable="false" decoding="async" loading="lazy" /></div>' +
+          '<p class="inv-card-name"></p>' +
+          '<p class="inv-card-meta"></p>' +
+          '<p class="inv-card-qty"></p>' +
+          '<button type="button" class="inv-card-open inv-card-use-egg">Utiliser</button>';
+        const img = card.querySelector("img");
+        const name = boss ? boss.guardianEggName : id;
+        const blurb = boss ? (boss.guardianEggBlurb || "Un ancien Œuf de Gardien.") : "Œuf de Gardien";
+        if (img && boss) {
+          img.src = boss.guardianEggImage;
+          img.alt = name;
+        }
+        card.querySelector(".inv-card-name").textContent = name;
+        card.querySelector(".inv-card-meta").textContent = blurb;
+        card.querySelector(".inv-card-qty").textContent = "x" + amount;
+        const btn = card.querySelector(".inv-card-use-egg");
+        const cdLeft = getEggBossCooldownRemainingMs();
+        if (!boss || !boss.enabled) {
+          btn.disabled = true;
+          btn.textContent = "Indisponible";
+        } else if (isEggBossFightActive() || getSpecialEggHatch() || guardianHatchSequenceActive) {
+          btn.disabled = true;
+          btn.textContent = "En cours";
+        } else if (cdLeft > 0) {
+          btn.disabled = true;
+          btn.textContent = "Gardien indisponible — " + formatEggBossCooldown(cdLeft);
+        } else {
+          btn.addEventListener("click", () => {
+            useGuardianEggFromInventory(id);
+          });
+        }
+        grid.appendChild(card);
+      });
+      root.appendChild(grid);
+    }
+
     function renderInventoryPanel() {
       const root = document.getElementById("inventory-root");
       if (!root) return;
@@ -7905,9 +8225,806 @@
         renderInventoryRelics(root);
       } else if (inventorySessionTab === "chests") {
         renderInventoryChests(root);
+      } else if (inventorySessionTab === "eggs") {
+        renderInventoryEggs(root);
       } else {
         renderInventoryMaterials(root);
       }
+    }
+
+    /* -------------------------------------------------------
+       GARDIENS D'ŒUF / BOSS ACTIFS (data-driven)
+       ------------------------------------------------------- */
+    function ensureEggBossSystem(state) {
+      const s = state || gameState;
+      if (!s.eggBossSystem || typeof s.eggBossSystem !== "object") {
+        s.eggBossSystem = createDefaultEggBossSystem();
+      }
+      const ebs = s.eggBossSystem;
+      if (!ebs.eggSpawnProgress || typeof ebs.eggSpawnProgress !== "object") {
+        ebs.eggSpawnProgress = {};
+      }
+      if (ebs.lastBossTimestamp == null) ebs.lastBossTimestamp = 0;
+      if (ebs.activeBoss !== null && typeof ebs.activeBoss !== "object") ebs.activeBoss = null;
+      /* Boss mort / orphelin en save → ne bloque jamais un futur spawn */
+      if (ebs.activeBoss && !(safeNumber(ebs.activeBoss.hp, 0) > 0)) {
+        ebs.activeBoss = null;
+      }
+      if (ebs.specialEggHatch !== null && typeof ebs.specialEggHatch !== "object") {
+        ebs.specialEggHatch = null;
+      }
+      if (ebs.pendingBossSpawn !== null && typeof ebs.pendingBossSpawn !== "object") {
+        ebs.pendingBossSpawn = null;
+      }
+      if (!ebs.bossRecords || typeof ebs.bossRecords !== "object") {
+        ebs.bossRecords = {};
+      }
+      return ebs;
+    }
+
+    function sanitizeEggBossSystem(raw) {
+      const out = createDefaultEggBossSystem();
+      if (!raw || typeof raw !== "object") return out;
+      out.lastBossTimestamp = Math.max(0, safeNumber(raw.lastBossTimestamp, 0));
+      if (raw.bossRecords && typeof raw.bossRecords === "object") {
+        Object.keys(raw.bossRecords).forEach((bossId) => {
+          const src = raw.bossRecords[bossId];
+          if (!src || typeof src !== "object") return;
+          const rec = createDefaultBossRecord();
+          if (src.bestTime != null && Number.isFinite(Number(src.bestTime))) {
+            rec.bestTime = Math.max(0, Number(src.bestTime));
+          }
+          if (src.bestRank && EGG_BOSS_RANK_SCORE[src.bestRank]) {
+            rec.bestRank = src.bestRank;
+          }
+          rec.victories = Math.max(0, Math.floor(safeNumber(src.victories, 0)));
+          out.bossRecords[bossId] = rec;
+        });
+      }
+      if (raw.eggSpawnProgress && typeof raw.eggSpawnProgress === "object") {
+        Object.keys(raw.eggSpawnProgress).forEach((eggId) => {
+          const src = raw.eggSpawnProgress[eggId];
+          if (!src || typeof src !== "object") return;
+          /*
+            Compteurs par eggId :
+            - hatchesSinceBoss : éclosions depuis le dernier Boss (gate min 3)
+            - eligibleSinceBoss : éclosions éligibles pour roll / pity
+            Ne pas confondre hatchesSinceBoss → eligible (bug migration).
+          */
+          out.eggSpawnProgress[eggId] = {
+            hatchesSinceBoss: Math.max(0, Math.floor(safeNumber(src.hatchesSinceBoss, 0))),
+            eligibleSinceBoss: Math.max(0, Math.floor(safeNumber(src.eligibleSinceBoss, 0)))
+          };
+        });
+      }
+      if (raw.pendingBossSpawn && typeof raw.pendingBossSpawn === "object" && raw.pendingBossSpawn.bossId) {
+        const pDef = getEggBossDef(raw.pendingBossSpawn.bossId);
+        if (pDef && pDef.enabled) {
+          out.pendingBossSpawn = {
+            bossId: pDef.id,
+            fromGuardianEgg: !!raw.pendingBossSpawn.fromGuardianEgg
+          };
+        }
+      }
+      if (raw.activeBoss && typeof raw.activeBoss === "object" && raw.activeBoss.bossId) {
+        const def = getEggBossDef(raw.activeBoss.bossId);
+        const hp = Math.max(0, safeNumber(raw.activeBoss.hp, 0));
+        if (def && def.enabled && hp > 0) {
+          out.activeBoss = {
+            bossId: def.id,
+            eggId: def.eggId,
+            hp: hp,
+            maxHp: Math.max(1, safeNumber(raw.activeBoss.maxHp, 1)),
+            clickPowerSnapshot: Math.max(1, safeNumber(raw.activeBoss.clickPowerSnapshot, 1)),
+            ppsSnapshot: Math.max(0, safeNumber(raw.activeBoss.ppsSnapshot, 0)),
+            fightStartedAt: raw.activeBoss.fightStartedAt != null
+              ? safeNumber(raw.activeBoss.fightStartedAt, 0)
+              : null,
+            fromGuardianEgg: !!raw.activeBoss.fromGuardianEgg,
+            spawnedAt: Math.max(0, safeNumber(raw.activeBoss.spawnedAt, Date.now()))
+          };
+        }
+      }
+      if (raw.specialEggHatch && typeof raw.specialEggHatch === "object" && raw.specialEggHatch.bossId) {
+        const def = getEggBossDef(raw.specialEggHatch.bossId);
+        if (def && def.enabled) {
+          const req = Math.max(1, Math.floor(safeNumber(raw.specialEggHatch.required, 1)));
+          out.specialEggHatch = {
+            bossId: def.id,
+            eggId: def.eggId,
+            progress: Math.min(req, Math.max(0, safeNumber(raw.specialEggHatch.progress, 0))),
+            required: req
+          };
+        }
+      }
+      return out;
+    }
+
+    function getEggBossDef(bossId) {
+      if (!bossId) return null;
+      for (let i = 0; i < EGG_BOSS_DEFS.length; i++) {
+        if (EGG_BOSS_DEFS[i].id === bossId) return EGG_BOSS_DEFS[i];
+      }
+      return null;
+    }
+
+    function getEggBossDefByEggId(eggId) {
+      if (!eggId) return null;
+      for (let i = 0; i < EGG_BOSS_DEFS.length; i++) {
+        const d = EGG_BOSS_DEFS[i];
+        if (d.enabled && d.eggId === eggId) return d;
+      }
+      return null;
+    }
+
+    function getEggBossDefByGuardianEggId(guardianEggId) {
+      if (!guardianEggId) return null;
+      for (let i = 0; i < EGG_BOSS_DEFS.length; i++) {
+        const d = EGG_BOSS_DEFS[i];
+        if (d.guardianEggId === guardianEggId) return d;
+      }
+      return null;
+    }
+
+    function getEnabledEggBossDefs() {
+      return EGG_BOSS_DEFS.filter((d) => d && d.enabled);
+    }
+
+    function getActiveEggBoss() {
+      const ebs = ensureEggBossSystem();
+      return ebs.activeBoss || null;
+    }
+
+    function isEggBossFightActive() {
+      const b = getActiveEggBoss();
+      return !!(b && b.hp > 0);
+    }
+
+    function getSpecialEggHatch() {
+      const ebs = ensureEggBossSystem();
+      return ebs.specialEggHatch || null;
+    }
+
+    function getEggBossCooldownRemainingMs() {
+      const ebs = ensureEggBossSystem();
+      const last = safeNumber(ebs.lastBossTimestamp, 0);
+      if (last <= 0) return 0;
+      return Math.max(0, EGG_BOSS_COOLDOWN_MS - (Date.now() - last));
+    }
+
+    function formatEggBossCooldown(ms) {
+      const totalSec = Math.max(0, Math.ceil(safeNumber(ms, 0) / 1000));
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      return m + ":" + (s < 10 ? "0" : "") + s;
+    }
+
+    function isLargeMenuBlockingBossSpawn() {
+      if (hatchSequenceActive || guardianHatchSequenceActive) return true;
+      if (getActiveOverlayPanelId() !== "kingdom") return true;
+      if (document.querySelector(".expedition-drawer.open")) return true;
+      const modal = document.getElementById("dragon-modal");
+      if (modal && !modal.classList.contains("hidden")) return true;
+      const team = document.getElementById("team-module");
+      if (team && team.classList.contains("open")) return true;
+      return false;
+    }
+
+    function getEggSpawnProgress(eggId) {
+      const ebs = ensureEggBossSystem();
+      if (!ebs.eggSpawnProgress[eggId]) {
+        ebs.eggSpawnProgress[eggId] = { hatchesSinceBoss: 0, eligibleSinceBoss: 0 };
+      }
+      const p = ebs.eggSpawnProgress[eggId];
+      if (p.hatchesSinceBoss == null) p.hatchesSinceBoss = 0;
+      if (p.eligibleSinceBoss == null) p.eligibleSinceBoss = 0;
+      /* Legacy totalHatches (lifetime) — ne plus s’en servir pour le gate min. */
+      if (p.totalHatches != null) delete p.totalHatches;
+      return p;
+    }
+
+    function resetEggBossSpawnCounters(eggId) {
+      if (!eggId) return;
+      const prog = getEggSpawnProgress(eggId);
+      prog.hatchesSinceBoss = 0;
+      prog.eligibleSinceBoss = 0;
+    }
+
+    /**
+     * Roll naturel APRÈS une éclosion réussie.
+     * - Cooldown actif : aucun compteur avancé, pas de spawn.
+     * - Sinon : hatchesSinceBoss++ (min 3), puis eligibleSinceBoss++ (15 % / pity 8).
+     * - Les compteurs ne sont remis à 0 qu’à l’apparition réelle du Boss.
+     */
+    function rollNaturalEggBossSpawn(eggId, opts) {
+      opts = opts || {};
+      const def = getEggBossDefByEggId(eggId);
+      if (!def || !def.enabled) return null;
+      if (isEggBossFightActive() || getSpecialEggHatch()) return null;
+      const ebs = ensureEggBossSystem();
+      if (ebs.pendingBossSpawn && ebs.pendingBossSpawn.bossId) return null;
+      if (getEggBossCooldownRemainingMs() > 0) return null;
+
+      const prog = getEggSpawnProgress(eggId);
+      prog.hatchesSinceBoss = Math.max(0, Math.floor(safeNumber(prog.hatchesSinceBoss, 0))) + 1;
+      if (prog.hatchesSinceBoss < EGG_BOSS_MIN_HATCHES) return null;
+
+      prog.eligibleSinceBoss = Math.max(0, Math.floor(safeNumber(prog.eligibleSinceBoss, 0))) + 1;
+      let spawn = false;
+      if (prog.eligibleSinceBoss >= EGG_BOSS_PITY) {
+        spawn = true;
+      } else {
+        const roll = opts.forceRoll != null ? Number(opts.forceRoll) : Math.random();
+        if (roll < EGG_BOSS_SPAWN_CHANCE) spawn = true;
+      }
+      if (!spawn) return null;
+      /* Ne PAS reset ici — reset uniquement dans beginEggBossEncounter. */
+      return def;
+    }
+
+    function queueEggBossSpawn(bossId, opts) {
+      opts = opts || {};
+      const ebs = ensureEggBossSystem();
+      ebs.pendingBossSpawn = {
+        bossId: bossId,
+        fromGuardianEgg: !!opts.fromGuardianEgg
+      };
+      /* Miroir runtime (flush immédiat) */
+      pendingBossSpawn = ebs.pendingBossSpawn;
+      tryFlushPendingBossSpawn();
+      saveGame(true);
+    }
+
+    function tryFlushPendingBossSpawn() {
+      const ebs = ensureEggBossSystem();
+      const spawn = ebs.pendingBossSpawn || pendingBossSpawn;
+      if (!spawn || !spawn.bossId) {
+        pendingBossSpawn = null;
+        return false;
+      }
+      pendingBossSpawn = spawn;
+      /* Soft-block : garder le pending (menus / hatch), ne pas le détruire. */
+      if (isEggBossFightActive()) {
+        ebs.pendingBossSpawn = null;
+        pendingBossSpawn = null;
+        return false;
+      }
+      if (getSpecialEggHatch() || guardianHatchSequenceActive) return false;
+      if (isLargeMenuBlockingBossSpawn()) return false;
+      ebs.pendingBossSpawn = null;
+      pendingBossSpawn = null;
+      const ok = beginEggBossEncounter(spawn.bossId, { fromGuardianEgg: spawn.fromGuardianEgg });
+      if (!ok) {
+        /* Remettre en file si l’apparition a échoué — ne pas brûler le pity. */
+        ebs.pendingBossSpawn = spawn;
+        pendingBossSpawn = spawn;
+        return false;
+      }
+      return true;
+    }
+
+    function announceGuardianAppeared(bossDef, thenFn) {
+      showNotification("⚔️ Gardien", "UN GARDIEN EST APPARU");
+      const banner = document.getElementById("egg-boss-announce");
+      if (banner) {
+        banner.hidden = false;
+        banner.classList.add("is-visible");
+        const title = banner.querySelector(".egg-boss-announce-title");
+        const sub = banner.querySelector(".egg-boss-announce-sub");
+        if (title) title.textContent = "UN GARDIEN EST APPARU";
+        if (sub) sub.textContent = bossDef ? (bossDef.name + " — " + bossDef.subtitle) : "";
+        window.setTimeout(() => {
+          banner.classList.remove("is-visible");
+          banner.hidden = true;
+          if (typeof thenFn === "function") thenFn();
+        }, 900);
+      } else if (typeof thenFn === "function") {
+        thenFn();
+      }
+    }
+
+    function beginEggBossEncounter(bossId, opts) {
+      opts = opts || {};
+      const def = getEggBossDef(bossId);
+      if (!def || !def.enabled) return false;
+      if (isEggBossFightActive()) return false;
+      const ebs = ensureEggBossSystem();
+      const stats = calculateGlobalStats();
+      const clickPower = Math.max(1, safeNumber(stats.clickPower, gameState.powerPerClick || 1));
+      let pps = safeNumber(stats.essencePerSecond, gameState.powerPerSecond || 0);
+      if (!(pps > 0)) pps = clickPower * 6;
+      const maxHp = Math.max(1, Math.floor(clickPower * Math.max(1, def.targetHits || 90)));
+      ebs.activeBoss = {
+        bossId: def.id,
+        eggId: def.eggId,
+        hp: maxHp,
+        maxHp: maxHp,
+        clickPowerSnapshot: clickPower,
+        ppsSnapshot: pps,
+        fightStartedAt: null,
+        fromGuardianEgg: !!opts.fromGuardianEgg,
+        spawnedAt: Date.now()
+      };
+      ebs.specialEggHatch = null;
+      ebs.pendingBossSpawn = null;
+      pendingBossSpawn = null;
+      /* Reset compteurs de CET œuf uniquement à l’apparition réelle */
+      resetEggBossSpawnCounters(def.eggId);
+      if (window.DCAssets && typeof DCAssets.preloadCritical === "function") {
+        DCAssets.preloadCritical([def.image, def.guardianEggImage].filter(Boolean));
+      }
+      document.documentElement.classList.add("egg-boss-active");
+      const abandonBtn = document.getElementById("egg-boss-abandon");
+      if (abandonBtn) abandonBtn.hidden = false;
+      if (def.eggId && gameState.equippedEggId !== def.eggId) {
+        const prog = getEggProgress(def.eggId);
+        if (prog.unlocked) {
+          gameState.equippedEggId = def.eggId;
+          setZoneSelectedEggId(def.zoneId || gameState.currentZoneId, def.eggId);
+        }
+      }
+      announceGuardianAppeared(def, () => {
+        renderCurrentEgg();
+        renderEggProgressUI(true);
+        updateEggCarouselPeer();
+      });
+      renderEggProgressUI(true);
+      updateEggCarouselPeer();
+      return true;
+    }
+
+    function calculateEggBossDamage(clickPowerSnapshot, isCrit, isCharged) {
+      let dmg = Math.max(1, safeNumber(clickPowerSnapshot, 1));
+      if (isCrit) dmg *= 1.5;
+      if (isCharged) dmg *= 2;
+      return dmg;
+    }
+
+    let cachedBossHpFill = null;
+    let cachedBossHpNums = null;
+    let lastBossHpTextKey = "";
+    let activeBossFloats = [];
+    const MAX_BOSS_FLOATS = 14;
+    let clickZoneRectCache = null;
+    let clickZoneRectCacheAt = 0;
+
+    function getClickZoneRect() {
+      const now = performance.now();
+      if (clickZoneRectCache && (now - clickZoneRectCacheAt) < EGG_HIT_RECT_CACHE_MS) {
+        return clickZoneRectCache;
+      }
+      const zone = document.getElementById("click-zone");
+      if (!zone) {
+        clickZoneRectCache = null;
+        return null;
+      }
+      clickZoneRectCache = { el: zone, rect: zone.getBoundingClientRect() };
+      clickZoneRectCacheAt = now;
+      return clickZoneRectCache;
+    }
+
+    /** Barre HP Boss : écriture DOM minimale (largeur + texte optionnel). */
+    function updateEggBossHpBarFast() {
+      const boss = getActiveEggBoss();
+      if (!boss) return;
+      const hp = Math.max(0, safeNumber(boss.hp, 0));
+      const maxHp = Math.max(1, safeNumber(boss.maxHp, 1));
+      const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+      if (!cachedBossHpFill) cachedBossHpFill = document.getElementById("hatch-bar-fill");
+      if (cachedBossHpFill) {
+        cachedBossHpFill.style.width = pct + "%";
+        cachedBossHpFill.classList.add("is-boss-hp");
+      }
+      /* Texte HP : skip formatNumber si floor inchangé. */
+      const floorHp = Math.floor(hp);
+      const textKey = floorHp + "|" + Math.floor(maxHp);
+      if (textKey !== lastBossHpTextKey) {
+        lastBossHpTextKey = textKey;
+        if (!cachedBossHpNums) cachedBossHpNums = document.getElementById("hatch-bar-nums");
+        if (cachedBossHpNums) {
+          cachedBossHpNums.textContent =
+            formatNumber(floorHp) + " / " + formatNumber(Math.floor(maxHp));
+        }
+      }
+    }
+
+    function damageEggBoss(clickPower, isCrit, isCharged, clientX, clientY) {
+      const boss = getActiveEggBoss();
+      if (!boss || !(boss.hp > 0)) return;
+      if (boss.fightStartedAt == null) boss.fightStartedAt = Date.now();
+      const snap = Math.max(1, safeNumber(boss.clickPowerSnapshot, clickPower || 1));
+      const dmg = calculateEggBossDamage(snap, isCrit, isCharged);
+      boss.hp = Math.max(0, safeNumber(boss.hp, 0) - dmg);
+      spawnBossDamageFloat(clientX, clientY, dmg, isCrit, isCharged);
+      updateEggBossHpBarFast();
+      if (boss.hp <= 0) {
+        resolveEggBossVictory(boss);
+      }
+    }
+
+    function spawnBossDamageFloat(clientX, clientY, dmg, isCrit, isCharged) {
+      const zoneInfo = getClickZoneRect();
+      if (!zoneInfo) return;
+      pruneFxList(activeBossFloats, MAX_BOSS_FLOATS);
+      const el = document.createElement("div");
+      el.className = "float-text boss-dmg-float" +
+        (isCrit ? " combo" : "") +
+        (isCharged ? " charged" : "");
+      el.textContent = "-" + formatNumber(Math.floor(dmg));
+      const rect = zoneInfo.rect;
+      const x = clientX != null ? clientX - rect.left : rect.width * 0.5;
+      const y = clientY != null ? clientY - rect.top : rect.height * 0.4;
+      el.style.left = x + "px";
+      el.style.top = y + "px";
+      zoneInfo.el.appendChild(el);
+      activeBossFloats.push(el);
+      scheduleFxRemove(activeBossFloats, el, 700);
+    }
+
+    function getEggBossRank(elapsedSec) {
+      const t = Math.max(0, safeNumber(elapsedSec, 0));
+      if (t <= (EGG_BOSS_RANK_THRESHOLDS.S || 15)) return "S";
+      if (t <= (EGG_BOSS_RANK_THRESHOLDS.A || 25)) return "A";
+      if (t <= (EGG_BOSS_RANK_THRESHOLDS.B || 40)) return "B";
+      return "C";
+    }
+
+    function getEggBossFightElapsedSec(boss) {
+      if (!boss || boss.fightStartedAt == null) return 0;
+      return Math.max(0, (Date.now() - boss.fightStartedAt) / 1000);
+    }
+
+    function computeEggBossEssenceReward(boss, rank) {
+      const pps = Math.max(0, safeNumber(boss && boss.ppsSnapshot, 0));
+      const clickSnap = Math.max(1, safeNumber(boss && boss.clickPowerSnapshot, 1));
+      let base = pps > 0.5 ? pps * 60 : clickSnap * 60;
+      base = Math.max(clickSnap * 20, base);
+      const mult = EGG_BOSS_RANK_ESSENCE_MULT[rank] || 1;
+      return Math.max(1, Math.floor(base * mult));
+    }
+
+    function rollEggBossChestRewards(rank, zoneId) {
+      const chances = EGG_BOSS_CHEST_CHANCES[rank] || EGG_BOSS_CHEST_CHANCES.C;
+      const granted = [];
+      const zid = zoneId || gameState.currentZoneId || "sanctuary";
+      if (chances.draconic > 0 && Math.random() < chances.draconic && isValidChest(zid, "draconic")) {
+        addChest(zid, "draconic", 1);
+        granted.push("draconic");
+      }
+      if (chances.rare > 0 && Math.random() < chances.rare && isValidChest(zid, "rare")) {
+        addChest(zid, "rare", 1);
+        granted.push("rare");
+      }
+      return granted;
+    }
+
+    function rollGuardianEggDrop(bossDef, rank) {
+      if (!bossDef || !bossDef.guardianEggId) return false;
+      const chance = GUARDIAN_EGG_DROP_CHANCE[rank];
+      if (!(chance > 0) || Math.random() >= chance) return false;
+      addInventoryItem("eggs", bossDef.guardianEggId, 1, {
+        bossId: bossDef.id,
+        name: bossDef.guardianEggName
+      });
+      return true;
+    }
+
+    function resolveEggBossVictory(boss) {
+      const def = getEggBossDef(boss.bossId);
+      const elapsed = getEggBossFightElapsedSec(boss);
+      const rank = getEggBossRank(elapsed);
+      const essence = computeEggBossEssenceReward(boss, rank);
+      addEssence(essence, "boss");
+      const chests = rollEggBossChestRewards(rank, def && def.zoneId);
+      const gotEgg = rollGuardianEggDrop(def, rank);
+      if (boss && boss.bossId) recordEggBossVictory(boss.bossId, elapsed, rank);
+      const ebs = ensureEggBossSystem();
+      ebs.activeBoss = null;
+      ebs.pendingBossSpawn = null;
+      pendingBossSpawn = null;
+      ebs.lastBossTimestamp = Date.now();
+      if (def) resetEggBossSpawnCounters(def.eggId);
+      document.documentElement.classList.remove("egg-boss-active");
+      cachedBossHpFill = null;
+      cachedBossHpNums = null;
+      lastBossHpTextKey = "";
+      const abandonBtn = document.getElementById("egg-boss-abandon");
+      if (abandonBtn) abandonBtn.hidden = true;
+      showEggBossVictoryModal({
+        bossDef: def,
+        elapsed: elapsed,
+        rank: rank,
+        essence: essence,
+        chests: chests,
+        guardianEgg: gotEgg
+      });
+      renderCurrentEgg();
+      renderEggProgressUI(true);
+      updateEggCarouselPeer();
+      saveGame(true);
+    }
+
+    function abandonEggBossFight() {
+      const boss = getActiveEggBoss();
+      if (!boss) return;
+      const ebs = ensureEggBossSystem();
+      const eggId = boss.eggId || (getEggBossDef(boss.bossId) || {}).eggId;
+      ebs.activeBoss = null;
+      ebs.pendingBossSpawn = null;
+      pendingBossSpawn = null;
+      ebs.lastBossTimestamp = Date.now();
+      if (eggId) resetEggBossSpawnCounters(eggId);
+      document.documentElement.classList.remove("egg-boss-active");
+      cachedBossHpFill = null;
+      cachedBossHpNums = null;
+      lastBossHpTextKey = "";
+      const abandonBtn = document.getElementById("egg-boss-abandon");
+      if (abandonBtn) abandonBtn.hidden = true;
+      showNotification("⚔️ Gardien", "Combat abandonné.");
+      renderCurrentEgg();
+      renderEggProgressUI(true);
+      updateEggCarouselPeer();
+      saveGame(true);
+    }
+
+    function showEggBossVictoryModal(payload) {
+      const modal = document.getElementById("egg-boss-victory-modal");
+      if (!modal) {
+        showNotification(
+          "⚔️ Gardien vaincu",
+          "Rang " + payload.rank + " · +" + formatNumber(payload.essence) + " Essence"
+        );
+        return;
+      }
+      const def = payload.bossDef;
+      const nameEl = document.getElementById("egg-boss-victory-name");
+      const timeEl = document.getElementById("egg-boss-victory-time");
+      const rankEl = document.getElementById("egg-boss-victory-rank");
+      const rewEl = document.getElementById("egg-boss-victory-rewards");
+      const eggWrap = document.getElementById("egg-boss-victory-egg");
+      if (nameEl) nameEl.textContent = def ? def.name : "GARDIEN";
+      if (timeEl) timeEl.textContent = payload.elapsed.toFixed(1) + " s";
+      if (rankEl) {
+        rankEl.textContent = "RANG " + payload.rank;
+        rankEl.setAttribute("data-rank", payload.rank);
+      }
+      if (rewEl) {
+        let html = "<li>+" + formatNumber(payload.essence) + " Essence</li>";
+        (payload.chests || []).forEach((t) => {
+          const ct = CHEST_TYPES[t];
+          html += "<li>" + (ct ? ct.name : t) + "</li>";
+        });
+        rewEl.innerHTML = html;
+      }
+      if (eggWrap) {
+        if (payload.guardianEgg && def) {
+          eggWrap.hidden = false;
+          eggWrap.classList.add("is-rare");
+          const img = document.getElementById("egg-boss-victory-egg-img");
+          const txt = document.getElementById("egg-boss-victory-egg-text");
+          if (img) {
+            img.src = def.guardianEggImage;
+            img.alt = def.guardianEggName || "";
+          }
+          if (txt) txt.textContent = "OBJET RARE OBTENU — " + (def.guardianEggName || "Œuf de Gardien");
+        } else {
+          eggWrap.hidden = true;
+          eggWrap.classList.remove("is-rare");
+        }
+      }
+      modal.classList.remove("hidden");
+      modal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeEggBossVictoryModal() {
+      const modal = document.getElementById("egg-boss-victory-modal");
+      if (!modal) return;
+      modal.classList.add("hidden");
+      modal.setAttribute("aria-hidden", "true");
+    }
+
+    function renderEggBossFightUI(force) {
+      const boss = getActiveEggBoss();
+      const def = boss ? getEggBossDef(boss.bossId) : null;
+      const labelProg = document.getElementById("hatch-progress-label");
+      const nums = document.getElementById("hatch-bar-nums");
+      const pctEl = document.getElementById("hatch-bar-pct");
+      const fill = document.getElementById("hatch-bar-fill");
+      const bar = document.getElementById("hatch-bar");
+      const etaEl = document.getElementById("ki-eta");
+      const block = document.getElementById("egg-progress-block");
+      if (!boss || !def) {
+        if (block) block.classList.remove("is-boss-fight", "is-guardian-hatch");
+        return false;
+      }
+      if (block) {
+        block.classList.add("is-boss-fight");
+        block.classList.remove("is-guardian-hatch");
+      }
+      const hp = Math.max(0, safeNumber(boss.hp, 0));
+      const maxHp = Math.max(1, safeNumber(boss.maxHp, 1));
+      const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+      const elapsed = getEggBossFightElapsedSec(boss);
+      const rank = boss.fightStartedAt != null ? getEggBossRank(elapsed) : "—";
+      const key = def.id + "|" + Math.floor(hp) + "|" + maxHp + "|" + elapsed.toFixed(1) + "|" + rank;
+      if (!force && key === lastBossFightUiKey) return true;
+      lastBossFightUiKey = key;
+      if (labelProg) labelProg.textContent = "GARDIEN DRACONIQUE";
+      if (nums) nums.textContent = formatNumber(Math.floor(hp)) + " / " + formatNumber(Math.floor(maxHp));
+      if (pctEl) pctEl.textContent = "RANG " + rank;
+      if (fill) {
+        fill.style.width = pct + "%";
+        fill.classList.add("is-boss-hp");
+      }
+      if (bar) bar.setAttribute("aria-valuenow", String(Math.floor(pct)));
+      if (etaEl) {
+        etaEl.textContent =
+          def.name + " — " + def.subtitle +
+          (boss.fightStartedAt != null ? (" · Temps : " + elapsed.toFixed(1) + " s") : " · Cliquez pour commencer");
+      }
+      const stageLabel = document.getElementById("egg-stage-label");
+      if (stageLabel) stageLabel.textContent = def.name;
+      return true;
+    }
+
+    function useGuardianEggFromInventory(guardianEggId) {
+      const boss = getEggBossDefByGuardianEggId(guardianEggId);
+      if (!boss || !boss.enabled) {
+        showNotification("Œuf de Gardien", "Cet œuf est inconnu.");
+        return false;
+      }
+      if (isEggBossFightActive() || getSpecialEggHatch() || guardianHatchSequenceActive || hatchSequenceActive) {
+        showNotification("Œuf de Gardien", "Un Gardien est déjà en cours.");
+        return false;
+      }
+      const cd = getEggBossCooldownRemainingMs();
+      if (cd > 0) {
+        showNotification("Gardien indisponible", formatEggBossCooldown(cd));
+        return false;
+      }
+      if (!isZoneUnlocked(gameState, boss.zoneId)) {
+        showNotification("Œuf de Gardien", "Zone du Gardien non débloquée.");
+        return false;
+      }
+      const eggProg = getEggProgress(boss.eggId);
+      if (!eggProg.unlocked) {
+        showNotification("Œuf de Gardien", "Œuf d'origine non débloqué.");
+        return false;
+      }
+      if (!hasInventoryItem("eggs", guardianEggId, 1)) return false;
+      /* Consommer uniquement au démarrage réussi */
+      if (!removeInventoryItem("eggs", guardianEggId, 1)) return false;
+
+      const eggDef = getEggDef(boss.eggId);
+      const required = Math.max(
+        1,
+        Math.floor(getEggHatchRequirement(eggDef) * GUARDIAN_EGG_HATCH_MULT)
+      );
+      ensureEggBossSystem().specialEggHatch = {
+        bossId: boss.id,
+        eggId: boss.eggId,
+        progress: 0,
+        required: required
+      };
+      gameState.equippedEggId = boss.eggId;
+      setZoneSelectedEggId(boss.zoneId, boss.eggId);
+      if (gameState.currentZoneId !== boss.zoneId) {
+        /* Rester sur la zone courante si différente — l'œuf équipé guide le hatch */
+      }
+      closeInventoryPanel();
+      switchPanel("kingdom");
+      renderCurrentEgg();
+      renderEggProgressUI(true);
+      updateEggCarouselPeer();
+      showNotification("Œuf de Gardien", boss.guardianEggName + " — éclosion spéciale");
+      saveGame(true);
+      return true;
+    }
+
+    function completeGuardianEggHatch() {
+      const special = getSpecialEggHatch();
+      if (!special || guardianHatchSequenceActive) return;
+      const bossDef = getEggBossDef(special.bossId);
+      if (!bossDef) {
+        ensureEggBossSystem().specialEggHatch = null;
+        return;
+      }
+      guardianHatchSequenceActive = true;
+      clicksLocked = true;
+      const stageEl = document.getElementById("egg-stage");
+      if (stageEl) stageEl.classList.add("is-hatching");
+      playSound("eggCrack", { force: true });
+      window.setTimeout(() => {
+        playSound("hatch");
+        ensureEggBossSystem().specialEggHatch = null;
+        guardianHatchSequenceActive = false;
+        clicksLocked = false;
+        if (stageEl) stageEl.classList.remove("is-hatching");
+        beginEggBossEncounter(bossDef.id, { fromGuardianEgg: true });
+        saveGame(true);
+      }, 700);
+    }
+
+    function onNormalEggHatchFinishedForBoss(eggId) {
+      if (!eggId) return;
+      const rolled = rollNaturalEggBossSpawn(eggId);
+      if (!rolled) return;
+      queueEggBossSpawn(rolled.id, { fromGuardianEgg: false });
+    }
+
+    function restoreEggBossUiAfterLoad() {
+      const ebs = ensureEggBossSystem();
+      pendingBossSpawn = ebs.pendingBossSpawn || null;
+      const boss = getActiveEggBoss();
+      const abandonBtn = document.getElementById("egg-boss-abandon");
+      if (boss && boss.hp > 0) {
+        document.documentElement.classList.add("egg-boss-active");
+        if (abandonBtn) abandonBtn.hidden = false;
+      } else {
+        document.documentElement.classList.remove("egg-boss-active");
+        if (abandonBtn) abandonBtn.hidden = true;
+        if (ebs.activeBoss) ebs.activeBoss = null;
+      }
+      const special = getSpecialEggHatch();
+      if (special && safeNumber(special.progress, 0) >= Math.max(1, safeNumber(special.required, 1))) {
+        completeGuardianEggHatch();
+      }
+      renderEggProgressUI(true);
+      tryFlushPendingBossSpawn();
+    }
+
+    function getEggBossDebugState(eggId) {
+      const def = eggId
+        ? getEggBossDefByEggId(eggId) || getEggBossDef(eggId)
+        : getEggBossDefByEggId(gameState.equippedEggId);
+      const id = def ? def.eggId : (eggId || gameState.equippedEggId || "basic");
+      const bossDef = getEggBossDefByEggId(id);
+      const ebs = ensureEggBossSystem();
+      const prog = getEggSpawnProgress(id);
+      const cd = getEggBossCooldownRemainingMs();
+      const hatches = Math.max(0, Math.floor(safeNumber(prog.hatchesSinceBoss, 0)));
+      const eligible = Math.max(0, Math.floor(safeNumber(prog.eligibleSinceBoss, 0)));
+      const active = getActiveEggBoss();
+      const canSpawn = !!(
+        bossDef &&
+        bossDef.enabled &&
+        !active &&
+        !getSpecialEggHatch() &&
+        !ebs.pendingBossSpawn &&
+        cd <= 0 &&
+        hatches >= EGG_BOSS_MIN_HATCHES
+      );
+      return {
+        bossId: bossDef ? bossDef.id : null,
+        eggId: id,
+        activeBoss: active,
+        pendingBossSpawn: ebs.pendingBossSpawn,
+        cooldownRemaining: cd,
+        cooldownRemainingFmt: formatEggBossCooldown(cd),
+        hatchesSinceBoss: hatches,
+        eligibleHatches: eligible,
+        pity: eligible,
+        pityThreshold: EGG_BOSS_PITY,
+        minHatches: EGG_BOSS_MIN_HATCHES,
+        spawnChance: EGG_BOSS_SPAWN_CHANCE,
+        canSpawn: canSpawn,
+        lastBossTimestamp: ebs.lastBossTimestamp,
+        now: Date.now()
+      };
+    }
+
+    function forceEggBossEligibility(eggId) {
+      const def = getEggBossDefByEggId(eggId) || getEggBossDef(eggId) || getEggBossDefByEggId(gameState.equippedEggId);
+      if (!def) return null;
+      const ebs = ensureEggBossSystem();
+      ebs.lastBossTimestamp = 0;
+      ebs.activeBoss = null;
+      ebs.pendingBossSpawn = null;
+      pendingBossSpawn = null;
+      const prog = getEggSpawnProgress(def.eggId);
+      prog.hatchesSinceBoss = EGG_BOSS_MIN_HATCHES;
+      prog.eligibleSinceBoss = Math.max(0, EGG_BOSS_PITY - 1);
+      return getEggBossDebugState(def.eggId);
     }
 
     function getChestZoneLabel(zoneId) {
@@ -8200,16 +9317,23 @@
       regularChestWasReady = ready;
     }
 
+    let lastRegularChestUiAt = 0;
+    const REGULAR_CHEST_UI_MS = 1000;
+
+    /** Coffre gratuit : tick global (plus de setInterval dédié). */
     function startRegularChestTicker() {
-      if (regularChestTickerId != null) return;
       updateRegularChestUI();
-      regularChestTickerId = setInterval(updateRegularChestUI, 1000);
+      lastRegularChestUiAt = performance.now();
     }
 
     function stopRegularChestTicker() {
-      if (regularChestTickerId == null) return;
-      clearInterval(regularChestTickerId);
-      regularChestTickerId = null;
+      /* no-op — conservé pour compat appels existants */
+    }
+
+    function tickRegularChestUi(now) {
+      if (now - lastRegularChestUiAt < REGULAR_CHEST_UI_MS) return;
+      lastRegularChestUiAt = now;
+      updateRegularChestUI();
     }
 
     function nudgeCooldownChest() {
@@ -8740,8 +9864,12 @@
       expeditionPreparePickerOpen = false;
       expeditionsDirty = true;
       if (expeditionReturnTarget === "threats") {
+        /* Hold : Préparation → Menaces sans flash HUD mobile */
+        menuBackdropHold = true;
         closeExpeditionDrawer({ skipHubReturn: true });
         openExpeditionThreatsPanel();
+        menuBackdropHold = false;
+        updateMenuBackdrop();
         return;
       }
       renderExpeditions();
@@ -11160,13 +12288,23 @@
 
     function updateAchievementsNavBadge() {
       const badge = document.getElementById("nav-achievements-badge");
-      const btn = document.querySelector('.nav-btn[data-nav="trophies"]');
+      const btn = document.getElementById("btn-open-achievements");
       const n = countClaimableAchievements();
       if (badge) {
         badge.hidden = n <= 0;
         badge.textContent = n > 9 ? "!" : String(n);
+        badge.setAttribute("aria-hidden", n <= 0 ? "true" : "false");
       }
-      if (btn) btn.classList.toggle("has-ach-claim", n > 0);
+      if (btn) {
+        btn.classList.toggle("has-ach-claim", n > 0);
+        btn.setAttribute("aria-expanded", document.getElementById("panel-achievements")?.classList.contains("active") ? "true" : "false");
+      }
+    }
+
+    function openAchievementsPanel() {
+      playSound("button");
+      switchPanel("achievements");
+      updateAchievementsNavBadge();
     }
 
     function checkAchievements() {
@@ -12446,6 +13584,7 @@
         redeemedCodes: Array.isArray(gameState.redeemedCodes) ? gameState.redeemedCodes.slice() : [],
         chests: sanitizeChestInventory(gameState.chests),
         inventory: sanitizeInventory(gameState.inventory),
+        eggBossSystem: sanitizeEggBossSystem(ensureEggBossSystem()),
         nextFreeChestAt: Math.max(0, Math.floor(safeNumber(gameState.nextFreeChestAt, 0))),
         fragmentBonusAccumulator: safeNumber(gameState.fragmentBonusAccumulator, 0),
         eggProgressAccumulator: safeNumber(gameState.eggProgressAccumulator, 0),
@@ -12919,6 +14058,7 @@
 
       fresh.chests = sanitizeChestInventory(data.chests);
       fresh.inventory = sanitizeInventory(data.inventory);
+      fresh.eggBossSystem = sanitizeEggBossSystem(data.eggBossSystem);
       /* Legacy sans champ : coffre régulier immédiatement disponible */
       fresh.nextFreeChestAt = Math.max(0, Math.floor(safeNumber(data.nextFreeChestAt, 0)));
 
@@ -13265,7 +14405,6 @@
       applyEggScene(getEquippedEggDef());
       renderEgg();
       renderEggPicker();
-      renderDragons();
       renderTeamModule();
       renderAllStatic();
       updateAudioToggles();
@@ -13484,6 +14623,56 @@
       renderComboHud();
     }
 
+    /**
+     * Affichage compact ACTUEL / PROCHAIN / MAX (valeurs déjà formatées).
+     * Calculé au render carte seulement — pas de tick.
+     */
+    function buildShopProgressEffectHtml(opts) {
+      opts = opts || {};
+      const cur = (opts.currentText || "").trim();
+      const next = (opts.nextText || "").trim();
+      const extra = (opts.extraText || "").trim();
+      const atMax = !!opts.atMax;
+      const level = Math.max(0, Math.floor(safeNumber(opts.level, 0)));
+      const root = document.createElement("div");
+      root.className = "item-effect-progress";
+
+      function addRow(kind, lab, val) {
+        const row = document.createElement("div");
+        row.className = "iep-row iep-" + kind;
+        if (lab) {
+          const labEl = document.createElement("span");
+          labEl.className = "iep-lab";
+          labEl.textContent = lab;
+          row.appendChild(labEl);
+        }
+        if (val) {
+          const valEl = document.createElement("span");
+          valEl.className = "iep-val";
+          valEl.textContent = val;
+          row.appendChild(valEl);
+        }
+        root.appendChild(row);
+      }
+
+      if (atMax) {
+        if (cur) addRow("current", "ACTUEL", cur);
+        addRow("max", "MAX", "");
+      } else if (level <= 0) {
+        if (next) addRow("next", "PROCHAIN", next);
+        else if (cur) addRow("current", "", cur);
+      } else {
+        if (cur) addRow("current", "ACTUEL", cur);
+        if (next) addRow("next", "PROCHAIN", next);
+      }
+      if (extra) addRow("extra", "", extra);
+      return root.childNodes.length ? root.outerHTML : "";
+    }
+
+    function formatProducerEssenceEffect(amount) {
+      return "+" + formatNumber(amount) + " Essence/sec";
+    }
+
     function createShopItemRow(opts) {
       const row = document.createElement("div");
       row.className = "item-row card" + (opts.atMax ? " owned" : opts.canBuy ? "" : " disabled");
@@ -13499,22 +14688,30 @@
       if (tipParts.length && !row.title) row.title = tipParts.join(" · ");
       else if (tipParts.length && row.title) row.title = row.title + " — " + tipParts.join(" · ");
 
-      /* Zone droite = colonne centrée : titre → bonus → niveau → bouton */
+      /* Zone droite : titre → niveau → bonus → bouton */
       row.innerHTML =
-        '<div class="item-icon"><span class="item-icon-glyph"></span></div>' +
+        '<div class="item-icon"><img class="item-icon-img" alt="" hidden decoding="async" loading="lazy" draggable="false" /><span class="item-icon-glyph"></span></div>' +
         '<div class="item-main">' +
           '<div class="item-name"></div>' +
+          (showLevel ? '<div class="item-level"></div>' : "") +
           ((opts.effectHtml != null || opts.effectText != null)
             ? '<div class="item-effect"></div>'
             : "") +
-          (showLevel ? '<div class="item-level"></div>' : "") +
           '<div class="item-card-foot"></div>' +
         "</div>";
 
-      row.querySelector(".item-icon-glyph").textContent = opts.icon || "";
+      const iconGlyph = row.querySelector(".item-icon-glyph");
+      const iconImg = row.querySelector(".item-icon-img");
+      iconGlyph.textContent = opts.icon || "";
+      if (opts.image && iconImg) {
+        loadAssetImage(iconImg, iconGlyph, opts.image, { silhouette: false });
+      } else if (iconImg) {
+        iconImg.hidden = true;
+        iconImg.removeAttribute("src");
+      }
       row.querySelector(".item-name").textContent = opts.name || "";
       const levelEl = row.querySelector(".item-level");
-      if (levelEl) levelEl.textContent = opts.level + " / " + opts.maxLevel;
+      if (levelEl) levelEl.textContent = "NIV. " + opts.level + " / " + opts.maxLevel;
       const effectEl = row.querySelector(".item-effect");
       if (effectEl) {
         if (opts.effectHtml != null) effectEl.innerHTML = opts.effectHtml;
@@ -13592,22 +14789,27 @@
           const mult = (gameState.multipliers.producers[def.id] || 1)
             * gameState.multipliers.globalProduction
             * gameState.multipliers.autoProduction;
-          const totalProd = calculateProducerProduction(def, owned) * mult;
-          const gainRaw = atMax
-            ? (owned > 0
-                ? calculateProducerProduction(def, owned) - calculateProducerProduction(def, owned - 1)
-                : 0)
-            : calculateProducerProduction(def, owned + 1) - calculateProducerProduction(def, owned);
-          const unitProd = gainRaw * mult;
+          /* Totaux issus de calculateProducerProduction (linear / progressive). */
+          const totalNow = calculateProducerProduction(def, owned) * mult;
+          const totalNext = atMax
+            ? totalNow
+            : calculateProducerProduction(def, owned + 1) * mult;
+          const effectHtml = buildShopProgressEffectHtml({
+            level: owned,
+            atMax: atMax,
+            currentText: owned > 0 ? formatProducerEssenceEffect(totalNow) : "",
+            nextText: atMax ? "" : formatProducerEssenceEffect(totalNext)
+          });
 
           grid.appendChild(createShopItemRow({
             datasetKey: "producerId",
             datasetValue: def.id,
             title: def.description,
             icon: def.icon,
+            image: def.image || null,
             name: def.name,
-            effectText: "+" + formatNumber(unitProd) + " ESSENCE / SEC",
-            totalText: owned > 0 ? "Total : +" + formatNumber(totalProd) + "/s" : "",
+            effectHtml: effectHtml,
+            totalText: owned > 0 ? "Total : +" + formatNumber(totalNow) + "/s" : "",
             atMax: atMax,
             canBuy: canBuy,
             level: owned,
@@ -13629,6 +14831,7 @@
             datasetKey: "passiveId",
             datasetValue: def.id,
             icon: def.icon,
+            image: def.image || null,
             name: def.name,
             effectText: def.description,
             atMax: bought,
@@ -13729,42 +14932,41 @@
           const atMax = level >= maxLvl;
           const cost = getActiveUpgradeCost(def, level);
           const canBuy = !atMax && gameState.dragonEssence >= cost;
-          const showNext = !atMax && (
-            def.bonusType === "clickPowerFlat"
-            || def.bonusType === "critChanceFlat"
-            || def.bonusType === "critMultiplierFlat"
-            || def.bonusType === "chargedStrike"
-            || def.bonusType === "twinHatchChance"
-            || def.bonusType === "globalProdPct"
-          );
           let familyLabel = (FAMILY_META[def.family] || {}).label || "";
           if (def.bonusType === "clickPowerFlat") familyLabel = "Puissance de clic";
           else if (def.bonusType === "chargedStrike") familyLabel = "Frappe Chargée";
           else if (def.bonusType === "twinHatchChance") familyLabel = "Éclosion spéciale";
           else if (def.bonusType === "globalProdPct") familyLabel = "Production passive";
-          const curBonus = level > 0 ? describeActiveBonusLine(def, level) : "—";
-          let nextHint = "";
-          if (showNext) {
-            nextHint = "Prochaine amélioration : " + describeActiveBonusLine(def, level + 1);
-          }
+          /* Totaux cumulés via describeActiveBonusLine / tables bonusValues. */
+          const curBonus = level > 0 ? describeActiveBonusLine(def, level) : "";
+          const nextBonus = atMax ? "" : describeActiveBonusLine(def, level + 1);
+          let chargedStatus = "";
           if (def.bonusType === "chargedStrike" && level > 0) {
             const every = getChargedStrikeTriggerClicks();
             const cur = Math.max(0, Math.floor(safeNumber(gameState.chargedStrikeClicks, 0)));
             if (every > 0) {
               const ready = cur >= every - 1;
-              nextHint = (ready ? "FRAPPE CHARGÉE PRÊTE" : (cur + " / " + every + " CLICS"))
-                + (showNext && !atMax ? " · Prochaine : " + describeActiveBonusLine(def, level + 1) : "");
+              chargedStatus = ready ? "FRAPPE CHARGÉE PRÊTE" : (cur + " / " + every + " CLICS");
             }
           }
+          const effectHtml = buildShopProgressEffectHtml({
+            level: level,
+            atMax: atMax,
+            currentText: curBonus,
+            nextText: nextBonus || (!atMax && level <= 0 ? (def.description || "") : ""),
+            extraText: chargedStatus
+          });
 
           grid.appendChild(createShopItemRow({
             datasetKey: "activeId",
             datasetValue: def.id,
             title: familyLabel || def.description || "",
             icon: def.icon,
+            image: def.image || null,
             name: def.name,
-            effectText: curBonus,
-            descText: nextHint,
+            effectHtml: effectHtml || undefined,
+            effectText: effectHtml ? undefined : (curBonus || nextBonus || def.description || "—"),
+            descText: chargedStatus,
             atMax: atMax,
             canBuy: canBuy,
             level: level,
@@ -13785,13 +14987,38 @@
           const atMax = level >= maxLvl;
           const cost = getLevelPassiveCost(def, level);
           const canBuy = !atMax && gameState.dragonEssence >= cost;
+          let curText = "";
+          let nextText = "";
+          if (def.id === "ancestralReserve") {
+            if (level > 0) curText = getOfflineCapHoursForLevel(level) + " h maximum";
+            if (!atMax) nextText = getOfflineCapHoursForLevel(level + 1) + " h maximum";
+          } else if (def.id === "dragonWatch") {
+            if (level > 0) {
+              curText = formatOfflineYieldPct(getOfflineYieldRateForLevel(level)) +
+                " de la production";
+            }
+            if (!atMax) {
+              nextText = formatOfflineYieldPct(getOfflineYieldRateForLevel(level + 1)) +
+                " de la production";
+            }
+          } else {
+            curText = level > 0 ? describeLevelPassiveBonus(def, level) : "";
+            nextText = atMax ? "" : (describeLevelPassiveNext(def, level) || def.description || "");
+          }
+          const effectHtml = buildShopProgressEffectHtml({
+            level: level,
+            atMax: atMax,
+            currentText: curText,
+            nextText: nextText
+          });
           grid.appendChild(createShopItemRow({
             datasetKey: "levelPassiveId",
             datasetValue: def.id,
             icon: def.icon,
+            image: def.image || null,
             name: def.name,
-            effectText: describeLevelPassiveBonus(def, level),
-            descText: atMax ? "" : describeLevelPassiveNext(def, level),
+            effectHtml: effectHtml || undefined,
+            effectText: effectHtml ? undefined : (curText || nextText || def.description || ""),
             atMax: atMax,
             canBuy: canBuy,
             level: level,
@@ -13813,6 +15040,7 @@
             datasetKey: "specialId",
             datasetValue: def.id,
             icon: def.icon,
+            image: def.image || null,
             name: def.name,
             effectText: def.description,
             atMax: bought,
@@ -14091,10 +15319,17 @@
     }
 
     function getActiveOverlayPanelId() {
-      /* Kingdom stays .active under overlays — prefer the visible overlay panel. */
+      /* Overlay menus only — Royaume n’est plus un overlay. */
       const overlay = document.querySelector(".panel.overlay-panel.active");
       if (overlay && overlay.dataset.panel) return overlay.dataset.panel;
+      if (document.getElementById("panel-realm")?.classList.contains("active")) return "realm";
       return "kingdom";
+    }
+
+    /** Vue principale active : egg | realm (onglets bas) */
+    function getActiveMainView() {
+      if (document.getElementById("panel-realm")?.classList.contains("active")) return "realm";
+      return "egg";
     }
 
     function renderUI(now) {
@@ -14106,15 +15341,18 @@
       }
       if (t - lastEggProgressUiAt >= EGG_PROGRESS_UI_MS) {
         renderEggProgressUI();
+        if (isEggBossFightActive()) renderEggBossFightUI(false);
+        tryFlushPendingBossSpawn();
         lastEggProgressUiAt = t;
       }
 
       const panelId = getActiveOverlayPanelId();
 
-      if (shopDirty) {
+      /* Menus fermés : ne pas reconstruire le DOM — garder dirty jusqu'à ouverture. */
+      if (shopDirty && panelId === "shop") {
         renderShop();
       }
-      if (upgradesDirty) {
+      if (upgradesDirty && panelId === "shop") {
         renderUpgrades();
       }
       if (panelId === "shop" && t - lastAffordabilityRefresh >= AFFORDABILITY_MS) {
@@ -14127,22 +15365,22 @@
         renderAchievements();
       }
 
-      if (dragonsDirty) {
+      if (dragonsDirty && panelId === "dragons") {
         renderDragons();
       }
 
-      if (eggsDirty) {
+      if (eggsDirty && panelId === "kingdom") {
         renderEggPicker();
       }
 
-      if (zonesDirty) {
+      if (zonesDirty && panelId === "zones") {
         renderZones();
       } else if (panelId === "zones" && t - lastWorldAffordabilityRefresh >= AFFORDABILITY_MS) {
         refreshWorldUnlockAffordability();
         lastWorldAffordabilityRefresh = t;
       }
 
-      if (expeditionsDirty) {
+      if (expeditionsDirty && isExpeditionUiOpen()) {
         renderExpeditions();
         lastExpeditionUiRefresh = t;
       }
@@ -14158,18 +15396,20 @@
     }
 
     function renderAllStatic() {
+      /* Scène + HUD seulement — menus overlay construits à l'ouverture (dirty flags). */
       renderEgg();
       renderEggPicker();
-      renderDragons();
-      renderShop();
-      renderUpgrades();
-      renderAchievements();
-      renderStats();
-      renderZones();
-      renderExpeditions();
+      eggsDirty = false;
       renderHeader();
       renderEggProgressUI(true);
       updateChestButtonBadge();
+      shopDirty = true;
+      upgradesDirty = true;
+      achievementsDirty = true;
+      dragonsDirty = true;
+      zonesDirty = true;
+      expeditionsDirty = true;
+      uiDirty = true;
     }
 
     /* -------------------------------------------------------
@@ -14421,15 +15661,344 @@
     }
 
     /* -------------------------------------------------------
+       ROYAUME — scène interactive + menus bâtiments
+       ------------------------------------------------------- */
+    /* Layout Royaume — design space = background 1536x1024.
+       platformX/Y = centres des socles (etoiles). footX/Y = pied opaque PNG (0-1).
+       applyKingdomBuildingLayout() synchronise le DOM ; CSS .kb-* = fallback. */
+    const KINGDOM_DESIGN = { width: 1536, height: 1024 };
+    const KINGDOM_BUILDINGS = {
+      forge: {
+        id: "forge",
+        title: "Forge des Reliques",
+        asset: "assets/royaume/forge.png",
+        platformX: 492,
+        platformY: 518,
+        widthPct: 13.8,
+        footX: 0.5382,
+        footY: 0.9649
+      },
+      breeding: {
+        id: "breeding",
+        title: "Élevage Draconique",
+        asset: "assets/royaume/elevage.png",
+        platformX: 419,
+        platformY: 695,
+        widthPct: 15.2,
+        footX: 0.4687,
+        footY: 0.9777
+      },
+      altar: {
+        id: "altar",
+        title: "Autel Draconique",
+        asset: "assets/royaume/autel draconique.png",
+        platformX: 1061,
+        platformY: 518,
+        widthPct: 13.8,
+        footX: 0.6274,
+        footY: 0.9753
+      },
+      guardians: {
+        id: "guardians",
+        title: "Sanctuaire des Gardiens",
+        asset: "assets/royaume/sanctuaire.png",
+        platformX: 1116,
+        platformY: 695,
+        widthPct: 15.2,
+        footX: 0.5391,
+        footY: 0.9904
+      }
+    };
+    let currentKingdomBuilding = null;
+    let kingdomUiBound = false;
+    let kingdomAssetsLoaded = false;
+    let kingdomLabelClearTimer = 0;
+
+    function isRealmPanelOpen() {
+      return !!document.getElementById("panel-realm")?.classList.contains("active");
+    }
+
+    function loadKingdomSceneAssets() {
+      if (kingdomAssetsLoaded) return;
+      const root = document.getElementById("kingdom-stage-inner");
+      if (!root) return;
+      root.querySelectorAll("img[data-src]").forEach((img) => {
+        const src = img.getAttribute("data-src");
+        if (!src) return;
+        if (!img.getAttribute("src")) img.src = src;
+      });
+      kingdomAssetsLoaded = true;
+    }
+
+    function clearKingdomBuildingLabelSoon() {
+      if (kingdomLabelClearTimer) clearTimeout(kingdomLabelClearTimer);
+      kingdomLabelClearTimer = setTimeout(() => {
+        kingdomLabelClearTimer = 0;
+        document.querySelectorAll(".kingdom-building.is-label-on").forEach((el) => {
+          el.classList.remove("is-label-on");
+        });
+      }, 1600);
+    }
+
+    function closeKingdomBuildingPanel() {
+      currentKingdomBuilding = null;
+      const panel = document.getElementById("kingdom-building-panel");
+      const body = document.getElementById("kingdom-building-body");
+      if (body) body.innerHTML = "";
+      if (panel) {
+        panel.classList.add("hidden");
+        panel.hidden = true;
+      }
+    }
+
+    function renderKingdomEmptyState(body, title, text) {
+      body.innerHTML = "";
+      const wrap = document.createElement("div");
+      wrap.className = "kingdom-empty-state";
+      const kicker = document.createElement("p");
+      kicker.className = "kingdom-empty-kicker";
+      kicker.textContent = title;
+      const p = document.createElement("p");
+      p.textContent = text;
+      wrap.appendChild(kicker);
+      wrap.appendChild(p);
+      body.appendChild(wrap);
+    }
+
+    function renderKingdomForgePanel(body) {
+      /* Pas de recettes / forge gameplay encore — inventaire reliques seul existe. */
+      const relics = ensureInventory().relics || {};
+      const ownedIds = Object.keys(relics).filter((id) => {
+        const e = relics[id];
+        if (!e) return false;
+        if (typeof e === "number") return e > 0;
+        return Math.max(0, Math.floor(safeNumber(e.amount, 1))) > 0;
+      });
+      body.innerHTML = "";
+      if (!ownedIds.length) {
+        renderKingdomEmptyState(
+          body,
+          "Forge des Reliques",
+          "Les premières recettes seront bientôt disponibles."
+        );
+        return;
+      }
+      const intro = document.createElement("p");
+      intro.className = "kingdom-empty-kicker";
+      intro.style.marginBottom = "10px";
+      intro.textContent = "Reliques possédées";
+      body.appendChild(intro);
+      const grid = document.createElement("div");
+      grid.className = "guardian-sanctum-grid";
+      ownedIds.forEach((id) => {
+        const entry = relics[id];
+        const amount = typeof entry === "number"
+          ? Math.max(0, Math.floor(entry))
+          : Math.max(0, Math.floor(safeNumber(entry.amount, 1)));
+        const name = (entry && typeof entry === "object" && entry.name) || String(id);
+        const card = document.createElement("article");
+        card.className = "guardian-card";
+        card.innerHTML = '<p class="guardian-card-name"></p><p class="guardian-card-sub"></p>';
+        card.querySelector(".guardian-card-name").textContent = name;
+        card.querySelector(".guardian-card-sub").textContent = "x" + amount;
+        grid.appendChild(card);
+      });
+      const tip = document.createElement("p");
+      tip.style.marginTop = "14px";
+      tip.style.textAlign = "center";
+      tip.style.color = "rgba(210,220,235,0.75)";
+      tip.textContent = "Les recettes de forge seront bientôt disponibles.";
+      body.appendChild(grid);
+      body.appendChild(tip);
+    }
+
+    function renderKingdomBreedingPanel(body) {
+      renderKingdomEmptyState(
+        body,
+        "Élevage Draconique",
+        "Le système d'élevage sera bientôt disponible."
+      );
+    }
+
+    function renderKingdomAltarPanel(body) {
+      renderKingdomEmptyState(
+        body,
+        "Autel Draconique",
+        "Les rituels draconiques seront bientôt disponibles."
+      );
+    }
+
+    function isEggBossDiscovered(bossId) {
+      const rec = getEggBossRecord(bossId);
+      if (rec.victories > 0 || rec.bestRank || rec.bestTime != null) return true;
+      const def = getEggBossDef(bossId);
+      if (def && def.guardianEggId && getInventoryQuantity("eggs", def.guardianEggId) > 0) {
+        return true;
+      }
+      return false;
+    }
+
+    function renderKingdomGuardiansPanel(body) {
+      body.innerHTML = "";
+      const defs = getEnabledEggBossDefs();
+      if (!defs.length) {
+        renderKingdomEmptyState(
+          body,
+          "Sanctuaire des Gardiens",
+          "Aucun Gardien n'est encore répertorié."
+        );
+        return;
+      }
+      const grid = document.createElement("div");
+      grid.className = "guardian-sanctum-grid";
+      defs.forEach((def) => {
+        const discovered = isEggBossDiscovered(def.id);
+        const rec = getEggBossRecord(def.id);
+        const eggDef = getEggDef(def.eggId);
+        const eggQty = def.guardianEggId
+          ? getInventoryQuantity("eggs", def.guardianEggId)
+          : 0;
+        const card = document.createElement("article");
+        card.className = "guardian-card" + (discovered ? "" : " is-unknown");
+
+        const art = document.createElement("div");
+        art.className = "guardian-card-art";
+        const img = document.createElement("img");
+        img.alt = "";
+        img.draggable = false;
+        img.decoding = "async";
+        img.loading = "lazy";
+        if (def.image) img.src = def.image;
+        art.appendChild(img);
+        if (!discovered) {
+          const mark = document.createElement("span");
+          mark.className = "guardian-card-unknown-mark";
+          mark.textContent = "?";
+          art.appendChild(mark);
+        }
+        card.appendChild(art);
+
+        const name = document.createElement("p");
+        name.className = "guardian-card-name";
+        name.textContent = discovered ? (def.displayName || def.name) : "Gardien inconnu";
+        card.appendChild(name);
+
+        const sub = document.createElement("p");
+        sub.className = "guardian-card-sub";
+        if (discovered) {
+          sub.textContent = (def.subtitle || "") +
+            (eggDef ? (" · Œuf : " + eggDef.name) : "");
+        } else {
+          sub.textContent = "???";
+        }
+        card.appendChild(sub);
+
+        const stats = document.createElement("ul");
+        stats.className = "guardian-card-stats";
+        const rows = discovered
+          ? [
+              ["Meilleur rang", rec.bestRank || "—"],
+              ["Meilleur temps", formatEggBossRecordTime(rec.bestTime)],
+              ["Victoires", String(rec.victories || 0)],
+              ["Œufs Gardien", "x" + eggQty]
+            ]
+          : [
+              ["Statut", "Non découvert"],
+              ["Œufs Gardien", "x" + eggQty]
+            ];
+        rows.forEach((pair) => {
+          const li = document.createElement("li");
+          li.innerHTML = '<span class="gs-lab"></span><span class="gs-val"></span>';
+          li.querySelector(".gs-lab").textContent = pair[0];
+          li.querySelector(".gs-val").textContent = pair[1];
+          stats.appendChild(li);
+        });
+        card.appendChild(stats);
+        grid.appendChild(card);
+      });
+      body.appendChild(grid);
+    }
+
+    function openKingdomBuilding(buildingId) {
+      const def = KINGDOM_BUILDINGS[buildingId];
+      if (!def || !isRealmPanelOpen()) return;
+      currentKingdomBuilding = buildingId;
+      const panel = document.getElementById("kingdom-building-panel");
+      const title = document.getElementById("kingdom-building-title");
+      const body = document.getElementById("kingdom-building-body");
+      if (!panel || !title || !body) return;
+      title.textContent = def.title;
+      body.innerHTML = "";
+      if (buildingId === "forge") renderKingdomForgePanel(body);
+      else if (buildingId === "breeding") renderKingdomBreedingPanel(body);
+      else if (buildingId === "altar") renderKingdomAltarPanel(body);
+      else if (buildingId === "guardians") renderKingdomGuardiansPanel(body);
+      else renderKingdomEmptyState(body, def.title, "Bientôt disponible.");
+      panel.classList.remove("hidden");
+      panel.hidden = false;
+      playSound("button");
+    }
+
+    function openRealmScene() {
+      loadKingdomSceneAssets();
+      closeKingdomBuildingPanel();
+    }
+
+    function applyKingdomBuildingLayout() {
+      const stage = document.getElementById("kingdom-stage-inner");
+      if (!stage) return;
+      Object.keys(KINGDOM_BUILDINGS).forEach((id) => {
+        const def = KINGDOM_BUILDINGS[id];
+        const el = stage.querySelector('.kingdom-building[data-building="' + id + '"]');
+        if (!el || !def) return;
+        el.style.left = ((def.platformX / KINGDOM_DESIGN.width) * 100).toFixed(2) + "%";
+        el.style.top = ((def.platformY / KINGDOM_DESIGN.height) * 100).toFixed(2) + "%";
+        el.style.width = def.widthPct + "%";
+        el.style.setProperty("--kb-ax", (def.footX * 100).toFixed(2) + "%");
+        el.style.setProperty("--kb-ay", (def.footY * 100).toFixed(2) + "%");
+      });
+    }
+
+    function bindKingdomUi() {
+      if (kingdomUiBound) return;
+      kingdomUiBound = true;
+      applyKingdomBuildingLayout();
+      const stage = document.getElementById("kingdom-stage-inner");
+      if (stage) {
+        stage.addEventListener("click", (e) => {
+          const btn = e.target.closest(".kingdom-building[data-building]");
+          if (!btn || !stage.contains(btn)) return;
+          const id = btn.getAttribute("data-building");
+          if (window.matchMedia && window.matchMedia("(hover: none)").matches) {
+            btn.classList.add("is-label-on");
+            clearKingdomBuildingLabelSoon();
+          }
+          openKingdomBuilding(id);
+        });
+      }
+      const back = document.getElementById("kingdom-building-back");
+      if (back) {
+        back.addEventListener("click", () => {
+          playSound("button");
+          closeKingdomBuildingPanel();
+        });
+      }
+    }
+
+    /* -------------------------------------------------------
        NAVIGATION
        ------------------------------------------------------- */
     const NAV_GROUPS = {
+      /* Bouton central Œuf — retour gameplay (panel-kingdom) */
       kingdom: { panels: [] },
       shop: { panels: [{ id: "shop", label: "Boutique" }] },
       dragons: { panels: [{ id: "dragons", label: "🐲 Bestiaire" }] },
       events: { panels: [{ id: "events", label: "Événements" }] },
       world: { panels: [{ id: "zones", label: "Monde" }] },
+      /* Accès via badge latéral — plus dans la bottom nav */
       trophies: { panels: [{ id: "achievements", label: "🏆 Succès" }] },
+      /* Royaume — vue principale (onglet bas, pas overlay) */
+      realm: { panels: [{ id: "realm", label: "🏰 Royaume" }] },
       stats: { panels: [{ id: "stats", label: "📊 Statistiques" }] },
       settings: { panels: [{ id: "settings", label: "⚙️ Réglages" }] }
     };
@@ -14460,7 +16029,7 @@
       if (!bar || !tabs) return;
       const group = getNavGroupForPanel(panelId);
       bar.classList.remove("is-world", "is-shop-close-only");
-      /* Hub Expéditions / Inventaire placeholder : croix sheet-bar type Bestiaire / Succès */
+      /* Hub Expéditions / Inventaire : croix sheet-bar type Bestiaire / Succès */
       if (
         panelId === "expeditions-hub" ||
         panelId === "inventory" ||
@@ -14473,12 +16042,13 @@
         tabs.classList.remove("single");
         return;
       }
-      if (group === "kingdom" || group === "world") {
+      /* Dragons / Royaume (vue principale) / Œuf / Monde : pas de sheet-bar flottant */
+      if (panelId === "dragons" || panelId === "realm" || group === "kingdom" || group === "world" || group === "realm") {
         bar.hidden = true;
         return;
       }
-      /* Boutique / Dragons / Événements / Succès / Stats : pas d’onglets, seulement le X */
-      if (group === "shop" || group === "dragons" || group === "events" || group === "trophies" || group === "stats") {
+      /* Boutique / Événements / Succès / Stats : pas d’onglets, seulement le X */
+      if (group === "shop" || group === "events" || group === "trophies" || group === "stats") {
         bar.hidden = false;
         bar.classList.add("is-shop-close-only");
         tabs.innerHTML = "";
@@ -14531,15 +16101,24 @@
       if (invBtn) {
         invBtn.setAttribute("aria-expanded", name === "inventory" ? "true" : "false");
       }
+      const achBtn = document.getElementById("btn-open-achievements");
+      if (achBtn) {
+        achBtn.setAttribute("aria-expanded", name === "achievements" ? "true" : "false");
+      }
       const group = getNavGroupForPanel(name);
       if (group !== "kingdom") lastPanelByGroup[group] = name;
       renderSheetBar(name);
       document.querySelectorAll(".panel").forEach((p) => {
         const id = p.dataset.panel;
         if (id === "kingdom") {
-          /* Sanctuary always visible under overlays */
+          /* Sanctuary always under overlays ; masqué aussi quand vue Royaume active */
           p.classList.add("active");
           p.classList.toggle("dimmed", name !== "kingdom");
+          return;
+        }
+        if (id === "realm") {
+          /* Vue principale (pas overlay) : active uniquement sur l’onglet Royaume */
+          p.classList.toggle("active", name === "realm");
           return;
         }
         if (id === "upgrades") {
@@ -14555,6 +16134,8 @@
           p.style.animation = "";
         }
       });
+      document.documentElement.classList.toggle("realm-view-active", name === "realm");
+      document.documentElement.setAttribute("data-main-view", name === "realm" ? "realm" : (name === "kingdom" ? "egg" : name));
       document.querySelectorAll(".nav-btn").forEach((b) => {
         b.classList.toggle("active", b.dataset.nav === group);
       });
@@ -14610,6 +16191,7 @@
         closeZoneDetail();
       }
       updateMenuBackdrop();
+      if (name === "kingdom") tryFlushPendingBossSpawn();
       if (name === "inventory") {
         ensureInventory();
         ensureChestInventory();
@@ -14621,6 +16203,11 @@
         renderEventsMenu();
       } else {
         stopEventsCountdown();
+      }
+      if (name === "realm") {
+        openRealmScene();
+      } else {
+        closeKingdomBuildingPanel();
       }
       if (name === "expeditions") expeditionsDirty = true;
       if (name === "kingdom" && !hatchSequenceActive) {
@@ -14681,9 +16268,13 @@
         tickExpeditions();
         lastExpeditionTickAt = now;
       }
-      tickEggAmbientFx(now);
-      tickChargedAuraSparks();
-      renderUI(now);
+      /* Arrière-plan : pas de FX / HUD coûteux (RAF souvent ralenti ; save via visibilitychange). */
+      if (!document.hidden) {
+        tickRegularChestUi(now);
+        tickEggAmbientFx(now);
+        tickChargedAuraSparks();
+        renderUI(now);
+      }
 
       requestAnimationFrame(updateGame);
     }
@@ -14768,6 +16359,9 @@
           if (btn.dataset.nav === "dragons") {
             warmDragonsFirstViewport(dragonsFilterZoneId || "all", DRAGONS_VIEWPORT_WARM);
           }
+          if (btn.dataset.nav === "realm") {
+            loadKingdomSceneAssets();
+          }
         }, { passive: true });
         btn.addEventListener("click", () => openNavGroup(btn.dataset.nav));
       });
@@ -14778,9 +16372,20 @@
         btnOpenStats.addEventListener("click", () => switchPanel("stats"));
       }
       document.getElementById("sheet-close").addEventListener("click", () => switchPanel("kingdom"));
+      const dragonsPanelClose = document.getElementById("dragons-panel-close");
+      if (dragonsPanelClose && !dragonsPanelClose.dataset.bound) {
+        dragonsPanelClose.dataset.bound = "1";
+        dragonsPanelClose.addEventListener("click", () => {
+          playSound("button");
+          switchPanel("kingdom");
+        });
+      }
       const worldMenuClose = document.getElementById("world-menu-close");
       if (worldMenuClose) worldMenuClose.addEventListener("click", () => switchPanel("kingdom"));
       window.addEventListener("resize", () => {
+        invalidateEggHitRectCache();
+        clickZoneRectCache = null;
+        clickZoneRectCacheAt = 0;
         syncShopDividerToKingdomNav();
         syncMobilePerformanceClass();
         syncMobileModalOpenClass();
@@ -14805,6 +16410,10 @@
         }
         if (!document.getElementById("dragon-detail-modal").classList.contains("hidden")) {
           closeDragonDetail();
+          return;
+        }
+        if (currentKingdomBuilding) {
+          closeKingdomBuildingPanel();
           return;
         }
         if (isExpeditionDrawerOpen()) {
@@ -14879,7 +16488,12 @@
           });
           return;
         }
+        const hatchedEggId =
+          pendingReveal && pendingReveal.eggDef && pendingReveal.eggDef.id
+            ? pendingReveal.eggDef.id
+            : (pendingReveal && gameState.equippedEggId);
         finishHatchCleanup();
+        onNormalEggHatchFinishedForBoss(hatchedEggId);
       });
 
       const poolBtn = document.getElementById("btn-view-pool");
@@ -14908,6 +16522,7 @@
       document.getElementById("btn-team-mobile").addEventListener("click", () => toggleTeamDrawer());
       document.getElementById("btn-team-tablet").addEventListener("click", () => toggleTeamDrawer());
       bindTeamUiDelegates();
+      bindKingdomUi();
       bindChestUiDelegates();
       syncMobilePerformanceClass();
       syncMobileModalOpenClass();
@@ -14956,6 +16571,27 @@
           playSound("button");
           setInventoryTab(tabBtn.getAttribute("data-inv-tab"));
         });
+      }
+      const bossAbandon = document.getElementById("egg-boss-abandon");
+      if (bossAbandon && !bossAbandon.dataset.bound) {
+        bossAbandon.dataset.bound = "1";
+        bossAbandon.addEventListener("click", () => {
+          playSound("button");
+          abandonEggBossFight();
+        });
+      }
+      const bossVictoryClose = document.getElementById("egg-boss-victory-close");
+      if (bossVictoryClose && !bossVictoryClose.dataset.bound) {
+        bossVictoryClose.dataset.bound = "1";
+        bossVictoryClose.addEventListener("click", () => {
+          playSound("button");
+          closeEggBossVictoryModal();
+        });
+      }
+      const achOpenBtn = document.getElementById("btn-open-achievements");
+      if (achOpenBtn && !achOpenBtn.dataset.bound) {
+        achOpenBtn.dataset.bound = "1";
+        achOpenBtn.addEventListener("click", () => openAchievementsPanel());
       }
       const invClose = document.getElementById("inventory-close");
       if (invClose) {
@@ -15049,6 +16685,55 @@
         window.DCDebug.THREAT_DISCOVERY_CHANCE = THREAT_DISCOVERY_CHANCE;
         window.DCDebug.generateDailyContracts = generateDailyContractsForDev;
         window.DCDebug.getContractDateKey = getContractDateKey;
+        window.DCDebug.forceEggBoss = function forceEggBoss(bossId) {
+          const id = bossId || "aurek";
+          const def = getEggBossDef(id);
+          if (!def || !def.enabled) return false;
+          const ebs = ensureEggBossSystem();
+          ebs.lastBossTimestamp = 0;
+          ebs.pendingBossSpawn = null;
+          pendingBossSpawn = null;
+          return beginEggBossEncounter(def.id, { fromGuardianEgg: false });
+        };
+        window.DCDebug.giveGuardianEgg = function giveGuardianEgg(bossId) {
+          const def = getEggBossDef(bossId || "aurek");
+          if (!def) return false;
+          addInventoryItem("eggs", def.guardianEggId, 1, {
+            bossId: def.id,
+            name: def.guardianEggName
+          });
+          showNotification("DEV", def.guardianEggName + " +1");
+          return true;
+        };
+        window.DCDebug.forceGuardianEggDrop = function forceGuardianEggDrop(bossId) {
+          const def = getEggBossDef(bossId || "aurek");
+          if (!def) return false;
+          addInventoryItem("eggs", def.guardianEggId, 1, {
+            bossId: def.id,
+            name: def.guardianEggName
+          });
+          showNotification("DEV", "Drop forcé : " + def.guardianEggName);
+          return true;
+        };
+        window.DCDebug.clearEggBossCooldown = function clearEggBossCooldown() {
+          ensureEggBossSystem().lastBossTimestamp = 0;
+          if (isInventoryPanelOpen()) renderInventoryPanel();
+          return true;
+        };
+        window.DCDebug.getEggBossDebugState = getEggBossDebugState;
+        window.DCDebug.forceEggBossEligibility = forceEggBossEligibility;
+        window.DCDebug.simulateEggBossHatchRoll = function simulateEggBossHatchRoll(eggId, forceRoll) {
+          const id = eggId || gameState.equippedEggId || "basic";
+          const rolled = rollNaturalEggBossSpawn(id, {
+            forceRoll: forceRoll != null ? forceRoll : 1
+          });
+          if (rolled) queueEggBossSpawn(rolled.id, { fromGuardianEgg: false });
+          return {
+            spawned: !!rolled,
+            bossId: rolled ? rolled.id : null,
+            state: getEggBossDebugState(id)
+          };
+        };
       } catch (e) { /* ignore */ }
       if (expBack) {
         expBack.addEventListener("click", () => {
@@ -15250,15 +16935,16 @@
       updateExpeditionHubBadges();
       ensureInventory();
       ensureChestInventory();
+      ensureEggBossSystem();
       updateInventoryBadge();
       applyEggScene(getEquippedEggDef());
       renderEgg();
       renderEggPicker();
       updateEggCarouselPeer();
+      restoreEggBossUiAfterLoad();
       scheduleUpdateGameCenterAxis();
-      /* Haute priorité : 1er viewport Dragons (découverts) dès que le Royaume est prêt. */
+      /* Haute priorité : warm thumbs 1er viewport — DOM Dragons au 1er open (dirty). */
       warmDragonsFirstViewport("all", DRAGONS_VIEWPORT_WARM);
-      renderDragons();
       renderAllStatic();
       scheduleUpdateGameCenterAxis();
       updateAudioToggles();

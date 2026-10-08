@@ -3,7 +3,7 @@
  * Styles globaux du jeu.
  */
     /* =========================================================
-       DRAGON CLICKER â€” STYLES
+       DRAGON CLICKER ??? STYLES
        ========================================================= */
 
     :root {
@@ -136,7 +136,7 @@
       100% { opacity: 0; transform: translateY(-100vh) scale(1.2); }
     }
 
-    /* ---------- App shell â€” immersive sanctuary ---------- */
+    /* ---------- App shell ??? immersive sanctuary ---------- */
     #app {
       position: relative;
       z-index: 2;
@@ -152,12 +152,12 @@
       padding-right: var(--safe-right);
       --altar-x: 50%;
       --altar-y: 73%;
-      /* Remonte le bloc central (titre → progression) au-dessus de la nav */
+      /* Remonte le bloc central (titre ? progression) au-dessus de la nav */
       --egg-stage-lift: 28px;
       --game-center-x: 50%;
       --hud-pad-top: 0px;
       --dock-pad-bottom: 0px;
-      /* Source unique : taille œuf — largeur ET hauteur limitent */
+      /* Source unique : taille ?uf ? largeur ET hauteur limitent */
       --egg-main-width: clamp(200px, min(20vw, 42dvh), 360px);
       --egg-main-max-height: min(46vh, 46dvh, 52svh);
     }
@@ -183,8 +183,8 @@
     }
 
     /*
-      Mobile : fond calé sur le VIEWPORT (pas 100vw — évite décalage iOS).
-      Centre horizontal/vertical géométrique de l’écran.
+      Mobile : fond cal? sur le VIEWPORT (pas 100vw ? ?vite d?calage iOS).
+      Centre horizontal/vertical g?om?trique de l??cran.
     */
     @media (max-width: 768px) {
       html,
@@ -217,7 +217,7 @@
         transform: none !important;
         background-repeat: no-repeat !important;
         background-size: cover !important;
-        /* Centre réel du viewport — horizontal critique */
+        /* Centre r?el du viewport ? horizontal critique */
         background-position: 50% 50% !important;
       }
       .scene-vignette {
@@ -252,7 +252,7 @@
       display: none !important;
     }
 
-    /* ---------- HUD header â€” floating logo + flanking stats ---------- */
+    /* ---------- HUD header ??? floating logo + flanking stats ---------- */
     .header,
     .game-header {
       --hud-scale: 1.18;
@@ -260,7 +260,7 @@
       z-index: 40;
       display: block;
       padding: 9px 12px 8px;
-      /* RÃ©serve la hauteur visuelle aprÃ¨s scale (Ã©vite clipping / chevauchement). */
+      /* R?serve la hauteur visuelle apr?s scale (?vite clipping / chevauchement). */
       padding-bottom: calc(8px + (var(--hud-scale) - 1) * 52px);
       min-height: 0;
       border: none;
@@ -268,16 +268,16 @@
       box-shadow: none;
       overflow: visible;
       /*
-        Cause réelle bug ÉVÉNEMENT mobile : le header (z:30–40, pleine largeur)
-        capturait les taps au-dessus du rail gauche (piégé dans .main z:20).
-        Le conteneur ne doit pas être une hitbox — seuls les contrôles HUD le sont.
+        Cause r?elle bug ?V?NEMENT mobile : le header (z:30?40, pleine largeur)
+        capturait les taps au-dessus du rail gauche (pi?g? dans .main z:20).
+        Le conteneur ne doit pas ?tre une hitbox ? seuls les contr?les HUD le sont.
       */
       pointer-events: none;
     }
 
     .game-header-inner {
       position: relative;
-      /* Largeur compensÃ©e pour que scale(1.12) tienne pile dans le parent. */
+      /* Largeur compens?e pour que scale(1.12) tienne pile dans le parent. */
       width: calc(100% / var(--hud-scale));
       max-width: calc(1280px / var(--hud-scale));
       margin: 0 auto;
@@ -445,7 +445,7 @@
       color: #f5d98a;
     }
 
-    /* ---- HUD resource cards (Essence, CPS â€” assets/contenant) ---- */
+    /* ---- HUD resource cards (Essence, CPS ??? assets/contenant) ---- */
     .hud-resource-card {
       position: relative;
       display: flex;
@@ -478,7 +478,7 @@
       display: block;
     }
     .hud-resource-icon-slot {
-      /* MÃªme ancrage que le badge Essence validÃ© (rond gauche du PNG fond). */
+      /* M?me ancrage que le badge Essence valid? (rond gauche du PNG fond). */
       position: absolute;
       left: 24.5%;
       top: 48.34%;
@@ -540,7 +540,7 @@
       box-sizing: border-box;
       text-align: center;
     }
-    /* Badges sans icône (badges clic.png) : texte centré dans le bandeau */
+    /* Badges sans ic?ne (badges clic.png) : texte centr? dans le bandeau */
     .hud-badge-prod .hud-resource-info,
     .hud-badge-click .hud-resource-info,
     .hud-power-card .hud-resource-info {
@@ -552,7 +552,7 @@
       letter-spacing: 0.04em;
       font-size: clamp(0.36rem, 0.46vw, 0.46rem);
     }
-    /* Essence/sec, Puissance clic, Puissance — largeur ~-18 % (hauteur inchangée) */
+    /* Essence/sec, Puissance clic, Puissance ? largeur ~-18 % (hauteur inchang?e) */
     .hud-resource-card.hud-badge-prod,
     .hud-resource-card.hud-badge-click,
     .hud-resource-card.hud-power-card {
@@ -626,9 +626,9 @@
     }
 
     /* =========================================================
-       DESKTOP HUD — une seule ligne alignée
-       (Essence | Essence/sec | /clic | Logo | Puissance | CPS | ⚙)
-       Mobile inchangé (max-width:768 reste prioritaire ailleurs).
+       DESKTOP HUD ? une seule ligne align?e
+       (Essence | Essence/sec | /clic | Logo | Puissance | CPS | ?)
+       Mobile inchang? (max-width:768 reste prioritaire ailleurs).
        ========================================================= */
     @media (min-width: 769px) {
       .game-header-inner {
@@ -669,7 +669,7 @@
         justify-self: center;
       }
 
-      /* Cartes un peu plus compactes à gauche pour tenir Essence + Essence/sec + /clic */
+      /* Cartes un peu plus compactes ? gauche pour tenir Essence + Essence/sec + /clic */
       .header-stats-left .hud-resource-card {
         width: clamp(138px, 12.8vw, 186px);
         height: clamp(38px, 4vw, 50px);
@@ -681,7 +681,7 @@
         flex: 0 0 auto;
       }
 
-      /* Les 3 badges "badges clic" : plus courts (~-18 %), Essence/CPS inchangés */
+      /* Les 3 badges "badges clic" : plus courts (~-18 %), Essence/CPS inchang?s */
       .header-stats-left .hud-resource-card.hud-badge-prod,
       .header-stats-left .hud-resource-card.hud-badge-click,
       .header-stats-right .hud-resource-card.hud-power-card {
@@ -693,7 +693,7 @@
         letter-spacing: 0.06em;
       }
 
-      /* Puissance clic : label plus long — badge un peu plus large, texte compact */
+      /* Puissance clic : label plus long ? badge un peu plus large, texte compact */
       .header-stats-left .hud-badge-click {
         align-self: center;
         flex: 0 0 auto;
@@ -725,7 +725,7 @@
       z-index: 10;
     }
 
-    /* Backdrop global partagé — grands menus uniquement (pas tooltips / toasts) */
+    /* Backdrop global partag? ? grands menus uniquement (pas tooltips / toasts) */
     .dc-menu-backdrop {
       position: absolute;
       inset: 0;
@@ -798,7 +798,7 @@
       position: absolute;
       inset: 0;
       z-index: 25;
-      /* Flou / assombrissement → .dc-menu-backdrop (plus de gros rectangle noir opaque) */
+      /* Flou / assombrissement ? .dc-menu-backdrop (plus de gros rectangle noir opaque) */
       background: transparent;
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
@@ -818,7 +818,7 @@
       border-bottom: 1px solid var(--border);
     }
 
-    /* ---------- Kingdom scene â€” egg is the star ---------- */
+    /* ---------- Kingdom scene ??? egg is the star ---------- */
     #panel-kingdom {
       display: none;
       position: absolute;
@@ -837,10 +837,10 @@
       left: var(--game-center-x, var(--altar-x));
       top: var(--altar-y);
       /*
-        Ancien -78% : titre/ornements remontés hors du panel (#panel-kingdom overflow:hidden)
-        et sous le HUD sur hauteurs ≤768px. -60% garde l’œuf centré tout en laissant
-        le bloc titre+description+collection entièrement visible.
-        --egg-stage-lift : remontée fine pour dégager PROGRESSION D’ÉCLOSION de la nav.
+        Ancien -78% : titre/ornements remont?s hors du panel (#panel-kingdom overflow:hidden)
+        et sous le HUD sur hauteurs ?768px. -60% garde l??uf centr? tout en laissant
+        le bloc titre+description+collection enti?rement visible.
+        --egg-stage-lift : remont?e fine pour d?gager PROGRESSION D??CLOSION de la nav.
       */
       transform: translate(-50%, calc(-60% - var(--egg-stage-lift, 28px)));
       z-index: 20;
@@ -852,7 +852,7 @@
       gap: 0;
     }
 
-    /* Grands écrans : remonter un peu la scène sans reclipper le titre */
+    /* Grands ?crans : remonter un peu la sc?ne sans reclipper le titre */
     @media (min-height: 900px) {
       .egg-stage {
         transform: translate(-50%, calc(-66% - var(--egg-stage-lift, 28px)));
@@ -952,7 +952,7 @@
       display: flex;
       align-items: flex-end;
       justify-content: center;
-      /* Ne capture plus toute la surface — seul #egg-hitbox / peers restent cliquables */
+      /* Ne capture plus toute la surface ? seul #egg-hitbox / peers restent cliquables */
       pointer-events: none;
       width: var(--egg-main-width);
       min-height: min(46vh, 320px);
@@ -962,7 +962,7 @@
     /*
       Zone 2 : WRAPPER carrousel = .egg-hero (bloc unique sous le logo).
       Centre du hero = axe logo. Actif = centre du hero (= taille Zone 1).
-      Secondaires = Â±220px, scale rÃ©duit.
+      Secondaires = ?220px, scale r?duit.
     */
     .egg-stage.is-egg-carousel .egg-hero {
       display: block;
@@ -1073,10 +1073,10 @@
       user-select: none;
       display: block;
       z-index: 2;
-      /* visible : Ã©viter de couper les glows en carrÃ© jaune autour de l'Å“uf */
+      /* visible : ?viter de couper les glows en carr? jaune autour de l'??uf */
       overflow: visible;
       background: transparent;
-      /* Zone pleine = plus de hitbox gameplay ; enfants (#egg-hitbox, peers) réactivent */
+      /* Zone pleine = plus de hitbox gameplay ; enfants (#egg-hitbox, peers) r?activent */
       pointer-events: none;
     }
 
@@ -1084,8 +1084,8 @@
 
     /*
       Hover desktop uniquement.
-      Sur iOS Safari, :hover reste collé après le 1er tap → l’œuf
-      passait à scale(1.03) en permanent jusqu’au prochain œuf.
+      Sur iOS Safari, :hover reste coll? apr?s le 1er tap ? l??uf
+      passait ? scale(1.03) en permanent jusqu?au prochain ?uf.
     */
     @media (hover: hover) and (pointer: fine) {
       .entity-wrap:not(.hatching):has(#egg-hitbox:hover) .egg-position-wrapper {
@@ -1095,7 +1095,7 @@
     }
 
     /*
-      Hitbox gameplay œuf — ellipse centrée sur le PNG visible.
+      Hitbox gameplay ?uf ? ellipse centr?e sur le PNG visible.
       Ignore les marges transparentes / coins du rectangle image.
     */
     .egg-hitbox {
@@ -1129,7 +1129,7 @@
     }
 
     .egg-click-wrapper {
-      /* Couche EXCLUSIVE du press WAAPI — pas de taille permanente / pas de filter */
+      /* Couche EXCLUSIVE du press WAAPI ? pas de taille permanente / pas de filter */
       position: relative;
       display: block;
       width: 100%;
@@ -1180,7 +1180,7 @@
       position: relative;
       width: 100%;
       z-index: 3;
-      /* Pas de filter ici — ancêtre de #egg-click-wrapper (casse le squash Safari) */
+      /* Pas de filter ici ? anc?tre de #egg-click-wrapper (casse le squash Safari) */
       transition: transform 0.18s ease, opacity 0.25s ease;
       filter: none;
       pointer-events: none;
@@ -1196,7 +1196,7 @@
       pointer-events: none;
     }
 
-    /* Surface Å“ufs = plein click-zone / hero ; centre gÃ©omÃ©trique = actif */
+    /* Surface ??ufs = plein click-zone / hero ; centre g?om?trique = actif */
     .egg-stage.is-egg-carousel .egg-carousel-root {
       position: absolute;
       inset: 0;
@@ -1211,7 +1211,7 @@
 
     /*
       Slot actif : flux normal hors carrousel.
-      En mode carrousel : ancrÃ© au centre du wrapper (mÃªme repÃ¨re que next/prev).
+      En mode carrousel : ancr? au centre du wrapper (m?me rep?re que next/prev).
     */
     .egg-carousel-item.is-active-slot {
       position: relative;
@@ -1245,7 +1245,7 @@
       z-index: 5;
     }
 
-    /* Pendant Ã©closion : ancrage carrousel figÃ© â€” l'anim va sur hatch/click wrappers */
+    /* Pendant ?closion : ancrage carrousel fig? ??? l'anim va sur hatch/click wrappers */
     .egg-stage.is-egg-carousel.is-hatching .egg-carousel-item.is-active-slot {
       transition: none !important;
     }
@@ -1255,7 +1255,7 @@
       will-change: transform, opacity, filter;
     }
 
-    /* Secondaires â€” mÃªme ancrage left/top 50% que l'actif, puis Â±220px */
+    /* Secondaires ??? m?me ancrage left/top 50% que l'actif, puis ?220px */
     .egg-carousel-item.is-next,
     .egg-carousel-item.is-prev {
       position: absolute;
@@ -1329,7 +1329,7 @@
         filter 340ms ease;
     }
 
-    /* Actif â†’ gauche (depuis le centre absolu du wrapper) */
+    /* Actif ??? gauche (depuis le centre absolu du wrapper) */
     .egg-carousel-root.is-animating .egg-carousel-item.is-active-slot.is-leaving-prev {
       transform: translate3d(calc(-50% - 220px), -50%, 0) scale(0.55);
       opacity: 0.5;
@@ -1338,7 +1338,7 @@
       pointer-events: none;
     }
 
-    /* Actif â†’ droite */
+    /* Actif ??? droite */
     .egg-carousel-root.is-animating .egg-carousel-item.is-active-slot.is-leaving-next {
       transform: translate3d(calc(-50% + 220px), -50%, 0) scale(0.55);
       opacity: 0.5;
@@ -1347,7 +1347,7 @@
       pointer-events: none;
     }
 
-    /* Secondaire → centre : même scale(1) que l’actif final (pas d’overshoot / shrink) */
+    /* Secondaire ? centre : m?me scale(1) que l?actif final (pas d?overshoot / shrink) */
     .egg-carousel-root.is-animating .egg-carousel-item.to-center {
       transform: translate3d(-50%, -50%, 0) scale(1) !important;
       opacity: 1 !important;
@@ -1369,7 +1369,7 @@
       pointer-events: none;
     }
 
-    /* Hors flux : ne doit JAMAIS rÃ©trÃ©cir .click-zone / dÃ©caler le centre */
+    /* Hors flux : ne doit JAMAIS r?tr?cir .click-zone / d?caler le centre */
     .egg-stage.is-egg-carousel .egg-carousel-dots {
       position: absolute;
       left: 50%;
@@ -1434,7 +1434,7 @@
     }
 
     .entity-wrap.breathe {
-      /* legacy â€” breath now lives on egg-hatch-wrapper */
+      /* legacy ??? breath now lives on egg-hatch-wrapper */
     }
 
     .egg-visual {
@@ -1444,16 +1444,16 @@
       border-radius: 0;
       overflow: visible;
       background: transparent;
-      /* Pas de press ici — press = #egg-click-wrapper ; taille = width / inner */
+      /* Pas de press ici ? press = #egg-click-wrapper ; taille = width / inner */
       transform: none;
       transition: filter 0.25s ease;
-      /* Ombre portée sur l’enfant (pas sur entity-wrap) pour préserver le squash mobile */
+      /* Ombre port?e sur l?enfant (pas sur entity-wrap) pour pr?server le squash mobile */
       filter:
         drop-shadow(0 0 12px rgba(255, 190, 80, 0.18))
         drop-shadow(0 14px 22px rgba(0, 0, 0, 0.4));
     }
 
-    /* Correction visuelle PNG + scale permanent (Zone 3) — jamais le press */
+    /* Correction visuelle PNG + scale permanent (Zone 3) ? jamais le press */
     .egg-visual-inner {
       position: relative;
       display: block;
@@ -1670,7 +1670,7 @@
 
     .mobile-scene-actions .scene-btn { flex: 1; }
 
-    /* ---------- Hall des Expéditions — overlay natif (Bestiaire / Succès) ---------- */
+    /* ---------- Hall des Exp?ditions ? overlay natif (Bestiaire / Succ?s) ---------- */
     .expedition-drawer {
       position: absolute;
       inset: 0;
@@ -1682,7 +1682,7 @@
       overflow: hidden;
       padding: 72px 1.5% 14px;
       box-sizing: border-box;
-      /* Backdrop partagé .dc-menu-backdrop — panneau net au-dessus */
+      /* Backdrop partag? .dc-menu-backdrop ? panneau net au-dessus */
       background: transparent;
       pointer-events: none;
       opacity: 0;
@@ -1694,13 +1694,13 @@
       pointer-events: auto;
       opacity: 1;
       visibility: visible;
-      /* Contenu en haut — pas d’étirement plein écran */
+      /* Contenu en haut ? pas d??tirement plein ?cran */
       justify-content: flex-start;
       animation: sheetIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
     /*
-      Fond du Hall = même bleu nuit opaque que .game-large-panel (Bestiaire / Succès).
-      Le voile / blur extérieur est géré à part (.dc-menu-backdrop) — désactivé pour le Hall.
+      Fond du Hall = m?me bleu nuit opaque que .game-large-panel (Bestiaire / Succ?s).
+      Le voile / blur ext?rieur est g?r? ? part (.dc-menu-backdrop) ? d?sactiv? pour le Hall.
     */
     .expedition-drawer .expedition-hall-panel.game-large-panel,
     .expedition-drawer .expedition-hall-panel {
@@ -1713,7 +1713,7 @@
       max-height: min(85vh, 100%);
       pointer-events: auto;
       overflow: hidden;
-      /* Identique à .game-large-panel — opaque */
+      /* Identique ? .game-large-panel ? opaque */
       background:
         radial-gradient(ellipse 70% 40% at 50% 0%, rgba(40, 70, 120, 0.28) 0%, transparent 55%),
         linear-gradient(180deg, rgba(10, 25, 48, 0.97), rgba(4, 10, 20, 0.98));
@@ -1733,7 +1733,7 @@
       margin-bottom: 4px;
     }
     /*
-      Hub / Hall / préparation Expéditions :
+      Hub / Hall / pr?paration Exp?ditions :
       aucun blur ni voile noir autour du panneau.
       Le .overlay-panel (transparent) reste pour bloquer les clics.
       Le .game-large-panel du Hub reste bleu nuit opaque (Bestiaire).
@@ -1755,7 +1755,7 @@
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
     }
-    /* Hub : garantir le fond opaque du panneau (ne pas hériter d’un override transparent) */
+    /* Hub : garantir le fond opaque du panneau (ne pas h?riter d?un override transparent) */
     #panel-expeditions-hub .game-large-panel {
       background:
         radial-gradient(ellipse 70% 40% at 50% 0%, rgba(40, 70, 120, 0.28) 0%, transparent 55%),
@@ -1853,7 +1853,7 @@
       width: min(300px, 84vw);
       max-width: 320px;
       padding: 10px 12px 10px;
-      /* Ne doit pas étendre la zone hover du trigger Récompenses */
+      /* Ne doit pas ?tendre la zone hover du trigger R?compenses */
       pointer-events: none;
       border-radius: 12px;
       border: 1px solid rgba(212, 168, 75, 0.55);
@@ -1945,7 +1945,7 @@
       }
     }
 
-    /* Floating click text — durée +~30 % (lisibilité), toujours transform+opacity */
+    /* Floating click text ? dur?e +~30 % (lisibilit?), toujours transform+opacity */
     .float-text {
       position: absolute;
       pointer-events: none;
@@ -2038,7 +2038,7 @@
       100% { opacity: 0; transform: translate(-50%, -72px) scale(1.14); }
     }
 
-    /* Particles â€” keep light */
+    /* Particles ??? keep light */
     .particle {
       position: absolute;
       width: 5px;
@@ -2056,7 +2056,7 @@
       100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0); }
     }
 
-    /* Critical flash â€” radial only (never a yellow square) */
+    /* Critical flash ??? radial only (never a yellow square) */
     .crit-flash {
       position: absolute;
       width: 120px;
@@ -2248,7 +2248,7 @@
       width: 100%;
       grid-column: 1 / -1;
       accent-color: var(--gold);
-      /* Évite que le scroll du panneau vole le geste horizontal (mobile). */
+      /* ?vite que le scroll du panneau vole le geste horizontal (mobile). */
       touch-action: none;
     }
     .settings-volume-val {
@@ -2289,7 +2289,7 @@
     }
 
     /* ---------- Egg (CSS art fallback) ---------- */
-    /* Size comes from .egg-stage / .click-zone â€” do not hardcode fixed px here */
+    /* Size comes from .egg-stage / .click-zone ??? do not hardcode fixed px here */
     @keyframes hatchPulse {
       0%, 100% { opacity: 0.85; }
       50% { opacity: 1; }
@@ -2746,14 +2746,14 @@
       box-sizing: border-box;
     }
 
-    /* Conteneur technique uniquement — pas de panneau décoratif global */
+    /* Conteneur technique uniquement ? pas de panneau d?coratif global */
     .nav::before,
     .nav::after {
       content: none;
       display: none;
     }
 
-    /* Boutons nav bas — cadre RPG / bleu nuit + or */
+    /* Boutons nav bas ? cadre RPG / bleu nuit + or */
     .nav-btn {
       position: relative;
       z-index: 1;
@@ -2792,7 +2792,7 @@
         background 140ms ease;
     }
 
-    /* Ligne intérieure + coins sculptés */
+    /* Ligne int?rieure + coins sculpt?s */
     .nav-btn::before {
       content: "";
       position: absolute;
@@ -2837,7 +2837,7 @@
       transition: opacity 140ms ease, color 140ms ease, text-shadow 140ms ease;
     }
 
-    /* Petit diamant supérieur (subtil → plus net si actif) */
+    /* Petit diamant sup?rieur (subtil ? plus net si actif) */
     .nav-btn::after {
       content: "";
       position: absolute;
@@ -2920,7 +2920,7 @@
       border-color: rgba(120, 180, 240, 0.4);
     }
 
-    /* Royaume — ~+10 %, légèrement relevé */
+    /* Royaume ? ~+10 %, l?g?rement relev? */
     .nav-btn-main {
       flex: 1.12 1 0;
       justify-content: flex-end;
@@ -3231,7 +3231,7 @@
       .stat-pill strong { font-size: 0.8rem; }
     }
 
-    /* Smartphone portrait â€” keep altar in frame */
+    /* Smartphone portrait ??? keep altar in frame */
     @media (max-width: 599px) and (orientation: portrait) {
       #app {
         --altar-y: 62%;
@@ -3448,7 +3448,7 @@
 
     /*
       Glow / soft-pulse : filter UNIQUEMENT sur .egg-glow ou .egg-visual (enfants),
-      JAMAIS sur un ancêtre de #egg-click-wrapper — sinon Safari mange le squash WAAPI.
+      JAMAIS sur un anc?tre de #egg-click-wrapper ? sinon Safari mange le squash WAAPI.
     */
     .entity-wrap.egg-stage-awakening {
       filter: none;
@@ -4190,7 +4190,7 @@
       min-height: 0 !important;
     }
 
-    /* ---------- Monde â€” nouveau panneau (assets/menu/menu monde.png 1796Ã—876) ---------- */
+    /* ---------- Monde ??? nouveau panneau (assets/menu/menu monde.png 1796??876) ---------- */
     #panel-zones.world-panel.overlay-panel.active {
       padding: 0 !important;
       margin: 0 !important;
@@ -4219,7 +4219,7 @@
       --world-menu-w: 1796;
       --world-menu-h: 876;
       position: relative;
-      /* BoÃ®te = ratio exact du PNG (Ã©vite letterbox : % viewport dÃ©salignÃ©s du cadre) */
+      /* Bo?te = ratio exact du PNG (?vite letterbox : % viewport d?salign?s du cadre) */
       height: min(90vh, 94%);
       width: auto;
       max-width: min(98vw, 98%);
@@ -4310,10 +4310,10 @@
       outline: none;
     }
 
-    /* Safe area = intÃ©rieur du cadre dorÃ© (menu monde.png 1796Ã—876)
-       Mesures : filet intÃ©rieur Lâ‰ˆ42px (2.34%) Râ‰ˆ41px (2.28%).
-       + marge anti-ombre cartes (~18px) â†’ insets 4.0% / 4.0%.
-       Top relevÃ© pour WORLDS. */
+    /* Safe area = int?rieur du cadre dor? (menu monde.png 1796??876)
+       Mesures : filet int?rieur L???42px (2.34%) R???41px (2.28%).
+       + marge anti-ombre cartes (~18px) ??? insets 4.0% / 4.0%.
+       Top relev? pour WORLDS. */
     .world-zones-viewport {
       --wz-left: 4%;
       --wz-right: 4%;
@@ -4505,7 +4505,7 @@
       color: #f2e6c8;
       text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
     }
-    /* Progression d'investissement : centrÃ©e sous le cadenas, dans l'image */
+    /* Progression d'investissement : centr?e sous le cadenas, dans l'image */
     .world-zone-locked-progress {
       display: flex;
       flex-direction: column;
@@ -4794,13 +4794,13 @@
       padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0));
     }
 
-    /* Menu sheet — ouverture partagée (Monde, Boutique, overlays) */
+    /* Menu sheet ? ouverture partag?e (Monde, Boutique, overlays) */
     .panel.overlay-panel.active {
       padding: 72px 14px 24px;
       background: transparent;
       animation: sheetIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
-    /* Menus sans grand panneau (Réglages / Stats / Œufs) : feuille lisible, pas un mur noir */
+    /* Menus sans grand panneau (R?glages / Stats / ?ufs) : feuille lisible, pas un mur noir */
     .panel.overlay-panel.active:not(.game-large-panel-overlay):not(.shop-panel):not(.world-panel) {
       background:
         linear-gradient(180deg, rgba(10, 18, 32, 0.72) 0%, rgba(6, 12, 22, 0.68) 100%);
@@ -4809,12 +4809,12 @@
       from { opacity: 0; transform: translateY(10px) scale(0.985); }
       to { opacity: 1; transform: translateY(0) scale(1); }
     }
-    /* Alias explicite â€” mÃªme keyframes / durÃ©e / easing que le menu Monde */
+    /* Alias explicite ??? m?me keyframes / dur?e / easing que le menu Monde */
     .menu-open-animation {
       animation: sheetIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
 
-    /* ---------- Boutique — panneau CSS premium (famille Bestiaire / Succès) ---------- */
+    /* ---------- Boutique ? panneau CSS premium (famille Bestiaire / Succ?s) ---------- */
     #panel-shop.shop-panel.overlay-panel.active {
       padding: 0 !important;
       margin: 0 !important;
@@ -4824,11 +4824,11 @@
       background-image: none !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
-      /* Ancré au viewport : n’est plus limité à la zone HUD↔nav */
+      /* Ancr? au viewport : n?est plus limit? ? la zone HUD?nav */
       position: fixed !important;
       inset: 0;
       z-index: 100;
-      /* Même animation d’ouverture que Monde (sheetIn) */
+      /* M?me animation d?ouverture que Monde (sheetIn) */
       animation: sheetIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
       pointer-events: none;
     }
@@ -4843,7 +4843,7 @@
       white-space: nowrap;
       border: 0;
     }
-    /* Grand panneau centré — fond / cadre codés (plus de PNG) */
+    /* Grand panneau centr? ? fond / cadre cod?s (plus de PNG) */
     .shop-menu {
       --shop-menu-w: 1796;
       --shop-menu-h: 876;
@@ -4880,7 +4880,7 @@
       overflow: hidden;
       pointer-events: none;
     }
-    /* Cadre intérieur doré subtil */
+    /* Cadre int?rieur dor? subtil */
     .shop-menu::before {
       content: "";
       position: absolute;
@@ -4893,7 +4893,7 @@
       pointer-events: none;
       z-index: 2;
     }
-    /* Léger voile haut (profondeur, sans blur lourd) */
+    /* L?ger voile haut (profondeur, sans blur lourd) */
     .shop-menu::after {
       content: "";
       position: absolute;
@@ -4905,7 +4905,7 @@
         linear-gradient(180deg, rgba(130, 180, 240, 0.08) 0%, transparent 26%),
         radial-gradient(ellipse 70% 28% at 50% 100%, rgba(210, 165, 65, 0.06) 0%, transparent 70%);
     }
-    /* Ancien fond PNG — désactivé (sécurité si un nœud résiduel existe) */
+    /* Ancien fond PNG ? d?sactiv? (s?curit? si un n?ud r?siduel existe) */
     .shop-menu-bg {
       display: none !important;
     }
@@ -4932,7 +4932,7 @@
       display: flex;
       flex-direction: column;
       box-sizing: border-box;
-      /* Safe area intérieure — cadre CSS (~12px) + aération titres */
+      /* Safe area int?rieure ? cadre CSS (~12px) + a?ration titres */
       padding: 28px 26px 24px;
       overflow: hidden;
       pointer-events: none;
@@ -5047,7 +5047,7 @@
       background: linear-gradient(180deg, rgba(230, 190, 90, 0.7), rgba(160, 120, 40, 0.75));
       border-radius: 999px;
     }
-    /* Séparation = axe X du bouton Royaume (sync JS), fallback 50% du layout */
+    /* S?paration = axe X du bouton Royaume (sync JS), fallback 50% du layout */
     .shop-dual-divider {
       position: absolute;
       left: 50%;
@@ -5099,7 +5099,7 @@
       width: 100%;
     }
 
-    /* Cartes Boutique / Améliorations — bandeau horizontal plus généreux */
+    /* Cartes Boutique / Am?liorations ? bandeau horizontal plus g?n?reux */
     #panel-shop .item-row.card,
     #panel-shop .item-row {
       display: grid !important;
@@ -5174,8 +5174,21 @@
       transform: scale(1.05);
       transform-origin: center;
     }
+    #panel-shop .item-icon .item-icon-img {
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      object-position: center;
+      padding: clamp(4px, 0.7vw, 8px);
+      box-sizing: border-box;
+      pointer-events: none;
+      display: block;
+      background: transparent;
+    }
     #panel-shop .item-icon .card-count { display: none; }
-    /* Zone texte : colonne CENTRÉE — titre → bonus → niveau → bouton (sous le niveau) */
+    /* Zone texte : colonne CENTR?E ? titre ? bonus ? niveau ? bouton (sous le niveau) */
     #panel-shop .item-main {
       min-width: 0;
       min-height: 88px;
@@ -5223,7 +5236,63 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    /* Ancien wrapper horizontal (niveau|prix) — neutre si encore présent */
+    #panel-shop .item-effect:has(.item-effect-progress) {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: unset;
+    }
+    #panel-shop .item-effect-progress {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+    #panel-shop .iep-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: center;
+      gap: 4px 6px;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      line-height: 1.2;
+    }
+    #panel-shop .iep-lab {
+      flex: 0 0 auto;
+      font-size: clamp(0.52rem, 1.1vw, 0.62rem);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: rgba(190, 210, 235, 0.72);
+    }
+    #panel-shop .iep-val {
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: 100%;
+      font-size: clamp(0.62rem, 1.35vw, 0.74rem);
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      color: #ffd98a;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    #panel-shop .iep-next .iep-lab { color: rgba(255, 210, 120, 0.85); }
+    #panel-shop .iep-next .iep-val { color: #ffe2a0; }
+    #panel-shop .iep-max .iep-lab {
+      color: rgba(140, 220, 160, 0.9);
+      font-size: clamp(0.58rem, 1.2vw, 0.7rem);
+    }
+    #panel-shop .iep-extra .iep-val {
+      font-size: clamp(0.52rem, 1.1vw, 0.62rem);
+      color: rgba(200, 220, 245, 0.78);
+      text-transform: none;
+      letter-spacing: 0.04em;
+    }
+    /* Ancien wrapper horizontal (niveau|prix) ? neutre si encore pr?sent */
     #panel-shop .item-meta-row {
       display: flex;
       flex-direction: column;
@@ -5338,7 +5407,7 @@
       display: none !important;
     }
 
-    /* PC uniquement : cartes légèrement plus larges / hautes (+~6–8 %) */
+    /* PC uniquement : cartes l?g?rement plus larges / hautes (+~6?8 %) */
     @media (min-width: 900px) {
       #panel-shop .shop-grid,
       #panel-shop .upgrades-grid {
@@ -5469,14 +5538,14 @@
       z-index: 500;
     }
 
-    /* Sans ça, overflow:hidden de .main clippe le panneau qui dépasse HUD↔nav */
+    /* Sans ?a, overflow:hidden de .main clippe le panneau qui d?passe HUD?nav */
     .main:has(#panel-shop.active),
     .main:has(#panel-dragons.active),
     .main:has(#panel-events.active) {
       overflow: visible;
     }
 
-    /* ---------- Grand panneau fantasy (SuccÃ¨s / Dragons) ---------- */
+    /* ---------- Grand panneau fantasy (Succ?s / Dragons) ---------- */
     .game-large-panel-overlay.overlay-panel.active {
       display: flex;
       flex-direction: column;
@@ -5491,7 +5560,7 @@
       box-shadow: none;
       animation: sheetIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
-    /* Succès desktop : encore un peu plus grand (hauteur + largeur), layout interne inchangé */
+    /* Succ?s desktop : encore un peu plus grand (hauteur + largeur), layout interne inchang? */
     #panel-achievements.game-large-panel-overlay.overlay-panel.active {
       padding: 12px 0.55% 4px;
     }
@@ -5501,54 +5570,65 @@
       }
     }
     /*
-      Dragons : ancrage structurel top/bottom (pas de centrage vertical).
-      Lâ€™overlay dÃ©borde hors de .main pour remonter sous le HUD
-      et descendre lÃ©gÃ¨rement vers la nav â€” largeur inchangÃ©e.
+      Dragons : overlay flex centre, panneau large, X integre au header.
+      Cause corrigee : position:absolute + left/right + max-width ancre le panneau a gauche ;
+      le X sheet-bar etait cale sur le viewport (pas sur le panneau).
     */
     #panel-dragons.game-large-panel-overlay.overlay-panel.active {
-      display: block !important;
-      align-items: unset;
-      justify-content: unset;
-      padding: 0 !important;
+      display: flex !important;
+      flex-direction: column;
+      align-items: center;
+      justify-content: stretch;
+      padding: 10px clamp(8px, 2vw, 24px) 12px !important;
       margin: 0;
-      overflow: visible !important;
-      /*
-        Ancrage structurel hors .main (plus de hauteur fixe / centrage) :
-        - top rÃ©duit â†’ bord supÃ©rieur remonte nettement sous le HUD (~+50px)
-        - bottom rÃ©duit lÃ©gÃ¨rement â†’ bord infÃ©rieur descend un peu (~+10px)
-        height:auto obligatoire : .panel { height:100% } Ã©crasait sinon `bottom`.
-        Animation sans translateY pour ne pas casser le containing block.
-      */
-      top: -14px !important;
+      overflow: hidden !important;
+      inset: 0 !important;
+      top: 0 !important;
       right: 0 !important;
-      bottom: -6px !important;
+      bottom: 0 !important;
       left: 0 !important;
-      height: auto !important;
-      max-height: none !important;
+      height: 100% !important;
+      max-height: 100% !important;
       background: transparent !important;
       transform: none !important;
       animation: dragonsPanelIn 0.22s ease-out both;
+      box-sizing: border-box;
     }
     @keyframes dragonsPanelIn {
       from { opacity: 0; }
       to { opacity: 1; }
     }
     #panel-dragons .game-large-panel {
-      position: absolute !important;
-      left: 1.5% !important;
-      right: 1.5% !important;
-      width: auto !important;
-      top: 6px !important;
-      bottom: 8px !important;
-      height: auto !important;
-      max-height: none !important;
-      flex: none !important;
-      align-self: auto;
+      position: relative !important;
+      left: auto !important;
+      right: auto !important;
+      top: auto !important;
+      bottom: auto !important;
+      width: min(96vw, 1700px) !important;
+      max-width: min(96vw, 1700px) !important;
+      height: 100% !important;
+      max-height: 100% !important;
+      flex: 1 1 auto !important;
+      align-self: center;
       min-height: 0;
-      margin: 0;
+      margin-inline: auto !important;
+      margin-block: 0 !important;
       transform: none !important;
       animation: none !important;
+      box-sizing: border-box;
     }
+    #panel-dragons .dragons-panel-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 6;
+    }
+    #panel-dragons .dragons-menu-title {
+      padding-left: 48px;
+      padding-right: 48px;
+      text-align: center;
+    }
+
     .game-large-panel {
       position: relative;
       z-index: 1;
@@ -5704,22 +5784,29 @@
         padding: 64px 1.2% 12px;
       }
       #panel-dragons.game-large-panel-overlay.overlay-panel.active {
-        padding: 0 !important;
-        top: -12px !important;
-        bottom: -4px !important;
+        padding: 8px 1.2% 10px !important;
+        top: 0 !important;
+        bottom: 0 !important;
         left: 0 !important;
         right: 0 !important;
-        height: auto !important;
-        max-height: none !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
       }
       #panel-dragons .game-large-panel {
-        left: 1.2% !important;
-        right: 1.2% !important;
-        top: 6px !important;
-        bottom: 8px !important;
-        height: auto !important;
-        max-height: none !important;
-        flex: none !important;
+        position: relative !important;
+        left: auto !important;
+        right: auto !important;
+        top: auto !important;
+        bottom: auto !important;
+        width: min(96vw, 1700px) !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        flex: 1 1 auto !important;
+        margin: 0 auto;
       }
       .game-large-panel {
         width: 97%;
@@ -5738,22 +5825,29 @@
         padding: 60px 1% 10px;
       }
       #panel-dragons.game-large-panel-overlay.overlay-panel.active {
-        padding: 0 !important;
-        top: -10px !important;
-        bottom: -4px !important;
+        padding: 6px 1% 8px !important;
+        top: 0 !important;
+        bottom: 0 !important;
         left: 0 !important;
         right: 0 !important;
-        height: auto !important;
-        max-height: none !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
       }
       #panel-dragons .game-large-panel {
-        left: 1% !important;
-        right: 1% !important;
-        top: 6px !important;
-        bottom: 8px !important;
-        height: auto !important;
-        max-height: none !important;
-        flex: none !important;
+        position: relative !important;
+        left: auto !important;
+        right: auto !important;
+        top: auto !important;
+        bottom: auto !important;
+        width: min(98vw, 1700px) !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        flex: 1 1 auto !important;
+        margin: 0 auto;
       }
       .game-large-panel {
         width: 98%;
@@ -5798,7 +5892,7 @@
       background: linear-gradient(180deg, rgba(6, 10, 16, 0.96) 60%, rgba(6, 10, 16, 0));
       pointer-events: auto;
     }
-    /* Succès / Dragons / Événements / Stats / Boutique / Expéditions : plus de bande noire derrière les tabs */
+    /* Succ?s / Dragons / ?v?nements / Stats / Boutique / Exp?ditions : plus de bande noire derri?re les tabs */
     .main:has(#panel-achievements.active) .sheet-bar,
     .main:has(#panel-dragons.active) .sheet-bar,
     .main:has(#panel-events.active) .sheet-bar,
@@ -5835,11 +5929,11 @@
       background: transparent !important;
       box-shadow: none !important;
     }
-    /* Boutique / Dragons / Événements : plus d’onglets — uniquement le bouton X */
+    /* Boutique / Dragons / ?v?nements : plus d?onglets ? uniquement le bouton X */
     .sheet-bar.is-shop-close-only .sheet-tabs {
       display: none !important;
     }
-    /* Dragons / Événements / Succès / Stats / Expéditions : barre transparente sans bloquer le cadre ; X reste cliquable */
+    /* Dragons / ?v?nements / Succ?s / Stats / Exp?ditions : barre transparente sans bloquer le cadre ; X reste cliquable */
     .main:has(#panel-dragons.active) .sheet-bar.is-shop-close-only,
     .main:has(#panel-events.active) .sheet-bar.is-shop-close-only,
     .main:has(#panel-achievements.active) .sheet-bar.is-shop-close-only,
@@ -5901,9 +5995,9 @@
     }
 
     /*
-      Croix de fermeture — coin supérieur droit du cadre (pas du viewport).
-      Défaut : inset 12px dans le sheet-bar.
-      Dragons / Événements : right calé sur l’inset horizontal du .game-large-panel.
+      Croix de fermeture ? coin sup?rieur droit du cadre (pas du viewport).
+      D?faut : inset 12px dans le sheet-bar.
+      Dragons / ?v?nements : right cal? sur l?inset horizontal du .game-large-panel.
     */
     .sheet-close {
       position: absolute;
@@ -5926,7 +6020,7 @@
       border-color: var(--gold-bright);
     }
 
-    /* Dragons : cadre top≈main-8px / inset 1.5% → croix ~12px dans le coin du panel */
+    /* Dragons : cadre top?main-8px / inset 1.5% ? croix ~12px dans le coin du panel */
     .main:has(#panel-dragons.active) .sheet-close {
       top: 4px;
       right: calc(1.5% + 12px);
@@ -5936,7 +6030,7 @@
       transform: scale(1.08);
     }
 
-    /* Événements : cadre top≈main+2px / inset 1.5% (2vw desktop) */
+    /* ?v?nements : cadre top?main+2px / inset 1.5% (2vw desktop) */
     .main:has(#panel-events.active) .sheet-close {
       top: 12px;
       right: calc(1.5% + 12px);
@@ -5946,7 +6040,7 @@
       transform: scale(1.08);
     }
 
-    /* Stats / Réglages : coin haut-droit du sheet-bar */
+    /* Stats / R?glages : coin haut-droit du sheet-bar */
     .main:has(#panel-stats.active) .sheet-close,
     .main:has(#panel-settings.active) .sheet-close {
       top: 12px;
@@ -5958,7 +6052,7 @@
       transform: scale(1.08);
     }
 
-    /* Boutique : cadre .shop-menu centré (min(94vw,2200px)) */
+    /* Boutique : cadre .shop-menu centr? (min(94vw,2200px)) */
     .main:has(#panel-shop.active) .sheet-close {
       top: 12px;
       right: calc((100vw - min(94vw, 2200px)) / 2 + 26px);
@@ -5969,8 +6063,8 @@
     }
 
     /*
-      Succès : overlay paddé (réduit après retrait des onglets) + panel 97% centré.
-      sheet-bar en haut de .main → décalage vertical jusqu’au cadre.
+      Succ?s : overlay padd? (r?duit apr?s retrait des onglets) + panel 97% centr?.
+      sheet-bar en haut de .main ? d?calage vertical jusqu?au cadre.
     */
     .main:has(#panel-achievements.active) .sheet-close,
     .main:has(#panel-expeditions-hub.active) .sheet-close,
@@ -6087,7 +6181,7 @@
       box-shadow: 0 3px 10px rgba(255, 150, 40, 0.35), inset 0 1px 0 rgba(255, 250, 220, 0.7);
     }
 
-    /* Shared premium gold action (Boutique Acheter / AmÃ©liorations AmÃ©liorer) */
+    /* Shared premium gold action (Boutique Acheter / Am?liorations Am?liorer) */
     .gold-action-btn {
       display: inline-flex;
       flex-direction: column;
@@ -6197,7 +6291,7 @@
       background: linear-gradient(90deg, #c8761a, #f5d98a);
     }
 
-    /* ---------- Succès — grille + fiche DESCRIPTION ---------- */
+    /* ---------- Succ?s ? grille + fiche DESCRIPTION ---------- */
     #panel-achievements .game-large-panel-scroll {
       display: flex;
       flex-direction: column;
@@ -6850,7 +6944,7 @@
       object-fit: contain;
       pointer-events: none;
     }
-    /* Rarity accents â€” subtle edge glow only */
+    /* Rarity accents ??? subtle edge glow only */
     .team-slot.rarity-rare .ts-art {
       box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.35), 0 0 10px rgba(74, 158, 255, 0.22);
     }
@@ -7104,7 +7198,7 @@
     }
     .tp-close:hover { filter: brightness(1.2); transform: scale(1.06); }
 
-    /* Slot tabs â€” formation portraits */
+    /* Slot tabs ??? formation portraits */
     .tp-slots {
       display: flex;
       justify-content: center;
@@ -7349,7 +7443,7 @@
     }
     .tp-card-art img {
       position: relative;
-      /* ~-12 % vs rempli à 100 % : moins de zoom/crop, cartes inchangées */
+      /* ~-12 % vs rempli ? 100 % : moins de zoom/crop, cartes inchang?es */
       width: 88%;
       height: 88%;
       object-fit: contain;
@@ -7441,7 +7535,7 @@
       font-size: 0.9rem;
     }
     .team-picker-empty::before {
-      content: "ðŸ¥š";
+      content: "????";
       font-size: 2.4rem;
       filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
     }
@@ -7494,7 +7588,7 @@
     .tp-preview-note { font-size: 0.7rem; color: rgba(210, 195, 165, 0.75); }
     .tp-preview-note.warn { color: #ffb38a; }
     .tp-preview-hint { font-size: 0.82rem; color: var(--text-dim); font-style: italic; }
-    .tp-preview-hint::before { content: "ðŸ‘† "; }
+    .tp-preview-hint::before { content: "???? "; }
     .tp-actions { flex: 0 0 auto; display: flex; gap: 8px; }
     .tp-btn {
       min-width: 128px;
@@ -7596,7 +7690,7 @@
         touch-action: pan-y;
         overscroll-behavior: contain;
       }
-      /* Aligné menu Dragons : pan-y sur cartes + enfants (scroll natif iOS) */
+      /* Align? menu Dragons : pan-y sur cartes + enfants (scroll natif iOS) */
       .tp-card,
       .tp-card * {
         touch-action: pan-y;
@@ -7674,7 +7768,7 @@
         right: 8px;
       }
 
-      /* Team module drawer — mobile only (final #team-module block overrides) */
+      /* Team module drawer ? mobile only (final #team-module block overrides) */
       .team-module {
         position: fixed;
         display: none;
@@ -8244,6 +8338,8 @@
       padding: 0 0 12px;
       border-radius: 16px;
       overflow: hidden;
+      content-visibility: auto;
+      contain-intrinsic-size: auto 220px;
       contain: layout paint;
       border: 2px solid color-mix(in srgb, var(--rarity-color) 55%, #1a1a1a);
       background:
@@ -8290,7 +8386,7 @@
         radial-gradient(ellipse 90% 60% at 50% 38%, rgba(58, 68, 84, 0.22), transparent 72%),
         linear-gradient(180deg, #141a24 0%, #0a0e14 100%);
     }
-    /* Hover desktop uniquement — évite coûts inutiles au scroll tactile */
+    /* Hover desktop uniquement ? ?vite co?ts inutiles au scroll tactile */
     @media (hover: hover) and (pointer: fine) {
       .dragon-tile:hover {
         transform: translateY(-2px);
@@ -8425,7 +8521,7 @@
       visibility: hidden;
       min-height: 1.2em;
     }
-    /* Bonus / fragments : hors tuile (panneau détail) — règles conservées pour compat */
+    /* Bonus / fragments : hors tuile (panneau d?tail) ? r?gles conserv?es pour compat */
     .dt-meta,
     .dt-bonus,
     .dt-frag-block { display: none !important; }
@@ -8496,7 +8592,7 @@
       .dt-stars { font-size: 1.05rem; }
     }
 
-    /* Dragon detail sheet â€” premium collection card */
+    /* Dragon detail sheet ??? premium collection card */
     .dragon-sheet {
       position: relative;
       display: flex;
@@ -8718,7 +8814,7 @@
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
       animation: none !important;
     }
-    /* Badge raretÃ© collÃ© juste sous le chip statut */
+    /* Badge raret? coll? juste sous le chip statut */
     .ds-status-row + .ds-rarity {
       margin-top: 3px;
     }
@@ -9670,7 +9766,7 @@
       margin-top: 2px;
     }
     .expedition-btn-rewards {
-      /* Hitbox = texte uniquement (pas toute la rangée) — corrige le tooltip fantôme */
+      /* Hitbox = texte uniquement (pas toute la rang?e) ? corrige le tooltip fant?me */
       flex: 0 0 auto;
       width: max-content;
       max-width: 100%;
@@ -10080,7 +10176,7 @@
     }
 
     @media (max-width: 799px) {
-      /* Ancien overlay titre désactivé — layout Hall = image + body empilés */
+      /* Ancien overlay titre d?sactiv? ? layout Hall = image + body empil?s */
       .expedition-card { min-height: 0; }
       .expedition-drawer .expedition-card {
         min-height: 0;
@@ -10256,7 +10352,7 @@
       color: var(--success);
     }
 
-    /* AmÃ©liorations : mÃªme grille de cartes que Boutique */
+    /* Am?liorations : m?me grille de cartes que Boutique */
     #upgrades-list.upgrades-card-list {
       gap: 12px;
       max-width: none;
@@ -10349,7 +10445,7 @@
     }
 
 /* ===== MOBILE RESPONSIVE OVERHAUL (desktop-safe) =====
-   Couche dÃ©diÃ©e : ne remplace pas le style fantasy desktop,
+   Couche d?di?e : ne remplace pas le style fantasy desktop,
    affine uniquement les viewports <= 1024 / 768 / 600 / 480.
 */
 
@@ -10409,7 +10505,7 @@ html {
     max-width: 100%;
   }
 
-  /* Renfort centrage fond (après les media tablet / landscape) */
+  /* Renfort centrage fond (apr?s les media tablet / landscape) */
   .scene-backdrop {
     position: fixed !important;
     inset: 0 !important;
@@ -10431,8 +10527,8 @@ html {
 
   /*
     Zone 2 (valley) mobile uniquement :
-    position-x > 50% pour glisser VISUELLEMENT le décor vers la GAUCHE.
-    Desktop / Zone 1 / Zone 3 inchangés.
+    position-x > 50% pour glisser VISUELLEMENT le d?cor vers la GAUCHE.
+    Desktop / Zone 1 / Zone 3 inchang?s.
   */
   #scene-bg[data-bg-id="valley"],
   #scene-bg-fader[data-bg-id="valley"] {
@@ -10446,14 +10542,14 @@ html {
 
   #app {
     --altar-y: 64%;
-    /* Mobile : œuf un peu plus grand (~+10 %) — desktop inchangé */
+    /* Mobile : ?uf un peu plus grand (~+10 %) ? desktop inchang? */
     --egg-main-width: clamp(210px, 57vw, 308px);
     --egg-main-max-height: 40vh;
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
   }
 
-  /* HUD : 2 lignes compactes, logo centrÃ©, gear accessible */
+  /* HUD : 2 lignes compactes, logo centr?, gear accessible */
   .header,
   .game-header {
     --hud-scale: 1;
@@ -10551,7 +10647,7 @@ html {
     min-width: 0;
   }
 
-  /* Nav bas : 5 boutons touch-friendly, même langage fantasy */
+  /* Nav bas : 5 boutons touch-friendly, m?me langage fantasy */
   .nav {
     min-height: 64px;
     gap: 4px;
@@ -10604,12 +10700,12 @@ html {
     border-radius: 7px;
   }
 
-  /* Royaume / œuf — même règle anti-clip titre que le global */
+  /* Royaume / ?uf ? m?me r?gle anti-clip titre que le global */
   #app {
     --egg-stage-lift: 24px;
   }
   .egg-stage {
-    /* Centrage horizontal vrai (viewport), indépendant des rails latéraux */
+    /* Centrage horizontal vrai (viewport), ind?pendant des rails lat?raux */
     left: 50%;
     width: min(96vw, 560px);
     transform: translate(-50%, calc(-58% - var(--egg-stage-lift, 24px)));
@@ -10643,7 +10739,7 @@ html {
 
   .egg-stage.is-egg-carousel .egg-hero {
     width: min(100vw, 640px);
-    /* Un peu plus haut pour l’œuf +10 % sans clipping carousel */
+    /* Un peu plus haut pour l??uf +10 % sans clipping carousel */
     height: max(min(42vh, 330px), 260px);
     min-height: max(min(42vh, 330px), 260px);
     --carousel-offset-x: 0px;
@@ -10679,7 +10775,7 @@ html {
     gap: 6px;
   }
 
-  /* Boutique : colonnes empilées — cartes compactes */
+  /* Boutique : colonnes empil?es ? cartes compactes */
   .shop-menu {
     width: min(94vw, 920px);
     max-width: 94vw;
@@ -10753,7 +10849,7 @@ html {
     padding-bottom: 6px;
   }
 
-  /* Une seule scroll verticale : Boutique puis Améliorations */
+  /* Une seule scroll verticale : Boutique puis Am?liorations */
   .shop-column-scroll,
   #panel-shop .shop-column-scroll {
     max-height: none !important;
@@ -10849,6 +10945,7 @@ html {
   }
 
   #panel-dragons .game-large-panel {
+    position: absolute !important;
     left: 2vw !important;
     right: 2vw !important;
     width: 96vw !important;
@@ -10963,7 +11060,7 @@ html {
     gap: 12px;
   }
 
-  /* Expéditions */
+  /* Exp?ditions */
   .expedition-drawer,
   .expedition-drawer.open {
     width: 100%;
@@ -10978,7 +11075,7 @@ html {
     width: 100%;
     height: auto;
     max-height: min(90vh, 100%);
-    /* Fond opaque inchangé (hérite / même gradient que desktop Hall) */
+    /* Fond opaque inchang? (h?rite / m?me gradient que desktop Hall) */
   }
 
   .expedition-card-media {
@@ -11012,7 +11109,7 @@ html {
     width: max-content;
   }
 
-  /* Modales gÃ©nÃ©riques */
+  /* Modales g?n?riques */
   .modal-overlay {
     padding: max(10px, env(safe-area-inset-top, 0px)) 10px max(10px, env(safe-area-inset-bottom, 0px));
     align-items: flex-end;
@@ -11143,7 +11240,7 @@ html {
   .team-bonus { margin-top: 10px; padding: 8px; }
   .team-bonus-title { font-size: 0.68rem; }
 
-  /* Team picker cards — mobile : 2 colonnes, cartes un peu plus larges/hautes */
+  /* Team picker cards ? mobile : 2 colonnes, cartes un peu plus larges/hautes */
   .team-picker-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
@@ -11567,7 +11664,7 @@ html {
   100% { opacity: 0; transform: scale(4.2); box-shadow: 0 0 0 28px rgba(255, 200, 100, 0); }
 }
 
-/* Charged aura â€” radial glow only, never a square */
+/* Charged aura ??? radial glow only, never a square */
 .entity-wrap.charged-aura::before {
   content: "";
   position: absolute;
@@ -11693,7 +11790,7 @@ html {
 }
 
 /* =========================================================
-   MOBILE MENUS ONLY — Equipe / Dragons / Boutique / Ameliorations
+   MOBILE MENUS ONLY ? Equipe / Dragons / Boutique / Ameliorations
    Desktop unchanged. Cards compact; panels stay large.
    ========================================================= */
 @media (max-width: 768px) {
@@ -11717,7 +11814,7 @@ html {
     margin: 0 auto !important;
     padding: 12px 12px 10px !important;
     box-sizing: border-box !important;
-    /* Pas de translate : même stratégie que menu Dragons (évite layer GPU coûteux iOS) */
+    /* Pas de translate : m?me strat?gie que menu Dragons (?vite layer GPU co?teux iOS) */
     transform: none !important;
     animation: none !important;
     overflow: hidden !important;
@@ -11828,6 +11925,7 @@ html {
     overflow: hidden !important;
   }
   #panel-dragons .game-large-panel {
+    position: absolute !important;
     left: 2vw !important;
     right: 2vw !important;
     width: 96vw !important;
@@ -12231,7 +12329,7 @@ html {
 }
 
 /* =========================================================
-   SCÈNE GAUCHE — Événement + Coffres + mini-équipe (colonne unique)
+   SC?NE GAUCHE ? ?v?nement + Coffres + mini-?quipe (colonne unique)
    ========================================================= */
 .scene-left-stack {
   position: absolute;
@@ -12277,17 +12375,17 @@ html {
     z-index: 120 !important;
   }
 
-  /* Overlay / équipe ouverte : main (menus) passe au-dessus du HUD */
+  /* Overlay / ?quipe ouverte : main (menus) passe au-dessus du HUD */
   #app:has(.overlay-panel.active) .main,
   #app:has(#team-module.open) .main {
     z-index: 70;
   }
 
   /*
-   * Cause réelle : le HUD est une ligne de grille AU-DESSUS de .main,
-   * et le fond Boutique est un PNG à zones transparentes + z-index 500 desktop.
-   * Sur mobile : HUD masqué pendant les grands menus — SAUF Boutique
-   * (Essence / Logo / Essence-sec restent visibles via règles shop-open).
+   * Cause r?elle : le HUD est une ligne de grille AU-DESSUS de .main,
+   * et le fond Boutique est un PNG ? zones transparentes + z-index 500 desktop.
+   * Sur mobile : HUD masqu? pendant les grands menus ? SAUF Boutique
+   * (Essence / Logo / Essence-sec restent visibles via r?gles shop-open).
    */
   #app:has(.overlay-panel.active):not(:has(#panel-shop.active)) .header,
   #app:has(.overlay-panel.active):not(:has(#panel-shop.active)) .game-header {
@@ -12303,8 +12401,23 @@ html {
   }
 
   /*
+   * Exp?ditions UI ouverte (Hub / Hall / Pr?paration / Contrats / Menaces) :
+   * masquer le HUD + rails lat?raux ? y compris quand le Hall est sur #panel-kingdom
+   * (drawer.open sans overlay-panel.active). ?tat : html.expedition-ui-open
+   */
+  html.expedition-ui-open .header,
+  html.expedition-ui-open .game-header,
+  html.expedition-ui-open .scene-left-stack,
+  html.expedition-ui-open .scene-right-stack {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition: opacity 0.12s ease, visibility 0.12s ease;
+  }
+
+  /*
    * Menus au-dessus du HUD, mais AU-DESSUS de la nav basse :
-   * le panneau s'arrête avant la barre Boutique/Dragons/…
+   * le panneau s'arr?te avant la barre Boutique/Dragons/?
    * La nav (z:120) reste cliquable.
    */
   #app:has(.overlay-panel.active) .panel.overlay-panel.active {
@@ -12329,7 +12442,7 @@ html {
     z-index: 90 !important;
   }
 
-  /* Mobile fixed sheet-bar : croix calée dans le coin du cadre (viewport) */
+  /* Mobile fixed sheet-bar : croix cal?e dans le coin du cadre (viewport) */
   #app:has(.overlay-panel.active) .sheet-close {
     top: calc(env(safe-area-inset-top, 0px) + 10px) !important;
     right: 12px !important;
@@ -12341,12 +12454,12 @@ html {
     right: calc(2vw + 10px) !important;
   }
   #app:has(#panel-achievements.active) .sheet-close {
-    /* Remonté avec le cadre (~16 px) — taille du menu inchangée */
+    /* Remont? avec le cadre (~16 px) ? taille du menu inchang?e */
     top: calc(env(safe-area-inset-top, 0px) + 158px + 8px) !important;
     right: calc(2% + 16px) !important;
   }
 
-  /* Succès mobile : même taille, cadre remonté ~16 px (sous les badges HUD, mieux centré) */
+  /* Succ?s mobile : m?me taille, cadre remont? ~16 px (sous les badges HUD, mieux centr?) */
   #app:has(#panel-achievements.active) #panel-achievements.game-large-panel-overlay.overlay-panel.active {
     padding-top: calc(env(safe-area-inset-top, 0px) + 158px) !important;
     padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
@@ -12354,7 +12467,7 @@ html {
     padding-right: 1% !important;
   }
   #app:has(#panel-shop.active) .sheet-close {
-    /* Sous le HUD, dans le coin du cadre boutique (centré dans la zone utile) */
+    /* Sous le HUD, dans le coin du cadre boutique (centr? dans la zone utile) */
     top: calc((100dvh - 88px - var(--shop-hud-strip, 58px)) * 0.14 + 10px) !important;
     right: calc((100vw - 98vw) / 2 + 12px) !important;
   }
@@ -12363,7 +12476,7 @@ html {
     z-index: 95 !important;
   }
 
-  /* Dragons / Boutique : hauteur limitée au-dessus de la nav */
+  /* Dragons / Boutique : hauteur limit?e au-dessus de la nav */
   #app:has(#panel-dragons.active) #panel-dragons .game-large-panel {
     bottom: max(10px, env(safe-area-inset-bottom, 0px)) !important;
     max-height: calc(100dvh - 88px - env(safe-area-inset-bottom, 0px) - 12px) !important;
@@ -12374,20 +12487,22 @@ html {
     max-height: min(78vh, calc(100dvh - 88px - env(safe-area-inset-bottom, 0px) - 24px)) !important;
   }
 
-  /* ----- HUD mobile : 2 colonnes, SANS logo -----
-     Gauche : Essence / CPS
-     Droite : Essence/sec → Puissance clic → Puissance → Paramètres
-     Puis badges scène Expéditions / Inventaire sous Paramètres.
+  /* ----- HUD mobile : grille 3?2, SANS logo -----
+     Ligne 1 : Essence | Essence/sec | Puissance clic
+     Ligne 2 : CPS     | (vide)      | Puissance
+     Puis : Param?tres (droite) ? Exp?ditions ? Inventaire
   */
   #app {
-    --hud-card-h: clamp(40px, 10.5vw, 46px);
+    --hud-card-h: clamp(36px, 9.5vw, 44px);
     --hud-row-gap: 4px;
+    --hud-col-gap: clamp(4px, 1.4vw, 8px);
     --hud-pad-y: 6px;
-    /* Bas colonne droite HUD → ancrage badges Expéditions / Inventaire */
+    --hud-pad-x: clamp(6px, 2vw, 10px);
+    /* Bas du HUD (2 lignes stats + Param?tres) ? ancrage badges droite */
     --mobile-hud-right-bottom: calc(
       env(safe-area-inset-top, 0px) + var(--hud-pad-y) +
-      (3 * var(--hud-card-h)) + (3 * var(--hud-row-gap)) +
-      44px + 10px
+      (2 * var(--hud-card-h)) + var(--hud-row-gap) +
+      44px + 8px
     );
   }
 
@@ -12397,22 +12512,25 @@ html {
     padding: 0 !important;
     padding-top: 0 !important;
     padding-bottom: 0 !important;
-    min-height: calc(env(safe-area-inset-top, 0px) + (4 * var(--hud-card-h)) + (3 * var(--hud-row-gap)) + 20px);
+    min-height: calc(
+      env(safe-area-inset-top, 0px) +
+      (2 * var(--hud-card-h)) + var(--hud-row-gap) + 52px
+    );
     overflow: visible;
   }
 
   .game-header-inner {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-    grid-template-rows: auto auto auto auto !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-rows: auto auto auto !important;
     align-items: start !important;
     justify-items: stretch !important;
-    column-gap: clamp(6px, 2vw, 12px) !important;
+    column-gap: var(--hud-col-gap) !important;
     row-gap: var(--hud-row-gap) !important;
     width: 100% !important;
     max-width: 100% !important;
     transform: none !important;
-    padding: max(var(--hud-pad-y), env(safe-area-inset-top, 0px)) 8px 4px !important;
+    padding: max(var(--hud-pad-y), env(safe-area-inset-top, 0px)) var(--hud-pad-x) 4px !important;
     box-sizing: border-box;
   }
 
@@ -12422,43 +12540,43 @@ html {
     display: contents !important;
   }
 
-  /* Logo retiré sur mobile — place libérée pour Essence/sec en haut à droite */
   .header-logo-wrap,
   .game-logo {
     display: none !important;
   }
 
-  /* Gauche : ESSENCE puis CPS */
+  /* Ligne 1 */
   .hud-resource-card.essence-stat {
     grid-column: 1 !important;
     grid-row: 1 !important;
   }
 
-  .hud-resource-card.hud-cps-card {
-    grid-column: 1 !important;
-    grid-row: 2 !important;
-  }
-
-  /* Droite : ESSENCE/SEC → PUISSANCE CLIC → PUISSANCE → PARAMÈTRES */
   .hud-badge-prod {
     grid-column: 2 !important;
     grid-row: 1 !important;
   }
 
   .hud-badge-click {
-    grid-column: 2 !important;
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+  }
+
+  /* Ligne 2 */
+  .hud-resource-card.hud-cps-card {
+    grid-column: 1 !important;
     grid-row: 2 !important;
   }
 
   .hud-resource-card.hud-power-card {
-    grid-column: 2 !important;
-    grid-row: 3 !important;
+    grid-column: 3 !important;
+    grid-row: 2 !important;
   }
 
+  /* Param?tres sous la 2? ligne, align? ? droite */
   .header-gear,
   #btn-open-settings {
-    grid-column: 2 !important;
-    grid-row: 4 !important;
+    grid-column: 3 !important;
+    grid-row: 3 !important;
     justify-self: end !important;
     align-self: start !important;
     position: relative !important;
@@ -12467,7 +12585,7 @@ html {
     left: auto !important;
     width: 40px !important;
     height: 40px !important;
-    margin: 2px 4px 0 0 !important;
+    margin: 2px 0 0 0 !important;
     z-index: 3;
     pointer-events: auto;
   }
@@ -12483,64 +12601,66 @@ html {
 
   .hud-resource-card.hud-badge-prod,
   .hud-resource-card.hud-badge-click,
-  .hud-resource-card.hud-power-card {
+  .hud-resource-card.hud-power-card,
+  .hud-resource-card.essence-stat,
+  .hud-resource-card.hud-cps-card {
     width: 100% !important;
     max-width: 100% !important;
     justify-self: stretch !important;
   }
 
   .hud-resource-label {
-    font-size: clamp(0.4rem, 2.4vw, 0.48rem) !important;
-    letter-spacing: 0.1em !important;
+    font-size: clamp(0.38rem, 2.2vw, 0.48rem) !important;
+    letter-spacing: 0.08em !important;
   }
 
   .hud-prod-card .hud-resource-label {
-    font-size: clamp(0.36rem, 2.1vw, 0.44rem) !important;
-    letter-spacing: 0.06em !important;
+    font-size: clamp(0.34rem, 1.9vw, 0.44rem) !important;
+    letter-spacing: 0.05em !important;
   }
 
   .hud-badge-click .hud-resource-label {
-    font-size: clamp(0.3rem, 1.75vw, 0.38rem) !important;
+    font-size: clamp(0.3rem, 1.7vw, 0.4rem) !important;
     letter-spacing: 0.03em !important;
   }
 
   .hud-resource-value {
-    font-size: clamp(0.72rem, 3.6vw, 0.86rem) !important;
+    font-size: clamp(0.7rem, 3.4vw, 0.88rem) !important;
   }
 
   .hud-resource-icon-slot {
-    width: clamp(22px, 6.5vw, 28px) !important;
-    height: clamp(22px, 6.5vw, 28px) !important;
+    width: clamp(18px, 5.5vw, 26px) !important;
+    height: clamp(18px, 5.5vw, 26px) !important;
   }
 
   .hud-badge-prod .hud-resource-info,
   .hud-badge-click .hud-resource-info,
   .hud-power-card .hud-resource-info {
     margin-left: 0 !important;
-    padding: 2px 10% 2px 10% !important;
+    padding: 2px 8% 2px 8% !important;
   }
 
   .stat-unit {
     font-size: 0.55rem !important;
   }
 
-  /* ----- Cacher gros bouton Équipe sous l'œuf ----- */
+  /* ----- Cacher gros bouton ?quipe sous l'?uf ----- */
   .mobile-scene-actions,
   #mobile-scene-actions,
   #btn-team-mobile {
     display: none !important;
   }
 
-  /* ----- Colonne gauche : sous Essence/CPS (2 rangées) ----- */
+  /* ----- Colonne gauche : sous les 2 lignes de stats ----- */
   .scene-left-stack {
     position: fixed;
     left: max(2px, env(safe-area-inset-left, 0px));
     top: max(
       calc(
         env(safe-area-inset-top, 0px) + var(--hud-pad-y, 6px) +
-        (2 * var(--hud-card-h, 44px)) + var(--hud-row-gap, 4px) + 8px
+        (2 * var(--hud-card-h, 40px)) + var(--hud-row-gap, 4px) + 10px
       ),
-      96px
+      92px
     );
     gap: 8px;
     z-index: 28;
@@ -12550,9 +12670,9 @@ html {
   }
 
   /*
-    Titre œuf (mobile only) — NE PAS déplacer .egg-stage.
-    Position scène = cascade existante (-58% / lift 24px, ou -56% / 20px ≤600px).
-    Correctif local : overflow + line-height/padding légers sur le label.
+    Titre ?uf (mobile only) ? NE PAS d?placer .egg-stage.
+    Position sc?ne = cascade existante (-58% / lift 24px, ou -56% / 20px ?600px).
+    Correctif local : overflow + line-height/padding l?gers sur le label.
   */
   #panel-kingdom.active {
     overflow: visible;
@@ -12569,7 +12689,7 @@ html {
     overflow: visible;
   }
 
-  /* Sécurité : le gear ne doit plus apparaître dans le rail mobile */
+  /* S?curit? : le gear ne doit plus appara?tre dans le rail mobile */
   .scene-left-stack > .header-gear {
     display: none !important;
   }
@@ -12672,7 +12792,7 @@ html {
     transform: scale(0.96);
   }
 
-  /* Mini équipe derrière les menus ouverts / masquée si Équipe ouverte */
+  /* Mini ?quipe derri?re les menus ouverts / masqu?e si ?quipe ouverte */
   #app:has(.overlay-panel.active) .mobile-team-rail {
     z-index: 15;
   }
@@ -12684,7 +12804,7 @@ html {
   }
 }
 
-/* Petit mobile — slots équipe fluides (HUD 2 colonnes conservé) */
+/* Petit mobile ? slots ?quipe fluides (HUD 2 colonnes conserv?) */
 @media (max-width: 480px) {
   .game-header-inner {
     padding-left: 6px !important;
@@ -12722,9 +12842,9 @@ html {
 }
 
 /* =========================================================
-   BOUTIQUE OPEN — Logo + Essence + Essence/sec au-dessus
-   (réutilise les vrais éléments HUD, pas de double source)
-   Desktop + mobile. Autres menus inchangés.
+   BOUTIQUE OPEN ? Logo + Essence + Essence/sec au-dessus
+   (r?utilise les vrais ?l?ments HUD, pas de double source)
+   Desktop + mobile. Autres menus inchang?s.
    ========================================================= */
 
 #app:has(#panel-shop.active) {
@@ -12771,7 +12891,7 @@ html {
 
 @media (max-width: 768px) {
   #app:has(#panel-shop.active) {
-    --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + var(--hud-card-h, 44px) + 16px);
+    --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + var(--hud-card-h, 40px) + 16px);
   }
 
   #app:has(#panel-shop.active) .header,
@@ -12780,12 +12900,12 @@ html {
   }
 
   #app:has(#panel-shop.active) .game-header-inner {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     grid-template-rows: auto !important;
     padding-bottom: 4px !important;
   }
 
-  /* Boutique mobile : pas de logo — Essence | Essence/sec */
+  /* Boutique mobile : pas de logo ? Essence | Essence/sec | (vide) */
   #app:has(#panel-shop.active) .header-logo-wrap,
   #app:has(#panel-shop.active) .game-logo {
     display: none !important;
@@ -12808,7 +12928,7 @@ html {
     display: none !important;
   }
 
-  /* Cadre Boutique mobile : un peu plus large/haut, légèrement remonté */
+  /* Cadre Boutique mobile : un peu plus large/haut, l?g?rement remont? */
   #app:has(#panel-shop.active) #panel-shop .shop-menu {
     width: 98vw !important;
     max-width: 98vw !important;
@@ -12818,7 +12938,7 @@ html {
     overflow: hidden !important;
   }
 
-  /* Ancien fond PNG — désactivé */
+  /* Ancien fond PNG ? d?sactiv? */
   #app:has(#panel-shop.active) #panel-shop .shop-menu-bg {
     display: none !important;
   }
@@ -12845,17 +12965,17 @@ html {
 
 @media (min-width: 769px) {
   /*
-   * DESKTOP Boutique ouverte — aligné sur la capture de référence :
-   * HUD complet → grand cadre → nav. Contenu remplit la hauteur intérieure.
-   * Mobile (max-width:768) inchangé.
+   * DESKTOP Boutique ouverte ? align? sur la capture de r?f?rence :
+   * HUD complet ? grand cadre ? nav. Contenu remplit la hauteur int?rieure.
+   * Mobile (max-width:768) inchang?.
    */
   #app:has(#panel-shop.active) {
-    /* Cadre +~14px haut / +~6px bas (nav 768p limite l’extension basse) */
+    /* Cadre +~14px haut / +~6px bas (nav 768p limite l?extension basse) */
     --shop-hud-strip: calc(env(safe-area-inset-top, 0px) + 106px);
     --shop-nav-reserve: calc(98px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* Stacking clair : scène < panneau < HUD/nav (pas de z-index géants) */
+  /* Stacking clair : sc?ne < panneau < HUD/nav (pas de z-index g?ants) */
   #app:has(#panel-shop.active) .header,
   #app:has(#panel-shop.active) .game-header {
     position: relative;
@@ -12874,7 +12994,7 @@ html {
     pointer-events: auto !important;
   }
 
-  /* Tout le HUD desktop reste visible (réutilise les vrais éléments) */
+  /* Tout le HUD desktop reste visible (r?utilise les vrais ?l?ments) */
   #app:has(#panel-shop.active) .hud-resource-card.hud-power-card,
   #app:has(#panel-shop.active) .hud-resource-card.hud-cps-card,
   #app:has(#panel-shop.active) .hud-resource-card.hud-badge-click,
@@ -12904,7 +13024,7 @@ html {
     pointer-events: none;
   }
 
-  /* Cadre Boutique CSS : large, centré, occupe la bande utile */
+  /* Cadre Boutique CSS : large, centr?, occupe la bande utile */
   #app:has(#panel-shop.active) #panel-shop .shop-menu {
     position: absolute !important;
     left: 50% !important;
@@ -12920,14 +13040,14 @@ html {
     pointer-events: none;
   }
 
-  /* Ancien fond PNG — désactivé (panneau CSS) */
+  /* Ancien fond PNG ? d?sactiv? (panneau CSS) */
   #app:has(#panel-shop.active) #panel-shop .shop-menu-bg {
     display: none !important;
   }
 
   /*
-   * Safe-area intérieure alignée sur le cadre CSS (pas le PNG).
-   * Contenu descend presque jusqu’au bas — pas de petite fenêtre de scroll.
+   * Safe-area int?rieure align?e sur le cadre CSS (pas le PNG).
+   * Contenu descend presque jusqu?au bas ? pas de petite fen?tre de scroll.
    */
   #app:has(#panel-shop.active) #panel-shop .shop-menu-overlay {
     pointer-events: none;
@@ -12987,7 +13107,7 @@ html {
     margin-bottom: 6px !important;
   }
 
-  /* Un seul scroll vertical par colonne — hauteur = tout l’espace sous le header */
+  /* Un seul scroll vertical par colonne ? hauteur = tout l?espace sous le header */
   #app:has(#panel-shop.active) #panel-shop .shop-column-scroll {
     flex: 1 1 auto !important;
     min-width: 0 !important;
@@ -13062,11 +13182,11 @@ html {
 }
 
 /* =========================================================
-   DESKTOP — mini-équipe (même composant que mobile)
+   DESKTOP ? mini-?quipe (m?me composant que mobile)
    Remplace le gros panneau permanent ; menu complet via >
    ========================================================= */
 @media (min-width: 769px) {
-  /* Gros panneau permanent → drawer modal (ouvert via ›) */
+  /* Gros panneau permanent ? drawer modal (ouvert via ?) */
   .team-module {
     display: none !important;
     position: fixed !important;
@@ -13119,13 +13239,13 @@ html {
     overflow-y: auto;
   }
 
-  /* Bouton Équipe tablet / scene-actions : remplacé par › */
+  /* Bouton ?quipe tablet / scene-actions : remplac? par ? */
   .team-toggle-tablet,
   #desktop-scene-actions {
     display: none !important;
   }
 
-  /* Mini-équipe desktop — dans la même colonne que Coffres (légèrement remontée) */
+  /* Mini-?quipe desktop ? dans la m?me colonne que Coffres (l?g?rement remont?e) */
   .scene-left-stack {
     left: max(12px, 1.2vw);
     top: clamp(12%, calc(var(--altar-y, 64%) - 40%), 22%);
@@ -13136,9 +13256,9 @@ html {
     max-width: none;
   }
 
-  /* Paramètres : home DOM = .header-right-cluster (pas dans le rail).
+  /* Param?tres : home DOM = .header-right-cluster (pas dans le rail).
      Ancien fallback fixed dans le rail passait SOUS le header (stacking z:22)
-     et mangeait les clics — ne pas le réintroduire. */
+     et mangeait les clics ? ne pas le r?introduire. */
   .header-right-cluster > .header-gear {
     position: relative;
     flex: 0 0 auto;
@@ -13243,7 +13363,7 @@ html {
     color: #f0d078;
   }
 
-  /* Derrière menus / masquée si menu Équipe ouvert */
+  /* Derri?re menus / masqu?e si menu ?quipe ouvert */
   #app:has(.overlay-panel.active) .mobile-team-rail {
     z-index: 15;
   }
@@ -13253,7 +13373,7 @@ html {
     pointer-events: none;
   }
 
-  /* Coffres : flux dans .scene-left-stack (au-dessus de l'équipe) */
+  /* Coffres : flux dans .scene-left-stack (au-dessus de l'?quipe) */
   .scene-chests-btn {
     position: relative;
     left: auto;
@@ -13266,32 +13386,36 @@ html {
 }
 
 /* =========================================================
-   SCÈNE DROITE — Badges Expéditions + Inventaire
+   SC?NE DROITE ? Badges Exp?ditions + Inventaire
    ========================================================= */
 .scene-right-stack {
   position: absolute;
   right: max(12px, 1.2vw);
-  top: clamp(22%, calc(var(--altar-y, 64%) - 28%), 34%);
+  top: clamp(18%, calc(var(--altar-y, 64%) - 30%), 32%);
   z-index: 22;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: clamp(4px, 1vh, 8px);
   pointer-events: none;
+  max-height: min(58vh, calc(100dvh - 200px));
 }
 .scene-right-stack > * {
   pointer-events: auto;
+  flex: 0 0 auto;
 }
 
 .scene-expeditions-btn,
-.scene-inventory-btn {
+.scene-inventory-btn,
+.scene-achievements-btn {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   width: auto;
-  min-width: 0;
+  min-width: var(--touch-min, 44px);
+  min-height: var(--touch-min, 44px);
   padding: 6px 4px;
   margin: 0;
   border: none;
@@ -13305,14 +13429,18 @@ html {
   transition: transform 0.15s ease, opacity 0.15s ease, filter 0.15s ease;
 }
 .scene-expeditions-btn:hover,
-.scene-inventory-btn:hover { transform: translateY(-1px); }
+.scene-inventory-btn:hover,
+.scene-achievements-btn:hover { transform: translateY(-1px); }
 .scene-expeditions-btn:active,
-.scene-inventory-btn:active { transform: translateY(0) scale(0.96); }
-.scene-expeditions-btn.has-claim .scene-expeditions-art {
+.scene-inventory-btn:active,
+.scene-achievements-btn:active { transform: translateY(0) scale(0.96); }
+.scene-expeditions-btn.has-claim .scene-expeditions-art,
+.scene-achievements-btn.has-ach-claim .scene-achievements-art {
   filter: drop-shadow(0 0 10px rgba(255, 180, 60, 0.45));
 }
 .scene-expeditions-art,
-.scene-inventory-art {
+.scene-inventory-art,
+.scene-achievements-art {
   width: var(--side-badge-size, 52px);
   height: var(--side-badge-size, 52px);
   display: grid;
@@ -13320,7 +13448,8 @@ html {
   pointer-events: none;
 }
 .scene-expeditions-art img,
-.scene-inventory-art img {
+.scene-inventory-art img,
+.scene-achievements-art img {
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -13332,7 +13461,8 @@ html {
   -webkit-user-drag: none;
 }
 .scene-expeditions-label,
-.scene-inventory-label {
+.scene-inventory-label,
+.scene-achievements-label {
   font-family: var(--font-display);
   font-size: var(--side-badge-label, 0.62rem);
   font-weight: 800;
@@ -13377,17 +13507,37 @@ html {
   pointer-events: none;
 }
 .scene-expeditions-badge[hidden] { display: none; }
+.scene-achievements-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #2a1606;
+  background: linear-gradient(180deg, #ffd873, #f0a030);
+  box-shadow: 0 0 10px rgba(255, 170, 50, 0.45);
+  pointer-events: none;
+}
+.scene-achievements-badge[hidden] { display: none; }
+.scene-achievements-btn { position: relative; }
 
 @media (min-width: 769px) {
   .scene-expeditions-art,
-  .scene-inventory-art {
+  .scene-inventory-art,
+  .scene-achievements-art {
     width: var(--side-badge-size);
     height: var(--side-badge-size);
   }
 }
 
 @media (max-width: 768px) {
-  /* Expéditions + Inventaire : sous Paramètres (colonne droite HUD) */
+  /* Exp?ditions + Inventaire : sous Param?tres (colonne droite HUD) */
   .scene-right-stack {
     position: fixed;
     right: max(2px, env(safe-area-inset-right, 0px));
@@ -13399,7 +13549,8 @@ html {
     gap: clamp(4px, 1vh, 8px);
   }
   .scene-expeditions-btn,
-  .scene-inventory-btn {
+  .scene-inventory-btn,
+  .scene-achievements-btn {
     padding: 4px 2px;
     gap: 2px;
     min-width: var(--touch-min);
@@ -13412,18 +13563,35 @@ html {
     gap: 3px;
   }
   :root {
-    --side-badge-size: clamp(40px, 10vw, 46px);
-    --side-badge-label: 0.5rem;
+    --side-badge-size: clamp(36px, 9vw, 44px);
+    --side-badge-label: 0.48rem;
   }
   #app {
-    --hud-card-h: clamp(36px, 9.5vw, 42px);
+    --hud-card-h: clamp(34px, 9vw, 40px);
     --hud-row-gap: 3px;
+    --hud-col-gap: clamp(3px, 1.2vw, 6px);
+  }
+}
+
+/* Tr?s ?troit : garder 3 badges sur la 1?? ligne */
+@media (max-width: 360px) {
+  #app {
+    --hud-card-h: clamp(32px, 10vw, 38px);
+    --hud-col-gap: 3px;
+    --hud-pad-x: 4px;
+  }
+  .hud-resource-label {
+    font-size: clamp(0.32rem, 2.4vw, 0.4rem) !important;
+    letter-spacing: 0.04em !important;
+  }
+  .hud-resource-value {
+    font-size: clamp(0.66rem, 3.8vw, 0.78rem) !important;
   }
 }
 
 /* =========================================================
-   Hub Expéditions — même famille visuelle que Bestiaire / Succès
-   (cadre .game-large-panel + coins ; contenu spécifique ci-dessous)
+   Hub Exp?ditions ? m?me famille visuelle que Bestiaire / Succ?s
+   (cadre .game-large-panel + coins ; contenu sp?cifique ci-dessous)
    ========================================================= */
 #panel-expeditions-hub .expeditions-hub-body {
   display: flex;
@@ -13433,7 +13601,7 @@ html {
   padding-bottom: 14px;
 }
 
-/* Hero Card — Hall des Expéditions (carte entière cliquable, sans bouton Entrer) */
+/* Hero Card ? Hall des Exp?ditions (carte enti?re cliquable, sans bouton Entrer) */
 #panel-expeditions-hub .exp-hub-hero {
   position: relative;
   display: block;
@@ -13589,7 +13757,7 @@ html {
   text-shadow: 0 1px 5px rgba(0, 0, 0, 0.8);
   max-width: 38ch;
 }
-/* Capsule décorative — repère uniquement (clic = toute la carte) */
+/* Capsule d?corative ? rep?re uniquement (clic = toute la carte) */
 #panel-expeditions-hub .exp-hub-access {
   flex: 0 0 auto;
   display: inline-flex;
@@ -13629,7 +13797,7 @@ html {
   transform: translateY(-1px);
 }
 
-/* Contrats / Menaces — cartes illustrées secondaires */
+/* Contrats / Menaces ? cartes illustr?es secondaires */
 #panel-expeditions-hub .exp-hub-secondary-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -13726,7 +13894,7 @@ html {
   pointer-events: none;
 }
 
-/* Contrats / Menaces — fond illustré compact */
+/* Contrats / Menaces ? fond illustr? compact */
 #panel-expeditions-hub .exp-hub-module.exp-hub-illu {
   display: block;
   position: relative;
@@ -13841,7 +14009,7 @@ html {
   pointer-events: none;
 }
 
-/* Registre — carte horizontale fine (non illustrée pour l’instant) */
+/* Registre ? carte horizontale fine (non illustr?e pour l?instant) */
 #panel-expeditions-hub .exp-hub-ledger {
   grid-template-columns: 40px minmax(0, 1fr) auto;
   min-height: 0;
@@ -14240,7 +14408,7 @@ html {
   }
 }
 
-/* Petit mobile — hub Contrats/Menaces en colonne (breakpoint global ≤480) */
+/* Petit mobile ? hub Contrats/Menaces en colonne (breakpoint global ?480) */
 @media (max-width: 480px) {
   #panel-expeditions-hub .exp-hub-secondary-row {
     grid-template-columns: 1fr;
@@ -14286,8 +14454,8 @@ html {
 }
 
 /* =========================================================
-   Inventaire V1 — Matériaux / Reliques / Coffres
-   (style Bestiaire / Succès ; coffres = gameState.chests)
+   Inventaire V1 ? Mat?riaux / Reliques / Coffres
+   (style Bestiaire / Succ?s ; coffres = gameState.chests)
    ========================================================= */
 #panel-inventory.inventory-panel.game-large-panel-overlay.overlay-panel.active {
   justify-content: stretch;
@@ -14389,6 +14557,8 @@ html {
   margin: 0;
   padding: 12px 10px 10px;
   border-radius: 12px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 160px;
   border: 1px solid rgba(90, 130, 180, 0.4);
   background:
     radial-gradient(circle at 50% 0%, rgba(60, 100, 160, 0.14), transparent 55%),
@@ -14515,7 +14685,7 @@ html {
   }
 }
 
-/* Accès Événements — même rail que Coffres / mini-équipe (global desktop + mobile) */
+/* Acc?s ?v?nements ? m?me rail que Coffres / mini-?quipe (global desktop + mobile) */
 .scene-events-btn {
   position: relative;
   left: auto;
@@ -14577,7 +14747,7 @@ html {
   line-height: 1.1;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
 }
-/* Desktop : encore un cran plus présent */
+/* Desktop : encore un cran plus pr?sent */
 @media (min-width: 769px) {
   .scene-events-art {
     width: 68px;
@@ -14587,8 +14757,8 @@ html {
   .scene-events-label { font-size: 0.68rem; }
 }
 
-/* Accès discret sur la scène — PNG coffre seul (pas de label texte).
-   Positionné dans .scene-left-stack (au-dessus de la mini-équipe). */
+/* Acc?s discret sur la sc?ne ? PNG coffre seul (pas de label texte).
+   Positionn? dans .scene-left-stack (au-dessus de la mini-?quipe). */
 .scene-chests-btn {
   position: relative;
   left: auto;
@@ -14642,7 +14812,7 @@ html {
     height: 84px;
   }
 }
-/* Aucun label « Coffres » / compteur inventaire sous le PNG */
+/* Aucun label ? Coffres ? / compteur inventaire sous le PNG */
 .scene-chests-label,
 .scene-chests-count,
 #chests-btn-badge {
@@ -14661,7 +14831,7 @@ html {
   pointer-events: none !important;
 }
 
-/* Coffre régulier — timer MM:SS + état prêt */
+/* Coffre r?gulier ? timer MM:SS + ?tat pr?t */
 .scene-chests-btn {
   position: relative;
 }
@@ -15249,8 +15419,8 @@ html {
 
 @media (max-width: 768px) {
   /*
-   * Mobile : positionnement coffre (tailles héritées du global, léger ajustement).
-   * Décalage léger vers la gauche pour l’alignement visuel sous Événement.
+   * Mobile : positionnement coffre (tailles h?rit?es du global, l?ger ajustement).
+   * D?calage l?ger vers la gauche pour l?alignement visuel sous ?v?nement.
    */
   .scene-chests-btn {
     position: relative;
@@ -15394,7 +15564,7 @@ html {
   }
 }
 
-/* Très petits écrans : remonter la colonne gauche (événement + coffre + équipe) */
+/* Tr?s petits ?crans : remonter la colonne gauche (?v?nement + coffre + ?quipe) */
 @media (max-width: 768px) and (max-height: 700px) {
   .scene-left-stack {
     position: fixed;
@@ -15426,7 +15596,7 @@ html {
   }
 }
 
-/* Mobile performance class (JS: html.mobile-performance) — blur/glow only */
+/* Mobile performance class (JS: html.mobile-performance) ? blur/glow only */
 html.mobile-performance #team-picker-modal,
 html.mobile-performance #chest-modal,
 html.mobile-performance #chest-reveal-modal {
@@ -15451,7 +15621,7 @@ html.mobile-performance .team-picker-grid {
 }
 
 /*
-  Fallback tactile sans JS : mêmes allègements blur si Safari n’a pas
+  Fallback tactile sans JS : m?mes all?gements blur si Safari n?a pas
   encore (ou jamais) la classe .mobile-performance.
 */
 @media (hover: none) and (pointer: coarse) {
@@ -15480,8 +15650,8 @@ html.mobile-performance .team-picker-grid {
 }
 
 /*
-  POINT COMMUN Équipe + Coffres : scène Royaume encore animée derrière.
-  Dragons masque/dimme la scène via .dimmed — ici on pause le décor mobile.
+  POINT COMMUN ?quipe + Coffres : sc?ne Royaume encore anim?e derri?re.
+  Dragons masque/dimme la sc?ne via .dimmed ? ici on pause le d?cor mobile.
 */
 html.mobile-modal-open .bg-mist,
 html.mobile-modal-open .spark,
@@ -15505,8 +15675,8 @@ html.mobile-modal-open .entity-wrap {
   filter: none !important;
 }
 
-/* Scrim opaque pour Équipe (pas de backdrop-filter) — mobile uniquement via classe JS */
-/* État drawer Équipe (JS: html.is-mobile-team-open) — NE PAS réutiliser .mobile-team-open (bouton ›). */
+/* Scrim opaque pour ?quipe (pas de backdrop-filter) ? mobile uniquement via classe JS */
+/* ?tat drawer ?quipe (JS: html.is-mobile-team-open) ? NE PAS r?utiliser .mobile-team-open (bouton ?). */
 html.is-mobile-team-open #panel-kingdom::before {
   content: "";
   position: fixed;
@@ -15517,7 +15687,7 @@ html.is-mobile-team-open #panel-kingdom::before {
 }
 
 @media (max-width: 768px) {
-  /* Quand Équipe / Coffres ouvert : réduire le paint de la scène derrière */
+  /* Quand ?quipe / Coffres ouvert : r?duire le paint de la sc?ne derri?re */
   html.mobile-modal-open .egg-stage,
   html.mobile-modal-open .scene-chests-btn,
   html.mobile-modal-open .mobile-team-rail,
@@ -15531,14 +15701,15 @@ html.is-mobile-team-open #panel-kingdom::before {
   html.is-mobile-team-open .scene-left-stack,
   html.is-mobile-team-open .scene-right-stack,
   html.is-mobile-team-open .scene-expeditions-btn,
-  html.is-mobile-team-open .scene-inventory-btn {
+  html.is-mobile-team-open .scene-inventory-btn,
+  html.is-mobile-team-open .scene-achievements-btn {
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none !important;
   }
 }
 
-/* Formation ouverte : Équipe derrière conserve son DOM, pas de travail peint inutile */
+/* Formation ouverte : ?quipe derri?re conserve son DOM, pas de travail peint inutile */
 @media (max-width: 768px) {
   #team-module.is-picker-open {
     pointer-events: none;
@@ -15568,8 +15739,8 @@ html.is-mobile-team-open #panel-kingdom::before {
 }
 
 /* =========================================================
-   MENU ÉVÉNEMENTS — cadre type Bestiaire + scroll horizontal type Monde
-   (ne modifie pas Bestiaire / Monde ; réutilise le pattern viewport→scroll→list)
+   MENU ?V?NEMENTS ? cadre type Bestiaire + scroll horizontal type Monde
+   (ne modifie pas Bestiaire / Monde ; r?utilise le pattern viewport?scroll?list)
    ========================================================= */
 
 /* Ancrage structurel type Bestiaire : grand cadre entre HUD et nav */
@@ -15600,7 +15771,7 @@ html.is-mobile-team-open #panel-kingdom::before {
   left: 1.5% !important;
   right: 1.5% !important;
   width: auto !important;
-  /* Légèrement plus bas que le Bestiaire : bordure haute entière sous le HUD */
+  /* L?g?rement plus bas que le Bestiaire : bordure haute enti?re sous le HUD */
   top: 16px !important;
   bottom: 8px !important;
   height: auto !important;
@@ -15638,7 +15809,7 @@ html.is-mobile-team-open #panel-kingdom::before {
   color: rgba(220, 200, 160, 0.72);
 }
 
-/* Pattern World : viewport → scroll (overflow-x) → list (flex row) */
+/* Pattern World : viewport ? scroll (overflow-x) ? list (flex row) */
 .events-list-viewport {
   position: relative;
   z-index: 1;
@@ -15739,7 +15910,7 @@ html.is-mobile-team-open #panel-kingdom::before {
   border-color: rgba(240, 150, 60, 0.7);
 }
 
-/* Image dominante ; zone infos s’adapte (titre + date + countdown) */
+/* Image dominante ; zone infos s?adapte (titre + date + countdown) */
 .events-card-visual {
   position: relative;
   flex: 1 1 auto;
@@ -15937,8 +16108,8 @@ html.is-mobile-team-open #panel-kingdom::before {
 }
 
 /*
- * MOBILE / tablette étroite (≤768) — liste VERTICALE de cartes HORIZONTALES.
- * Desktop (>768) conserve le carousel horizontal World-like inchangé.
+ * MOBILE / tablette ?troite (?768) ? liste VERTICALE de cartes HORIZONTALES.
+ * Desktop (>768) conserve le carousel horizontal World-like inchang?.
  */
 @media (max-width: 768px) {
   #panel-events .events-menu-title {
@@ -16157,12 +16328,12 @@ html.is-mobile-team-open #panel-kingdom::before {
 }
 
 /* =========================================================
-   RESPONSIVE GLOBAL V2 — fondation fluide consolidée
-   Breakpoints : ≤480 | 481–767 | 768–1023 | ≥1024
-   CSS first — pas de recalcul JS. Préserve le design actuel.
+   RESPONSIVE GLOBAL V2 ? fondation fluide consolid?e
+   Breakpoints : ?480 | 481?767 | 768?1023 | ?1024
+   CSS first ? pas de recalcul JS. Pr?serve le design actuel.
    ========================================================= */
 
-/* ----- Tokens par famille d’écran ----- */
+/* ----- Tokens par famille d??cran ----- */
 @media (max-width: 480px) {
   :root {
     --ui-gap: clamp(4px, 1.8vw, 10px);
@@ -16204,7 +16375,7 @@ html.is-mobile-team-open #panel-kingdom::before {
   }
 }
 
-/* Ultrawide : ne pas étirer les grands menus */
+/* Ultrawide : ne pas ?tirer les grands menus */
 @media (min-aspect-ratio: 21/9) {
   :root {
     --menu-max-width: min(1400px, calc(100vw - 8vw));
@@ -16245,7 +16416,7 @@ canvas {
   max-width: 100%;
 }
 
-/* ----- Menus / overlays génériques ----- */
+/* ----- Menus / overlays g?n?riques ----- */
 .game-large-panel-overlay.overlay-panel.active {
   padding-left: max(var(--menu-edge), var(--safe-left));
   padding-right: max(var(--menu-edge), var(--safe-right));
@@ -16301,9 +16472,10 @@ button.modal-close {
   font-size: clamp(1.05rem, 3.4vw, 1.35rem);
 }
 
-/* ----- Badges latéraux fluides ----- */
+/* ----- Badges lat?raux fluides ----- */
 .scene-expeditions-art,
 .scene-inventory-art,
+.scene-achievements-art,
 .scene-events-art {
   width: var(--side-badge-size) !important;
   height: var(--side-badge-size) !important;
@@ -16316,6 +16488,7 @@ button.modal-close {
 
 .scene-expeditions-label,
 .scene-inventory-label,
+.scene-achievements-label,
 .scene-events-label {
   font-size: var(--side-badge-label) !important;
   max-width: min(92px, 24vw);
@@ -16326,7 +16499,7 @@ button.modal-close {
   max-width: min(96px, 26vw);
 }
 
-/* ----- Œuf / progression ----- */
+/* ----- ?uf / progression ----- */
 .egg-progress-block {
   width: min(420px, calc(100vw - 24px - var(--safe-left) - var(--safe-right)));
   max-width: 100%;
@@ -16387,7 +16560,7 @@ button.modal-close {
   }
 }
 
-/* ----- Succès : mobile vertical déjà géré — renforcer lisibilité ----- */
+/* ----- Succ?s : mobile vertical d?j? g?r? ? renforcer lisibilit? ----- */
 @media (max-width: 767px) {
   #panel-achievements .ach-cat-btn,
   #panel-achievements .achievements-cat {
@@ -16446,7 +16619,7 @@ button.modal-close {
   max-width: 100%;
 }
 
-/* ----- Paramètres / modals ----- */
+/* ----- Param?tres / modals ----- */
 .modal,
 .settings-panel,
 #panel-settings .settings-body {
@@ -16529,7 +16702,7 @@ input[type="range"] {
   }
 }
 
-/* ----- Desktop / laptop hauteur 720–768 ----- */
+/* ----- Desktop / laptop hauteur 720?768 ----- */
 @media (min-width: 1024px) and (max-height: 800px) {
   .game-large-panel-overlay.overlay-panel.active {
     padding-top: max(48px, calc(var(--safe-top) + 36px));
@@ -16540,7 +16713,7 @@ input[type="range"] {
   }
 }
 
-/* Images UI — contain pour assets transparents */
+/* Images UI ? contain pour assets transparents */
 .scene-expeditions-art img,
 .scene-inventory-art img,
 .scene-events-art img,
@@ -16553,7 +16726,7 @@ input[type="range"] {
   object-fit: contain;
 }
 
-/* Images cinématiques */
+/* Images cin?matiques */
 .exp-hub-hero,
 .exp-threat-media img,
 .expedition-card-media img,
@@ -16564,11 +16737,11 @@ input[type="range"] {
 }
 
 /* =========================================================
-   MOBILE UI FIX V2 — HUD / badges / hub / hall (≤768 only)
-   Desktop (≥769) inchangé.
+   MOBILE UI FIX V2 ? HUD / badges / hub / hall (?768 only)
+   Desktop (?769) inchang?.
    ========================================================= */
 @media (max-width: 768px) {
-  /* Hub Expéditions : remonté, utilise l’espace au-dessus de la nav */
+  /* Hub Exp?ditions : remont?, utilise l?espace au-dessus de la nav */
   #app:has(#panel-expeditions-hub.active) #panel-expeditions-hub.game-large-panel-overlay.overlay-panel.active {
     padding: max(6px, env(safe-area-inset-top, 0px)) clamp(4px, 1.5vw, 10px) 6px !important;
     justify-content: flex-start !important;
@@ -16606,7 +16779,7 @@ input[type="range"] {
     right: clamp(10px, 3vw, 16px) !important;
   }
 
-  /* Hall des Expéditions : quasi plein écran au-dessus de la bottom nav */
+  /* Hall des Exp?ditions : quasi plein ?cran au-dessus de la bottom nav */
   .expedition-drawer,
   .expedition-drawer.open {
     position: fixed !important;
@@ -16651,7 +16824,7 @@ input[type="range"] {
     min-height: 44px;
   }
 
-  /* Empêcher les badges de chevaucher la barre de progression / nav */
+  /* Emp?cher les badges de chevaucher la barre de progression / nav */
   .scene-right-stack {
     max-height: calc(
       100dvh - var(--mobile-hud-right-bottom, 220px) -
@@ -16667,5 +16840,916 @@ input[type="range"] {
   }
   #panel-expeditions-hub .exp-hub-module.exp-hub-illu {
     height: clamp(88px, 18vh, 110px) !important;
+  }
+}
+
+/* =========================================================
+   EGG BOSS / GARDIENS D'?UF V1
+   ========================================================= */
+.egg-progress-block.is-boss-fight .hatch-bar-fill.is-boss-hp,
+.hatch-bar-fill.is-boss-hp {
+  background: linear-gradient(90deg, #8b1a1a 0%, #e04545 45%, #ffb060 100%);
+  box-shadow: 0 0 10px rgba(220, 60, 40, 0.45);
+}
+.egg-progress-block.is-boss-fight .hatch-progress-label {
+  color: #ffc070;
+  letter-spacing: 0.12em;
+}
+.egg-progress-block.is-guardian-hatch .hatch-progress-label {
+  color: #f0d070;
+  letter-spacing: 0.1em;
+}
+.egg-boss-abandon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 8px auto 0;
+  min-height: 40px;
+  min-width: 120px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(200, 90, 70, 0.55);
+  background: rgba(40, 12, 12, 0.85);
+  color: #f0c0a8;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.egg-boss-abandon[hidden] { display: none !important; }
+html.egg-boss-active #egg-img {
+  filter: drop-shadow(0 0 18px rgba(220, 70, 40, 0.55));
+  transform: scale(1.08);
+  transform-origin: center bottom;
+}
+html.egg-boss-active .egg-carousel-item.is-prev,
+html.egg-boss-active .egg-carousel-item.is-next {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+.egg-boss-announce {
+  position: fixed;
+  left: 50%;
+  top: 22%;
+  transform: translate(-50%, -12px);
+  z-index: 240;
+  padding: 14px 22px;
+  border-radius: 12px;
+  border: 1px solid rgba(240, 180, 80, 0.55);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(120, 40, 20, 0.45), transparent 70%),
+    rgba(8, 10, 18, 0.94);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  max-width: min(92vw, 420px);
+}
+.egg-boss-announce.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.egg-boss-announce-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(0.95rem, 3.5vw, 1.2rem);
+  letter-spacing: 0.14em;
+  color: #ffe29a;
+}
+.egg-boss-announce-sub {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  color: rgba(230, 210, 180, 0.85);
+}
+.boss-dmg-float {
+  position: absolute;
+  z-index: 50;
+  pointer-events: none;
+  font-weight: 800;
+  color: #ff8a6a;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  animation: bossDmgFloat 0.65s ease-out forwards;
+}
+@keyframes bossDmgFloat {
+  0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -36px) scale(1.15); }
+}
+.egg-boss-victory-modal {
+  text-align: center;
+  width: min(440px, 96vw);
+}
+.egg-boss-victory-name {
+  margin: 4px 0 8px;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: 0.12em;
+  color: #f6ebcf;
+}
+.egg-boss-victory-rank {
+  display: inline-block;
+  margin: 6px 0 12px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 180, 80, 0.5);
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #ffe29a;
+}
+.egg-boss-victory-rank[data-rank="S"] { color: #ffe29a; box-shadow: 0 0 12px rgba(255, 200, 80, 0.35); }
+.egg-boss-victory-rank[data-rank="A"] { color: #9ad0ff; }
+.egg-boss-victory-rank[data-rank="B"] { color: #b8e0a8; }
+.egg-boss-victory-rank[data-rank="C"] { color: #c8b8a0; }
+.egg-boss-victory-rewards {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  color: rgba(230, 220, 200, 0.9);
+  font-size: 0.9rem;
+}
+.egg-boss-victory-rewards li { margin: 4px 0; }
+.egg-boss-victory-egg {
+  margin: 10px auto 16px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(240, 190, 80, 0.55);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255, 210, 100, 0.22), transparent 60%),
+    rgba(20, 16, 8, 0.9);
+  max-width: 220px;
+}
+.egg-boss-victory-egg.is-rare {
+  box-shadow: 0 0 22px rgba(255, 190, 60, 0.35);
+}
+.egg-boss-victory-egg img {
+  width: clamp(72px, 22vw, 110px);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 0 10px rgba(255, 200, 80, 0.45));
+}
+.egg-boss-victory-egg p {
+  margin: 8px 0 0;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: #ffe29a;
+}
+#panel-inventory .inv-card-egg {
+  border-left-color: #ffb020;
+}
+@media (max-width: 768px) {
+  html.egg-boss-active #egg-img {
+    transform: scale(1.12);
+  }
+  .egg-progress-block.is-boss-fight .hatch-bar {
+    min-height: 14px;
+  }
+  #panel-inventory .inventory-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  #panel-inventory .inventory-tab {
+    font-size: clamp(0.58rem, 2.2vw, 0.7rem);
+  }
+}
+@media (max-width: 360px) {
+  #panel-inventory .inventory-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* =========================================================
+   ROYAUME ? sc?ne principale FULL VIEWPORT (derri?re HUD + nav)
+   ========================================================= */
+
+/* Masquer l'ancien d?cor zone / ?uf derri?re le Royaume */
+html.realm-view-active .scene-backdrop,
+html.realm-view-active #scene-backdrop {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* HUD + bottom nav : pas de bande opaque en vue Royaume (boutons/cadres inchang?s) */
+html.realm-view-active .header,
+html.realm-view-active .game-header,
+html.realm-view-active .nav {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: transparent !important;
+}
+html.realm-view-active .header::before,
+html.realm-view-active .header::after,
+html.realm-view-active .game-header::before,
+html.realm-view-active .game-header::after,
+html.realm-view-active .nav::before,
+html.realm-view-active .nav::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  opacity: 0 !important;
+}
+
+/*
+  Badges / rails au-dessus du Royaume :
+  #panel-realm (fixed, z:5 dans .main) sous #panel-kingdom,
+  qui reste transparent + pointer-events:none sauf badges.
+*/
+html.realm-view-active #panel-kingdom {
+  z-index: 14;
+}
+html.realm-view-active #panel-kingdom.dimmed .scene-left-stack,
+html.realm-view-active #panel-kingdom.dimmed .scene-right-stack,
+html.realm-view-active #panel-kingdom.dimmed .mobile-team-rail,
+html.realm-view-active #panel-kingdom.dimmed .scene-chests-btn,
+html.realm-view-active #panel-kingdom.dimmed .scene-events-btn,
+html.realm-view-active #panel-kingdom.dimmed .scene-expeditions-btn,
+html.realm-view-active #panel-kingdom.dimmed .scene-inventory-btn,
+html.realm-view-active #panel-kingdom.dimmed .scene-achievements-btn {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+html.realm-view-active #panel-kingdom.dimmed .egg-stage,
+html.realm-view-active #panel-kingdom.dimmed .team-module,
+html.realm-view-active #panel-kingdom.dimmed .scene-actions {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+#panel-realm.main-view-panel {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  padding: 0 !important;
+  margin: 0;
+  overflow: hidden !important;
+  background: #070e18;
+  pointer-events: none;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  max-width: none;
+}
+#panel-realm.main-view-panel.active {
+  display: block !important;
+  pointer-events: auto;
+  /* Couvre TOUT le viewport ? visible derri?re HUD + bottom nav */
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  width: 100vw !important;
+  height: 100% !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  z-index: 5;
+}
+.main:has(#panel-realm.active) .sheet-bar {
+  display: none !important;
+}
+html.realm-view-active .main {
+  overflow: visible;
+}
+
+/* Stage = viewport entier */
+.kingdom-stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  container-type: size;
+  background: #070e18;
+}
+
+/*
+  kingdom-canvas = espace design 3:2 (ratio image Royaume).
+  Mode COVER du viewport : bg + b?timents partagent les m?mes %.
+*/
+.kingdom-stage-inner,
+.kingdom-canvas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: max(100cqw, calc(100cqh * 3 / 2));
+  height: max(100cqh, calc(100cqw * 2 / 3));
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
+}
+@supports not (width: 1cqw) {
+  .kingdom-stage-inner,
+  .kingdom-canvas {
+    width: max(100vw, calc(100dvh * 3 / 2));
+    height: max(100dvh, calc(100vw * 2 / 3));
+  }
+}
+
+.kingdom-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  object-position: center center;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  border-radius: 0;
+  margin: 0;
+  padding: 0;
+  display: block;
+  max-width: none;
+}
+
+.kingdom-building {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  /* Ancre = pied visuel du PNG (pas le centre du fichier) */
+  --kb-ax: 50%;
+  --kb-ay: 100%;
+  --kb-scale: 1;
+  transform: translate(calc(-1 * var(--kb-ax)), calc(-1 * var(--kb-ay))) scale(var(--kb-scale));
+  transform-origin: var(--kb-ax) var(--kb-ay);
+  transition: transform 0.14s ease, filter 0.14s ease;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+  min-width: 44px;
+  min-height: 44px;
+}
+.kingdom-building img {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.kingdom-building-label {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  transform: translateX(-50%) translateY(110%);
+  min-width: max-content;
+  max-width: min(46vw, 220px);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(210, 165, 65, 0.55);
+  background: rgba(8, 16, 32, 0.92);
+  color: #f0d078;
+  font-family: var(--font-display);
+  font-size: clamp(0.52rem, 1.5vw, 0.68rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  z-index: 3;
+}
+@media (hover: hover) and (pointer: fine) {
+  .kingdom-building:hover,
+  .kingdom-building:focus-visible {
+    transform: translate(calc(-1 * var(--kb-ax)), calc(-1 * var(--kb-ay))) scale(calc(var(--kb-scale) * 1.03));
+    filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.4)) brightness(1.06);
+    outline: none;
+    z-index: 4;
+  }
+  .kingdom-building:hover .kingdom-building-label,
+  .kingdom-building:focus-visible .kingdom-building-label {
+    opacity: 1;
+    transform: translateX(-50%) translateY(100%);
+  }
+}
+.kingdom-building.is-label-on .kingdom-building-label {
+  opacity: 1;
+  transform: translateX(-50%) translateY(100%);
+}
+.kingdom-building:active {
+  transform: translate(calc(-1 * var(--kb-ax)), calc(-1 * var(--kb-ay))) scale(calc(var(--kb-scale) * 0.985));
+}
+
+/*
+  Source unique ? design space 1536x1024 (image Royaume).
+  left/top = centre du socle (etoile).
+  --kb-ax/--kb-ay = pied opaque du PNG (bottom-center visuel).
+*/
+.kb-forge {
+  left: 32.03%;
+  top: 50.59%;
+  width: 13.8%;
+  --kb-ax: 53.82%;
+  --kb-ay: 96.49%;
+  z-index: 2;
+}
+.kb-breeding {
+  left: 27.28%;
+  top: 67.87%;
+  width: 15.2%;
+  --kb-ax: 46.87%;
+  --kb-ay: 97.77%;
+  z-index: 3;
+}
+.kb-altar {
+  left: 69.08%;
+  top: 50.59%;
+  width: 13.8%;
+  --kb-ax: 62.74%;
+  --kb-ay: 97.53%;
+  z-index: 2;
+}
+.kb-guardians {
+  left: 72.66%;
+  top: 67.87%;
+  width: 15.2%;
+  --kb-ax: 53.91%;
+  --kb-ay: 99.04%;
+  z-index: 3;
+}
+
+.kingdom-building-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 8px;
+  box-sizing: border-box;
+  background: rgba(4, 10, 20, 0.35);
+}
+.kingdom-building-panel.hidden,
+.kingdom-building-panel[hidden] {
+  display: none !important;
+}
+.kingdom-building-panel-inner {
+  display: flex;
+  flex-direction: column;
+  width: min(960px, 100%);
+  max-height: 100%;
+  min-height: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(210, 165, 65, 0.42);
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(50, 90, 150, 0.22), transparent 60%),
+    linear-gradient(165deg, rgba(12, 22, 38, 0.98), rgba(5, 10, 18, 0.99));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.kingdom-building-panel-header {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid rgba(210, 165, 65, 0.22);
+}
+.kingdom-building-back {
+  justify-self: start;
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.kingdom-building-title {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: clamp(0.9rem, 2.4vw, 1.2rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f0d078;
+  padding-right: 8px;
+}
+.kingdom-building-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 14px 20px;
+}
+.kingdom-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: min(36vh, 260px);
+  text-align: center;
+  padding: 24px 16px;
+}
+.kingdom-empty-state p {
+  margin: 0;
+  max-width: 420px;
+  color: rgba(210, 220, 235, 0.82);
+  line-height: 1.45;
+  font-size: clamp(0.88rem, 2.2vw, 1rem);
+}
+.kingdom-empty-kicker {
+  font-family: var(--font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #f0d078;
+  font-size: 0.78rem;
+}
+.guardian-sanctum-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+}
+.guardian-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(90, 130, 180, 0.4);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(60, 100, 160, 0.16), transparent 55%),
+    linear-gradient(165deg, rgba(14, 24, 42, 0.97), rgba(6, 12, 22, 0.98));
+}
+.guardian-card.is-unknown {
+  border-color: rgba(80, 90, 110, 0.5);
+  opacity: 0.92;
+}
+.guardian-card-art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  max-height: 180px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.28);
+}
+.guardian-card-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+.guardian-card.is-unknown .guardian-card-art img {
+  filter: brightness(0) opacity(0.55);
+}
+.guardian-card-unknown-mark {
+  position: absolute;
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  color: rgba(220, 230, 245, 0.55);
+  pointer-events: none;
+}
+.guardian-card-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f0d078;
+  text-align: center;
+}
+.guardian-card-sub {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(190, 210, 235, 0.78);
+  text-align: center;
+}
+.guardian-card-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.guardian-card-stats li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+}
+.guardian-card-stats .gs-lab {
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(170, 190, 220, 0.7);
+}
+.guardian-card-stats .gs-val {
+  font-size: 0.82rem;
+  color: #e8f0ff;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .kingdom-building-label {
+    font-size: 0.5rem;
+    padding: 3px 8px;
+    max-width: 42vw;
+  }
+  .kingdom-building-panel {
+    padding: 4px;
+  }
+  .kingdom-building-panel-inner {
+    border-radius: 12px;
+    width: 100%;
+  }
+}
+
+
+@media (max-width: 768px) {
+  .scene-right-stack {
+    gap: clamp(2px, 0.8vh, 8px);
+    max-height: calc(
+      100dvh - var(--mobile-hud-right-bottom, 220px) -
+      (88px + env(safe-area-inset-bottom, 0px)) - 10px
+    );
+  }
+}
+
+@media (max-width: 768px) and (max-height: 640px) {
+  :root {
+    --side-badge-size: clamp(34px, 8.5vw, 42px);
+    --side-badge-label: 0.45rem;
+  }
+  .scene-right-stack { gap: 2px; }
+}
+
+
+
+/* =========================================================
+   ROYAUME — responsive mobile / tablette (desktop >=1024 intact)
+   Scaling coherent via --kb-scale. Positions % design-space inchangees.
+   ========================================================= */
+
+/* Tablette : leger downscale, positions inchangees */
+@media (min-width: 768px) and (max-width: 1023px) {
+  html.realm-view-active .kingdom-building {
+    --kb-scale: 0.9;
+  }
+}
+
+/* Mobile portrait / general <=767 : scene immersive, scale coherent */
+@media (max-width: 767px) {
+  html.realm-view-active,
+  html.realm-view-active body,
+  html.realm-view-active #app {
+    overflow: hidden !important;
+    overscroll-behavior: none;
+    height: 100%;
+    height: 100dvh;
+    max-width: 100%;
+  }
+
+  html.realm-view-active #panel-realm.main-view-panel.active {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    width: 100vw !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  html.realm-view-active .kingdom-stage {
+    overflow: hidden;
+    touch-action: manipulation;
+  }
+
+  /* Cover conserve ; composition entiere centree (pas de repositionnement par batiment) */
+  html.realm-view-active .kingdom-stage-inner,
+  html.realm-view-active .kingdom-canvas {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Scale global coherent — socles restent visibles, hitbox min 44px */
+  html.realm-view-active .kingdom-building {
+    --kb-scale: 0.72;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Badges droite : tous visibles au-dessus de la nav */
+  html.realm-view-active .scene-right-stack {
+    right: max(2px, env(safe-area-inset-right, 0px));
+    gap: clamp(2px, 0.55vh, 6px);
+    max-width: min(72px, 20vw);
+    max-height: calc(
+      100dvh
+      - var(--mobile-hud-right-bottom, 200px)
+      - (64px + env(safe-area-inset-bottom, 0px))
+      - 8px
+    );
+    overflow: visible;
+  }
+
+  html.realm-view-active {
+    --side-badge-size: clamp(34px, 8.2vw, 42px);
+    --side-badge-label: clamp(0.4rem, 2.2vw, 0.48rem);
+  }
+
+  /* Rail gauche : bord exterieur, collision reduite */
+  html.realm-view-active .scene-left-stack {
+    left: max(2px, env(safe-area-inset-left, 0px));
+    gap: clamp(4px, 0.8vh, 10px);
+    max-width: min(88px, 24vw);
+  }
+
+  /* Bottom nav : 5 boutons une ligne + safe area */
+  html.realm-view-active .nav {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    width: 100%;
+    max-width: 100%;
+    gap: clamp(2px, 1vw, 6px);
+    padding: 4px max(4px, env(safe-area-inset-left, 0px))
+      calc(4px + env(safe-area-inset-bottom, 0px))
+      max(4px, env(safe-area-inset-right, 0px));
+    min-height: 56px;
+    box-sizing: border-box;
+  }
+  html.realm-view-active .nav-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+    min-height: 48px;
+    padding: 6px 1px 7px;
+  }
+  html.realm-view-active .nav-btn .nav-label {
+    font-size: clamp(0.42rem, 2.4vw, 0.58rem);
+    letter-spacing: 0.04em;
+  }
+  html.realm-view-active .nav-btn .nav-ico {
+    font-size: clamp(1rem, 4.5vw, 1.2rem);
+  }
+  html.realm-view-active .nav-btn-main {
+    flex: 1.08 1 0;
+    min-height: 52px;
+  }
+
+  /* Labels batiments : compacts, pas permanents (etat JS is-label-on) */
+  html.realm-view-active .kingdom-building-label {
+    font-size: 0.45rem;
+    padding: 2px 6px;
+    max-width: min(40vw, 140px);
+  }
+}
+
+/* Tres petits telephones */
+@media (max-width: 380px) {
+  html.realm-view-active .kingdom-building {
+    --kb-scale: 0.66;
+  }
+  html.realm-view-active {
+    --side-badge-size: clamp(30px, 8vw, 38px);
+    --side-badge-label: 0.38rem;
+  }
+  html.realm-view-active .scene-right-stack {
+    gap: 2px;
+    max-width: min(64px, 19vw);
+  }
+  html.realm-view-active .nav {
+    min-height: 52px;
+    gap: 2px;
+    padding-top: 3px;
+  }
+  html.realm-view-active .nav-btn {
+    min-height: 44px;
+    padding: 4px 0 5px;
+  }
+  html.realm-view-active .nav-btn .nav-label {
+    font-size: clamp(0.36rem, 2.2vw, 0.48rem);
+  }
+}
+
+/* Hauteurs critiques (Succès au-dessus de la nav) */
+@media (max-width: 767px) and (max-height: 700px) {
+  html.realm-view-active .kingdom-building {
+    --kb-scale: 0.68;
+  }
+  html.realm-view-active .scene-right-stack {
+    gap: 2px;
+    max-height: calc(
+      100dvh
+      - var(--mobile-hud-right-bottom, 180px)
+      - (56px + env(safe-area-inset-bottom, 0px))
+      - 6px
+    );
+  }
+  html.realm-view-active {
+    --side-badge-size: clamp(30px, 7.5vw, 38px);
+  }
+}
+
+/* Mobile landscape : profiter de la largeur, composer vers le centre (plateformes) */
+@media (max-width: 1023px) and (orientation: landscape) and (max-height: 520px) {
+  html.realm-view-active .kingdom-stage-inner,
+  html.realm-view-active .kingdom-canvas {
+    /* Decale legerement la composition entiere vers le haut = priorite plateformes */
+    transform: translate(-50%, -54%);
+  }
+  html.realm-view-active .kingdom-building {
+    --kb-scale: 0.7;
+  }
+  html.realm-view-active .scene-right-stack {
+    top: max(8px, env(safe-area-inset-top, 0px) + 4px);
+    max-height: calc(100dvh - (52px + env(safe-area-inset-bottom, 0px)) - 12px);
+    gap: 2px;
+  }
+  html.realm-view-active .nav {
+    min-height: 48px;
+    padding-top: 2px;
+    padding-bottom: calc(2px + env(safe-area-inset-bottom, 0px));
+  }
+  html.realm-view-active .nav-btn {
+    min-height: 40px;
+  }
+  html.realm-view-active .nav-btn .nav-label {
+    font-size: 0.4rem;
+  }
+}
+
+/* Desktop lock : rien ne change a partir de 1024px (--kb-scale reste 1) */
+
+/* =========================================================
+   DRAGONS LAYOUT FIX ? centrage desktop + X integre
+   ========================================================= */
+@media (min-width: 769px) {
+  .main:has(#panel-dragons.active) .sheet-bar {
+    display: none !important;
+  }
+  #panel-dragons.game-large-panel-overlay.overlay-panel.active {
+    display: flex !important;
+    align-items: center;
+    justify-content: stretch;
+    padding: 12px clamp(10px, 2vw, 28px) 14px !important;
+    inset: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+  }
+  #panel-dragons .game-large-panel {
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    width: min(96vw, 1700px) !important;
+    max-width: min(96vw, 1700px) !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    margin-inline: auto !important;
+    flex: 1 1 auto !important;
+  }
+  #panel-dragons .dragons-panel-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 6;
+  }
+}
+
+@media (max-width: 768px) {
+  .main:has(#panel-dragons.active) .sheet-bar,
+  #app:has(#panel-dragons.active) .sheet-bar {
+    display: none !important;
+  }
+  #panel-dragons .dragons-panel-close {
+    position: absolute;
+    top: max(8px, env(safe-area-inset-top, 0px));
+    right: max(8px, env(safe-area-inset-right, 0px));
+    z-index: 6;
   }
 }
